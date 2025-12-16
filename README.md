@@ -1,73 +1,188 @@
-# Welcome to your Lovable project
+# Canfy - Sistema de Gestão Médica
 
-## Project info
+Sistema completo de gestão médica para prescrição e acompanhamento de produtos à base de cannabis medicinal.
 
-**URL**: https://lovable.dev/projects/484b05be-f6d7-4fda-bc3a-a011c61b18ab
+## 📋 Sobre o Projeto
 
-## How can I edit this code?
+O **Canfy** é uma plataforma web desenvolvida para gerenciar todo o ciclo de vida de prescrições médicas de produtos à base de cannabis, desde o cadastro de pacientes e médicos até o acompanhamento de pedidos e receitas.
 
-There are several ways of editing your application.
+### Principais Funcionalidades
 
-**Use Lovable**
+- 👥 **Gestão de Pacientes**: Cadastro, consulta e acompanhamento de pacientes
+- 👨‍⚕️ **Gestão de Médicos**: Aprovação, cadastro e gerenciamento de médicos prescritores
+- 📋 **Receitas Médicas**: Emissão, validação e acompanhamento de receitas
+- 🛒 **Pedidos**: Criação e rastreamento de pedidos de produtos
+- 📦 **Catálogo de Produtos**: Gerenciamento completo de produtos disponíveis
+- 🏢 **Associações e Marcas**: Cadastro de fornecedores
+- 📊 **Dashboard**: Visão geral com métricas e estatísticas
+- 🔔 **Notificações**: Sistema completo de notificações em tempo real
+- 📄 **Documentos**: Upload e gerenciamento de documentos
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/484b05be-f6d7-4fda-bc3a-a011c61b18ab) and start prompting.
+## 🚀 Tecnologias
 
-Changes made via Lovable will be committed automatically to this repo.
+- **Frontend**: React 18 + TypeScript
+- **Build Tool**: Vite
+- **UI Framework**: shadcn/ui + Tailwind CSS
+- **Backend**: Supabase (PostgreSQL, Auth, Storage, Realtime)
+- **Estado**: TanStack Query (React Query)
+- **Roteamento**: React Router DOM
+- **Validação**: Zod + React Hook Form
+- **Gráficos**: Recharts
+- **Ícones**: Lucide React
 
-**Use your preferred IDE**
+## 📦 Pré-requisitos
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- Node.js 18+ (recomendado usar [nvm](https://github.com/nvm-sh/nvm))
+- npm ou yarn
+- Conta no Supabase (para configuração do backend)
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## 🔧 Instalação
 
-Follow these steps:
+1. **Clone o repositório**
+```bash
+git clone https://github.com/FraktalSoftwares/canfy-web.git
+cd canfy-web
+```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+2. **Instale as dependências**
+```bash
+npm install
+# ou
+npm install --legacy-peer-deps
+```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+> **Nota**: Use `--legacy-peer-deps` se encontrar conflitos de dependências entre `date-fns@4.1.0` e `react-day-picker@8.10.1`
 
-# Step 3: Install the necessary dependencies.
-npm i
+3. **Configure as variáveis de ambiente**
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+Crie um arquivo `.env` na raiz do projeto:
+
+```env
+VITE_SUPABASE_URL=sua_url_do_supabase
+VITE_SUPABASE_ANON_KEY=sua_chave_anonima
+```
+
+4. **Inicie o servidor de desenvolvimento**
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+O projeto estará disponível em `http://localhost:8080`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 📁 Estrutura do Projeto
 
-**Use GitHub Codespaces**
+```
+canfy-web/
+├── src/
+│   ├── components/       # Componentes reutilizáveis
+│   │   ├── ui/          # Componentes UI (shadcn/ui)
+│   │   ├── Navbar.tsx
+│   │   └── ProtectedRoute.tsx
+│   ├── pages/           # Páginas da aplicação
+│   ├── hooks/           # Custom hooks
+│   ├── integrations/    # Integrações (Supabase)
+│   ├── lib/             # Utilitários e validações
+│   └── assets/          # Recursos estáticos
+├── supabase/
+│   ├── migrations/      # Migrations do banco de dados
+│   └── functions/       # Edge Functions
+├── public/              # Arquivos públicos
+└── docs/                # Documentação
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## 🗄️ Banco de Dados
 
-## What technologies are used for this project?
+O projeto utiliza **Supabase** como backend, que fornece:
 
-This project is built with:
+- **PostgreSQL**: Banco de dados relacional
+- **Auth**: Autenticação de usuários
+- **Storage**: Armazenamento de arquivos
+- **Realtime**: Atualizações em tempo real
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Migrations
 
-## How can I deploy this project?
+Todas as migrations estão localizadas em `supabase/migrations/`. Para aplicar as migrations:
 
-Simply open [Lovable](https://lovable.dev/projects/484b05be-f6d7-4fda-bc3a-a011c61b18ab) and click on Share -> Publish.
+```bash
+# Usando Supabase CLI
+supabase db push
+```
 
-## Can I connect a custom domain to my Lovable project?
+## 🔐 Autenticação
 
-Yes, you can!
+O sistema utiliza autenticação via Supabase Auth com os seguintes tipos de usuários:
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+- **Admin**: Acesso completo ao sistema
+- **Médico**: Pode emitir receitas e gerenciar pacientes
+- **Paciente**: Acesso limitado aos próprios dados
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## 📚 Documentação
+
+- **[Documentação Completa do Projeto](./DOCUMENTACAO_PROJETO.md)**: Informações detalhadas sobre design system, banco de dados, APIs e regras de negócio
+- **[Guia Flutter](./GUIA_FLUTTER.md)**: Guia completo para desenvolvimento do módulo mobile em Flutter
+
+## 🛠️ Scripts Disponíveis
+
+```bash
+# Desenvolvimento
+npm run dev              # Inicia servidor de desenvolvimento
+
+# Build
+npm run build            # Build para produção
+npm run build:dev        # Build em modo desenvolvimento
+
+# Qualidade de Código
+npm run lint             # Executa o linter
+
+# Preview
+npm run preview          # Preview do build de produção
+```
+
+## 🏗️ Build para Produção
+
+```bash
+npm run build
+```
+
+Os arquivos serão gerados na pasta `dist/`, prontos para deploy.
+
+## 🚢 Deploy
+
+O projeto pode ser deployado em qualquer plataforma que suporte aplicações React/Vite:
+
+- **Vercel**: Deploy automático via Git
+- **Netlify**: Deploy automático via Git
+- **AWS Amplify**: Deploy automático via Git
+- **Cloudflare Pages**: Deploy automático via Git
+
+### Variáveis de Ambiente no Deploy
+
+Certifique-se de configurar as seguintes variáveis de ambiente na plataforma de deploy:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+## 🤝 Contribuindo
+
+1. Faça um fork do projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
+3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. Push para a branch (`git push origin feature/AmazingFeature`)
+5. Abra um Pull Request
+
+## 📝 Licença
+
+Este projeto é privado e de propriedade da Fraktal Softwares.
+
+## 👥 Equipe
+
+Desenvolvido por **Fraktal Softwares**
+
+## 📞 Suporte
+
+Para suporte, entre em contato através do repositório ou email da empresa.
+
+---
+
+**Versão**: 1.0.0  
+**Última atualização**: Dezembro 2024
