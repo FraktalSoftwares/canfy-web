@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Cores principais */
+    --background: 120 11% 98%; /* #F9FAF9 */
+    --foreground: 0 0% 20%; /* #333333 */
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 20%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 20%;
+
+    --primary: 144 57% 43%; /* #2FAE66 - Verde primário */
+    --primary-foreground: 0 0% 100%;
+    --primary-dark: 144 61% 31%; /* #1E7E46 - Verde escuro */
+    --primary-hover: 144 52% 53%; /* #44C97C - Verde hover */
+
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 20%;
+
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 63%; /* #A0A0A0 */
+
+    --accent: 144 52% 53%; /* Verde hover como accent */
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 4 90% 58%; /* #F44336 - Vermelho status */
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 85%; /* #DADADA */
+    --input: 0 0% 85%;
+    --ring: 144 57% 43%;
+
+    --radius: 0.625rem; /* 10px */
+
+    /* Cores de status */
+    --status-success: 122 39% 49%; /* #4CAF50 */
+    --status-warning: 45 100% 51%; /* #FFC107 */
+    --status-error: 4 90% 58%; /* #F44336 */
+
+    /* Cores para cards */
+    --card-green: 134 51% 90%; /* #E8F5E9 */
+    --card-yellow: 48 100% 95%; /* #FFF9E6 */
+    --card-blue: 207 89% 94%; /* #E3F2FD */
+    --card-pink: 340 82% 95%; /* #FCE4EC */
+    --card-orange: 36 100% 94%; /* #FFF3E0 */
+    --card-purple: 291 47% 94%; /* #F3E5F5 */
+    --card-teal: 174 51% 93%; /* #E0F2F1 */
+    --card-red: 14 77% 95%; /* #FBE9E7 */
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 0 0% 20%;
+    --sidebar-primary: 144 57% 43%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 96%;
+    --sidebar-accent-foreground: 0 0% 20%;
+    --sidebar-border: 0 0% 85%;
+    --sidebar-ring: 144 57% 43%;
+  }
+
+  .dark {
+    --background: 0 0% 10%;
+    --foreground: 0 0% 95%;
+
+    --card: 0 0% 15%;
+    --card-foreground: 0 0% 95%;
+
+    --popover: 0 0% 15%;
+    --popover-foreground: 0 0% 95%;
+
+    --primary: 144 57% 50%;
+    --primary-foreground: 0 0% 100%;
+    --primary-dark: 144 61% 35%;
+    --primary-hover: 144 52% 60%;
+
+    --secondary: 0 0% 20%;
+    --secondary-foreground: 0 0% 95%;
+
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 65%;
+
+    --accent: 144 52% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 4 90% 58%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 144 57% 50%;
+
+    --status-success: 122 39% 49%;
+    --status-warning: 45 100% 51%;
+    --status-error: 4 90% 58%;
+
+    --card-green: 134 30% 20%;
+    --card-yellow: 48 40% 20%;
+    --card-blue: 207 40% 20%;
+    --card-pink: 340 40% 20%;
+    --card-orange: 36 40% 20%;
+    --card-purple: 291 30% 20%;
+    --card-teal: 174 30% 20%;
+    --card-red: 14 40% 20%;
+
+    --sidebar-background: 0 0% 10%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 144 57% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 20%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 0 0% 20%;
+    --sidebar-ring: 144 57% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Nunito Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+}
