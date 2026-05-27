@@ -470,8 +470,14 @@ const ProdutoDetalhes = () => {
               
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-4">
-                  <Badge className={`${produto.status === 'ativo' ? 'bg-blue-500' : 'bg-gray-500'} text-white hover:bg-blue-500 px-4 py-1`}>
-                    {produto.status === 'ativo' ? 'Ativo' : 'Inativo'}
+                  <Badge
+                    className={
+                      produto.status === "ativo"
+                        ? "rounded-full px-4 py-1 font-medium border-none bg-card-purple text-[hsl(291_47%_35%)] hover:bg-card-purple"
+                        : "rounded-full px-4 py-1 font-medium border-none bg-muted text-muted-foreground hover:bg-muted"
+                    }
+                  >
+                    {produto.status === "ativo" ? "Ativo" : "Inativo"}
                   </Badge>
                 </div>
                 

@@ -17,6 +17,10 @@ import ProdutoDetalhes from "./pages/ProdutoDetalhes";
 import ProdutoCadastro from "./pages/ProdutoCadastro";
 import Receitas from "./pages/Receitas";
 import ReceitaDetalhes from "./pages/ReceitaDetalhes";
+import PedidoDetalhes from "./pages/PedidoDetalhes";
+import ConfigSistema from "./pages/ConfigSistema";
+import BlogAdmin from "./pages/BlogAdmin";
+import FeedbacksConsultas from "./pages/FeedbacksConsultas";
 import Associacoes from "./pages/Associacoes";
 import AssociacaoDetalhes from "./pages/AssociacaoDetalhes";
 import Notificacoes from "./pages/Notificacoes";
@@ -59,6 +63,7 @@ const App = () => (
           
           <Route path="/receitas" element={<ProtectedRoute><Receitas /></ProtectedRoute>} />
           <Route path="/receitas/:id" element={<ProtectedRoute><ReceitaDetalhes /></ProtectedRoute>} />
+          <Route path="/pedidos/:id" element={<ProtectedRoute><PedidoDetalhes /></ProtectedRoute>} />
           
           <Route path="/associacoes" element={<ProtectedRoute><Associacoes /></ProtectedRoute>} />
           <Route path="/associacoes/:id" element={<ProtectedRoute><AssociacaoDetalhes /></ProtectedRoute>} />
@@ -67,6 +72,10 @@ const App = () => (
           <Route path="/notificacoes/personalizadas" element={<ProtectedRoute><NotificacoesPersonalizadas /></ProtectedRoute>} />
           
           <Route path="/minha-conta" element={<ProtectedRoute><MinhaConta /></ProtectedRoute>} />
+
+          <Route path="/configuracoes-sistema" element={<ProtectedRoute><ConfigSistema /></ProtectedRoute>} />
+          <Route path="/blog" element={<ProtectedRoute><BlogAdmin /></ProtectedRoute>} />
+          <Route path="/feedbacks" element={<ProtectedRoute><FeedbacksConsultas /></ProtectedRoute>} />
           
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

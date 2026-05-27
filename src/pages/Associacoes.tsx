@@ -277,9 +277,9 @@ const Associacoes = () => {
                 </TableRow>
               ) : (
                 associacoes.map((associacao, index) => (
-                  <TableRow 
+                  <TableRow
                     key={associacao.id}
-                    className={`hover:bg-muted/50 cursor-pointer ${index % 2 === 0 ? 'bg-card' : 'bg-card-green/30'}`}
+                    className="hover:bg-muted/40 cursor-pointer bg-card border-b border-border/40"
                     onClick={() => navigate(`/associacoes/${associacao.id}`)}
                   >
                     <TableCell className="font-semibold">{associacao.nome}</TableCell>
@@ -290,12 +290,12 @@ const Associacoes = () => {
                       {associacao.estado && `/${associacao.estado}`}
                     </TableCell>
                     <TableCell>
-                      <Badge 
-                        className={`rounded-full px-4 py-1 font-medium ${
-                          associacao.status === "ativo" 
-                            ? "bg-blue-100 text-blue-600 hover:bg-blue-100" 
-                            : "bg-gray-200 text-gray-600 hover:bg-gray-200"
-                        }`}
+                      <Badge
+                        className={
+                          associacao.status === "ativo"
+                            ? "rounded-full px-4 py-1 font-medium border-none bg-card-purple text-[hsl(291_47%_35%)] hover:bg-card-purple"
+                            : "rounded-full px-4 py-1 font-medium border-none bg-muted text-muted-foreground hover:bg-muted"
+                        }
                       >
                         {associacao.status === "ativo" ? "Ativo" : "Inativo"}
                       </Badge>

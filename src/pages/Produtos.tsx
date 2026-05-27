@@ -199,10 +199,10 @@ const Produtos = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                produtos.map((produto, index) => (
-                  <TableRow 
+                produtos.map((produto) => (
+                  <TableRow
                     key={produto.id}
-                    className={`hover:bg-muted/50 cursor-pointer ${index % 2 === 0 ? 'bg-card' : 'bg-card-green/30'}`}
+                    className="hover:bg-muted/40 cursor-pointer bg-card border-b border-border/40"
                     onClick={() => navigate(`/produtos/${produto.id}`)}
                   >
                     <TableCell>
@@ -227,12 +227,12 @@ const Produtos = () => {
                         : 'Sem indicações cadastradas'}
                     </TableCell>
                     <TableCell>
-                      <Badge 
-                        className={`rounded-full px-4 py-1 font-medium ${
-                          produto.status === "ativo" 
-                            ? "bg-blue-100 text-blue-600 hover:bg-blue-100" 
-                            : "bg-gray-200 text-gray-600 hover:bg-gray-200"
-                        }`}
+                      <Badge
+                        className={
+                          produto.status === "ativo"
+                            ? "rounded-full px-4 py-1 font-medium border-none bg-card-purple text-[hsl(291_47%_35%)] hover:bg-card-purple"
+                            : "rounded-full px-4 py-1 font-medium border-none bg-muted text-muted-foreground hover:bg-muted"
+                        }
                       >
                         {produto.status === "ativo" ? "Ativo" : "Inativo"}
                       </Badge>

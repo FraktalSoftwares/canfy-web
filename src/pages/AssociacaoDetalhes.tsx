@@ -206,7 +206,13 @@ const AssociacaoDetalhes = () => {
           <CardContent className="pt-6">
             <div className="flex items-start justify-between mb-6">
               <div className="flex items-center gap-3">
-                <Badge className={`${formData.status === "ativo" ? "bg-blue-500" : "bg-gray-400"} text-white hover:${formData.status === "ativo" ? "bg-blue-500" : "bg-gray-400"} px-4 py-1`}>
+                <Badge
+                  className={
+                    formData.status === "ativo"
+                      ? "rounded-full px-4 py-1 font-medium border-none bg-card-purple text-[hsl(291_47%_35%)] hover:bg-card-purple"
+                      : "rounded-full px-4 py-1 font-medium border-none bg-muted text-muted-foreground hover:bg-muted"
+                  }
+                >
                   {formData.status === "ativo" ? "Ativo" : "Inativo"}
                 </Badge>
               </div>
@@ -294,6 +300,8 @@ const AssociacaoDetalhes = () => {
           </CardContent>
         </Card>
 
+        <RequisitosAssociacao associacaoId={id!} />
+
         {/* Produtos que fornecem */}
         <div className="mb-8">
           <h2 className="text-xl font-bold mb-4">Produtos que fornecem</h2>
@@ -359,5 +367,153 @@ const AssociacaoDetalhes = () => {
     </div>
   );
 };
+
+interface ProdutoMini {
+  id: string;
+  nome_comercial: string;
+}
+
+function RequisitosAssociacao({ associacaoId }: { associacaoId: string }) {
+  const { toast } = useToast();
+  const [docs, setDocs] = useState<string[]>([]);
+  const [novoDoc, setNovoDoc] = useState("");
+  const [produtos, setProdutos] = useState<ProdutoMini[]>([]);
+  const [selectedProdutos, setSelectedProdutos] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!associacaoId) return;
+    (async () => {
+      try {
+        const [a, p] = await Promise.all([
+          supabase.from("associacoes_marcas").select("documentos_obrigatorios, produtos_ids").eq("id", associacaoId).maybeSingle(),
+          supabase.from("produtos").select("id, nome_comercial").eq("status", "ativo").order("nome_comercial"),
+        ]);
+        if (a.data) {
+          setDocs((a.data.documentos_obrigatorios as string[]) || []);
+          setSelectedProdutos((a.data.produtos_ids as string[]) || []);
+        }
+        setProdutos((p.data as ProdutoMini[]) || []);
+      } catch (e: any) {
+        toast({ title: "Erro ao carregar requisitos", description: e.message, variant: "destructive" });
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [associacaoId, toast]);
+
+  const addDoc = () => {
+    const v = novoDoc.trim();
+    if (!v || docs.includes(v)) return;
+    setDocs([...docs, v]);
+    setNovoDoc("");
+  };
+
+  const removeDoc = (d: string) => setDocs(docs.filter((x) => x !== d));
+
+  const toggleProduto = (id: string) => {
+    setSelectedProdutos((cur) => cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
+  };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      const { error } = await supabase.from("associacoes_marcas").update({
+        documentos_obrigatorios: docs,
+        produtos_ids: selectedProdutos,
+      }).eq("id", associacaoId);
+      if (error) throw error;
+      toast({ title: "Requisitos salvos" });
+    } catch (e: any) {
+      toast({ title: "Erro ao salvar", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return null;
+
+  return (
+    <div className="mb-8">
+      <h2 className="text-xl font-bold mb-4">Requisitos para pacientes</h2>
+      <Card className="rounded-[10px] bg-secondary border-none">
+        <CardContent className="px-6 py-5 space-y-5">
+          <div>
+            <label className="text-sm font-semibold mb-2 block">Documentos extras obrigatórios</label>
+            <p className="text-xs text-muted-foreground mb-3">Documentos que pacientes precisam enviar para receber produtos desta associação/marca.</p>
+            <div className="flex gap-2 mb-3">
+              <Input
+                value={novoDoc}
+                onChange={(e) => setNovoDoc(e.target.value)}
+                placeholder="Ex.: Laudo médico, Tomografia..."
+                className="h-10 max-w-[360px]"
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addDoc(); } }}
+              />
+              <Button
+                variant="outline"
+                onClick={addDoc}
+                className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-full"
+              >
+                Adicionar
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {docs.length === 0 ? (
+                <p className="text-muted-foreground italic text-sm">Nenhum documento obrigatório.</p>
+              ) : (
+                docs.map((d) => (
+                  <Badge key={d} className="border-none rounded-full px-3 py-1 gap-2 bg-card-green text-primary-dark hover:bg-card-green">
+                    {d}
+                    <button onClick={() => removeDoc(d)} className="hover:text-destructive">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-sm font-semibold mb-2 block">Produtos disponíveis</label>
+            <p className="text-xs text-muted-foreground mb-3">Selecione os produtos fornecidos por esta associação/marca.</p>
+            <div className="flex flex-wrap gap-2 max-h-[200px] overflow-y-auto">
+              {produtos.length === 0 ? (
+                <p className="text-muted-foreground italic text-sm">Nenhum produto cadastrado.</p>
+              ) : (
+                produtos.map((p) => {
+                  const sel = selectedProdutos.includes(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => toggleProduto(p.id)}
+                      className={
+                        sel
+                          ? "rounded-full px-3 py-1.5 text-sm bg-primary text-white"
+                          : "rounded-full px-3 py-1.5 text-sm border border-border bg-background hover:bg-muted"
+                      }
+                    >
+                      {p.nome_comercial}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              className="bg-primary text-white hover:bg-primary-dark rounded-full"
+            >
+              {saving ? "Salvando..." : "Salvar requisitos"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 export default AssociacaoDetalhes;

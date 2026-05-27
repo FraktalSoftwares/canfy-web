@@ -1,32 +1,30 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Download, Upload, Check, X } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { useToast } from "@/hooks/use-toast";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  ChevronLeft, ChevronRight, Check, Copy, Download, MinusCircle,
+  Pencil, X, FileText,
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface PacienteData {
   id: string;
@@ -37,25 +35,62 @@ interface PacienteData {
   cpf: string;
   data_nascimento: string;
   endereco_completo: string;
+  genero: string | null;
   total_consultas: number;
+  total_receitas: number;
   total_pedidos: number;
   ultimo_acesso: string;
   created_at: string;
   ativo: boolean;
-  foto_perfil_url: string;
+  foto_perfil_url: string | null;
+  observacoes_admin: string | null;
 }
+
+interface PagamentoRow {
+  data_pagamento: string;
+  tipo: string;
+  valor: number;
+  referencia: string;
+}
+
+interface DocumentoRow {
+  id: string;
+  tipo: string;
+  nome_arquivo: string;
+  arquivo_url: string;
+  categoria: "usuario" | "produto";
+  created_at: string;
+}
+
+const formatCurrency = (v: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+
+const formatDate = (d: string | null) => {
+  if (!d) return "—";
+  try {
+    return format(new Date(d), "dd/MM/yyyy", { locale: ptBR });
+  } catch {
+    return "—";
+  }
+};
 
 const PacienteDetalhes = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const { toast } = useToast();
+
+  const [paciente, setPaciente] = useState<PacienteData | null>(null);
+  const [pagamentos, setPagamentos] = useState<PagamentoRow[]>([]);
+  const [documentos, setDocumentos] = useState<DocumentoRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const [isEditing, setIsEditing] = useState(false);
   const [showInactivateDialog, setShowInactivateDialog] = useState(false);
+  const [showAnvisaDialog, setShowAnvisaDialog] = useState(false);
   const [observacoes, setObservacoes] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [paciente, setPaciente] = useState<PacienteData | null>(null);
-  
-  const [formData, setFormData] = useState({
+  const [savingObs, setSavingObs] = useState(false);
+
+  const [form, setForm] = useState({
     telefone: "",
     cpf: "",
     dataNascimento: "",
@@ -63,34 +98,36 @@ const PacienteDetalhes = () => {
   });
 
   useEffect(() => {
-    if (id) {
-      fetchPaciente();
-    }
+    if (id) fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const fetchPaciente = async () => {
+  const fetchAll = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.rpc('admin_get_paciente', { p_id: id });
-      
-      if (error) throw error;
-      if (data && data.length > 0) {
-        const pacienteData = data[0];
-        setPaciente(pacienteData);
-        setFormData({
-          telefone: pacienteData.telefone || "",
-          cpf: pacienteData.cpf || "",
-          dataNascimento: pacienteData.data_nascimento || "",
-          endereco: pacienteData.endereco_completo || "",
+      const [{ data: pacData, error: pacErr }, { data: pagData }, { data: docData }] =
+        await Promise.all([
+          supabase.rpc("admin_get_paciente", { p_id: id! }),
+          supabase.rpc("admin_get_paciente_pagamentos", { p_paciente_id: id! }),
+          supabase.rpc("admin_get_paciente_documentos", { p_paciente_id: id! }),
+        ]);
+
+      if (pacErr) throw pacErr;
+      if (pacData && pacData.length > 0) {
+        const p = pacData[0] as PacienteData;
+        setPaciente(p);
+        setForm({
+          telefone: p.telefone || "",
+          cpf: p.cpf || "",
+          dataNascimento: p.data_nascimento || "",
+          endereco: p.endereco_completo || "",
         });
+        setObservacoes(p.observacoes_admin || "");
       }
-    } catch (error) {
-      console.error('Error fetching paciente:', error);
-      toast({
-        title: "Erro ao carregar dados",
-        description: "Não foi possível carregar os dados do paciente.",
-        variant: "destructive",
-      });
+      setPagamentos((pagData as PagamentoRow[]) || []);
+      setDocumentos((docData as DocumentoRow[]) || []);
+    } catch (e: any) {
+      toast({ title: "Erro ao carregar paciente", description: e.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -98,62 +135,74 @@ const PacienteDetalhes = () => {
 
   const handleSave = async () => {
     try {
-      const { error } = await supabase.rpc('admin_update_paciente', {
-        p_id: id,
-        p_telefone: formData.telefone,
-        p_cpf: formData.cpf,
-        p_data_nascimento: formData.dataNascimento,
-        p_endereco_completo: formData.endereco,
+      const { error } = await supabase.rpc("admin_update_paciente", {
+        p_id: id!,
+        p_telefone: form.telefone,
+        p_cpf: form.cpf,
+        p_data_nascimento: form.dataNascimento || null,
+        p_endereco_completo: form.endereco,
       });
-
       if (error) throw error;
-
-      toast({
-        title: "Dados atualizados com sucesso!",
-        className: "bg-green-50 border-green-200",
-      });
+      toast({ title: "Dados atualizados" });
       setIsEditing(false);
-      fetchPaciente();
-    } catch (error) {
-      console.error('Error updating paciente:', error);
-      toast({
-        title: "Erro ao atualizar",
-        description: "Não foi possível atualizar os dados do paciente.",
-        variant: "destructive",
-      });
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: "Erro ao atualizar", description: e.message, variant: "destructive" });
     }
   };
 
-  const handleInactivateAccount = async () => {
+  const handleSaveObs = async () => {
     try {
-      const { error } = await supabase.rpc('admin_inativar_paciente', { p_id: id });
-
+      setSavingObs(true);
+      const { error } = await supabase.rpc("admin_update_paciente_observacoes", {
+        p_id: id!,
+        p_observacoes: observacoes,
+      });
       if (error) throw error;
-
-      toast({
-        title: "Usuário inativado com sucesso!",
-        className: "bg-green-50 border-green-200",
-      });
-      setShowInactivateDialog(false);
-      navigate('/pacientes');
-    } catch (error) {
-      console.error('Error inactivating paciente:', error);
-      toast({
-        title: "Erro ao inativar",
-        description: "Não foi possível inativar o paciente.",
-        variant: "destructive",
-      });
+      toast({ title: "Observações salvas" });
+    } catch (e: any) {
+      toast({ title: "Erro ao salvar observações", description: e.message, variant: "destructive" });
+    } finally {
+      setSavingObs(false);
     }
   };
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "N/A";
+  const handleInactivate = async () => {
     try {
-      return format(new Date(dateString), "dd/MM/yyyy");
-    } catch {
-      return "N/A";
+      const { error } = await supabase.rpc("admin_inativar_paciente", { p_id: id! });
+      if (error) throw error;
+      toast({ title: "Paciente inativado" });
+      setShowInactivateDialog(false);
+      navigate("/pacientes");
+    } catch (e: any) {
+      toast({ title: "Erro ao inativar", description: e.message, variant: "destructive" });
     }
   };
+
+  const anvisaDados = useMemo(() => {
+    if (!paciente) return "";
+    const lines = [
+      `Nome completo: ${paciente.nome_completo}`,
+      `CPF: ${paciente.cpf}`,
+      `Data de nascimento: ${formatDate(paciente.data_nascimento)}`,
+      `E-mail: ${paciente.email}`,
+      `Telefone: ${paciente.telefone}`,
+      `Endereço: ${paciente.endereco_completo}`,
+    ];
+    return lines.join("\n");
+  }, [paciente]);
+
+  const handleCopyAnvisa = async () => {
+    try {
+      await navigator.clipboard.writeText(anvisaDados);
+      toast({ title: "Dados copiados" });
+    } catch {
+      toast({ title: "Falha ao copiar", variant: "destructive" });
+    }
+  };
+
+  const docsUsuario = documentos.filter((d) => d.categoria === "usuario");
+  const docsProduto = documentos.filter((d) => d.categoria === "produto");
 
   if (loading) {
     return (
@@ -170,354 +219,272 @@ const PacienteDetalhes = () => {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
-        <div className="flex items-center justify-center py-12">
-          <p className="text-muted-foreground">Paciente não encontrado</p>
-        </div>
+        <div className="px-6 py-8"><p className="text-muted-foreground">Paciente não encontrado.</p></div>
       </div>
     );
   }
 
-  const historicoPagamentos = [
-    { data: "01/01/aaaa", tipo: "Consulta", valor: "R$95,00" },
-    { data: "01/01/aaaa", tipo: "Pedido", valor: "R$220,00" },
-    { data: "01/01/aaaa", tipo: "Consulta", valor: "R$95,00" },
-    { data: "01/01/aaaa", tipo: "Pedido", valor: "R$220,00" },
-    { data: "01/01/aaaa", tipo: "Consulta", valor: "R$95,00" },
-    { data: "01/01/aaaa", tipo: "Pedido", valor: "R$95,00" },
-    { data: "01/01/aaaa", tipo: "Pedido", valor: "R$220,00" },
-    { data: "01/01/aaaa", tipo: "Consulta", valor: "R$95,00" },
-  ];
-
-  const documentosUsuario = [
-    { nome: "CPF.jpg", icon: "📄" },
-    { nome: "comprovante_de_residencia.jpg", icon: "📄" },
-  ];
-
-  const documentosProdutos = [
-    { nome: "receita.pdf", icon: "📄" },
-    { nome: "automedicao_de_receita.pdf", icon: "📄" },
-  ];
+  const initials = paciente.nome_completo.split(" ").map((n) => n[0]).join("").substring(0, 2).toUpperCase();
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
-      <div className="px-6 py-8 max-w-7xl mx-auto">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-4 mb-6">
-          <Button
-            variant="link"
-            className="text-primary p-0 h-auto font-normal"
-            onClick={() => navigate("/pacientes")}
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Voltar
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Módulo &gt; {paciente.nome_completo}
-          </span>
-        </div>
 
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl font-bold text-foreground">Dados do usuário</h1>
-          {!isEditing ? (
+      <div className="px-6 py-8 max-w-[1080px] mx-auto">
+        <Button
+          variant="ghost"
+          onClick={() => navigate(-1)}
+          className="text-primary hover:bg-card-green/40 mb-3 -ml-2"
+        >
+          <ChevronLeft className="h-4 w-4 mr-1" />
+          Voltar
+        </Button>
+
+        <nav className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
+          <Link to="/pacientes" className="hover:text-primary">Pacientes</Link>
+          <ChevronRight className="h-3 w-3" />
+          <span className="text-foreground font-medium">{paciente.nome_completo}</span>
+        </nav>
+
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-foreground">Dados do usuário</h2>
+          <div className="flex gap-3">
             <Button
               variant="outline"
-              className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-[20px]"
-              onClick={() => setIsEditing(true)}
+              className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-full"
+              onClick={() => setShowAnvisaDialog(true)}
             >
-              Editar dados
+              <FileText className="h-4 w-4" />
+              Dados solicitação Anvisa
             </Button>
-          ) : (
-            <Button
-              className="gap-2 bg-primary text-white hover:bg-primary-dark rounded-[20px]"
-              onClick={handleSave}
-            >
-              <Check className="h-4 w-4" />
-              Salvar alterações
-            </Button>
-          )}
-        </div>
-
-        {/* User Info Section */}
-        <Card className="rounded-[10px] bg-secondary border-none mb-6">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <Avatar className="h-20 w-20">
-                    <AvatarFallback className="bg-orange-400 text-white text-2xl">
-                      {paciente.nome_completo.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 bg-blue-500 text-white hover:bg-blue-500 px-3 py-0.5 text-xs">
-                    {paciente.ativo ? "ATIVO" : "INATIVO"}
-                  </Badge>
-                </div>
-                <h2 className="text-xl font-semibold">{paciente.nome_completo}</h2>
-              </div>
+            {!isEditing ? (
               <Button
-                variant="link"
-                className="text-muted-foreground p-0 h-auto text-sm font-normal flex items-center gap-1"
-                onClick={() => setShowInactivateDialog(true)}
+                variant="outline"
+                className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-full"
+                onClick={() => setIsEditing(true)}
               >
-                <span className="text-lg">⊗</span>
-                Inativar conta
+                <Pencil className="h-4 w-4" />
+                Editar paciente
               </Button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-background rounded-lg p-4">
-                <p className="text-xs text-muted-foreground mb-2">E-mail</p>
-                <p className="font-semibold">{paciente.email}</p>
-              </div>
-              <div className="bg-background rounded-lg p-4">
-                <p className="text-xs text-muted-foreground mb-2">Telefone</p>
-                {isEditing ? (
-                  <Input
-                    value={formData.telefone}
-                    onChange={(e) => setFormData({...formData, telefone: e.target.value})}
-                    className="h-9"
-                  />
-                ) : (
-                  <p className="font-semibold">{formData.telefone || "N/A"}</p>
-                )}
-              </div>
-              <div className="bg-background rounded-lg p-4">
-                <p className="text-xs text-muted-foreground mb-2">Data de nascimento</p>
-                {isEditing ? (
-                  <Input
-                    type="date"
-                    value={formData.dataNascimento}
-                    onChange={(e) => setFormData({...formData, dataNascimento: e.target.value})}
-                    className="h-9"
-                  />
-                ) : (
-                  <p className="font-semibold">{formatDate(formData.dataNascimento)}</p>
-                )}
-              </div>
-              <div className="bg-background rounded-lg p-4">
-                <p className="text-xs text-muted-foreground mb-2">CPF</p>
-                {isEditing ? (
-                  <Input
-                    value={formData.cpf}
-                    onChange={(e) => setFormData({...formData, cpf: e.target.value})}
-                    className="h-9"
-                  />
-                ) : (
-                  <p className="font-semibold">{formData.cpf}</p>
-                )}
-              </div>
-              <div className="bg-background rounded-lg p-4 col-span-2">
-                <p className="text-xs text-muted-foreground mb-2">Endereço</p>
-                {isEditing ? (
-                  <Input
-                    value={formData.endereco}
-                    onChange={(e) => setFormData({...formData, endereco: e.target.value})}
-                    className="h-9"
-                  />
-                ) : (
-                  <p className="font-semibold text-sm">{formData.endereco || "N/A"}</p>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Dados de uso - Only show when not editing */}
-        {!isEditing && (
-          <div className="mb-8">
-            <h2 className="text-xl font-bold mb-4">Dados de uso</h2>
-            <div className="grid grid-cols-3 gap-4">
-              <Card className="rounded-[10px] bg-secondary border-none">
-                <CardContent className="pt-6">
-                  <p className="text-xs text-muted-foreground mb-1">Nº de consultas realizadas</p>
-                  <p className="text-3xl font-bold">{paciente.total_consultas}</p>
-                </CardContent>
-              </Card>
-              <Card className="rounded-[10px] bg-secondary border-none">
-                <CardContent className="pt-6">
-                  <p className="text-xs text-muted-foreground mb-1">Nº de receitas emitidas</p>
-                  <p className="text-3xl font-bold">{paciente.total_consultas}</p>
-                </CardContent>
-              </Card>
-              <Card className="rounded-[10px] bg-secondary border-none">
-                <CardContent className="pt-6">
-                  <p className="text-xs text-muted-foreground mb-1">Nº de pedidos realizados</p>
-                  <p className="text-3xl font-bold">{paciente.total_pedidos}</p>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        )}
-
-        {/* Histórico de pagamentos - Only show when not editing */}
-        {!isEditing && (
-          <div className="mb-8">
-            <h2 className="text-xl font-bold mb-4">Histórico de pagamentos</h2>
-            <Card className="rounded-[10px] bg-secondary border-none">
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-card-green border-none hover:bg-card-green">
-                      <TableHead className="font-semibold text-foreground rounded-tl-[10px]">Data do pagamento</TableHead>
-                      <TableHead className="font-semibold text-foreground">Tipo</TableHead>
-                      <TableHead className="font-semibold text-foreground rounded-tr-[10px]">Valor</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {historicoPagamentos.map((pagamento, index) => (
-                      <TableRow 
-                        key={index}
-                        className={`hover:bg-muted/50 ${index % 2 === 0 ? 'bg-card' : 'bg-card-green/30'}`}
-                      >
-                        <TableCell className="font-normal">{pagamento.data}</TableCell>
-                        <TableCell className="font-normal">{pagamento.tipo}</TableCell>
-                        <TableCell className="font-normal">{pagamento.valor}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Documentos do usuário */}
-        <div className="mb-8">
-          <h2 className="text-xl font-bold mb-4">Documentos do usuário</h2>
-          <div className="grid grid-cols-2 gap-4">
-            {isEditing ? (
-              <>
-                {/* Upload area for Documento de identificação */}
-                <div>
-                  <p className="text-sm font-semibold mb-2">Documento de identificação</p>
-                  <p className="text-xs text-muted-foreground mb-2">Formatos aceitos: PDF, PNG, JPG</p>
-                  <Card className="rounded-[10px] bg-secondary border-2 border-dashed border-primary/30 hover:border-primary/50 transition-colors cursor-pointer">
-                    <CardContent className="pt-12 pb-12">
-                      <label className="flex flex-col items-center gap-3 cursor-pointer">
-                        <Upload className="h-8 w-8 text-primary" />
-                        <div className="text-center">
-                          <p className="text-sm text-primary font-medium">Clique para adicionar o arquivo</p>
-                          <p className="text-xs text-muted-foreground">ou arraste-o até aqui</p>
-                        </div>
-                        <input type="file" className="hidden" accept=".pdf,.png,.jpg,.jpeg" />
-                      </label>
-                    </CardContent>
-                  </Card>
-                </div>
-                
-                {/* Upload area for Comprovante de residência */}
-                <div>
-                  <p className="text-sm font-semibold mb-2">Comprovante de residência</p>
-                  <p className="text-xs text-muted-foreground mb-2">Formatos aceitos: PDF, PNG, JPG</p>
-                  <Card className="rounded-[10px] bg-secondary border-2 border-dashed border-primary/30 hover:border-primary/50 transition-colors cursor-pointer">
-                    <CardContent className="pt-12 pb-12">
-                      <label className="flex flex-col items-center gap-3 cursor-pointer">
-                        <Upload className="h-8 w-8 text-primary" />
-                        <div className="text-center">
-                          <p className="text-sm text-primary font-medium">Clique para adicionar o arquivo</p>
-                          <p className="text-xs text-muted-foreground">ou arraste-o até aqui</p>
-                        </div>
-                        <input type="file" className="hidden" accept=".pdf,.png,.jpg,.jpeg" />
-                      </label>
-                    </CardContent>
-                  </Card>
-                </div>
-              </>
             ) : (
-              <>
-                {documentosUsuario.map((doc, index) => (
-                  <Card key={index} className="rounded-[10px] bg-secondary border-none">
-                    <CardContent className="pt-6">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-normal text-primary">{doc.nome}</p>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <Download className="h-4 w-4 text-primary" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </>
+              <Button
+                className="gap-2 bg-primary text-white hover:bg-primary-dark rounded-full"
+                onClick={handleSave}
+              >
+                <Check className="h-4 w-4" />
+                Salvar alterações
+              </Button>
             )}
           </div>
         </div>
 
-        {/* Documentos por produtos - Only show when not editing */}
-        {!isEditing && (
-          <div className="mb-8">
-            <h2 className="text-xl font-bold mb-4">Documentos por produtos</h2>
-            <div className="grid grid-cols-2 gap-4">
-              {documentosProdutos.map((doc, index) => (
-                <Card key={index} className="rounded-[10px] bg-secondary border-none">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-normal text-primary">{doc.nome}</p>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Download className="h-4 w-4 text-primary" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+        <Card className="rounded-[10px] bg-secondary border-none mb-3">
+          <CardContent className="px-6 py-5 flex items-center justify-between">
+            <div className="flex items-center gap-5">
+              <Avatar className="h-24 w-24">
+                <AvatarImage src={paciente.foto_perfil_url ?? undefined} />
+                <AvatarFallback className="bg-card-orange text-2xl text-foreground font-semibold">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <Badge
+                  className={
+                    paciente.ativo
+                      ? "border-none rounded-full px-3 py-0.5 font-medium mb-1.5 bg-card-purple text-[hsl(291_47%_35%)] hover:bg-card-purple"
+                      : "border-none rounded-full px-3 py-0.5 font-medium mb-1.5 bg-muted text-muted-foreground hover:bg-muted"
+                  }
+                >
+                  {paciente.ativo ? "Ativo" : "Inativo"}
+                </Badge>
+                <h3 className="text-xl font-bold text-foreground">{paciente.nome_completo}</h3>
+              </div>
             </div>
-          </div>
-        )}
+            {paciente.ativo && (
+              <button
+                onClick={() => setShowInactivateDialog(true)}
+                className="text-muted-foreground hover:text-destructive flex items-center gap-2 text-sm"
+              >
+                <MinusCircle className="h-4 w-4" />
+                Inativar conta
+              </button>
+            )}
+          </CardContent>
+        </Card>
 
-        {/* Observações internas - Only show when not editing */}
-        {!isEditing && (
-          <div className="mb-8">
-            <h2 className="text-xl font-bold mb-4">Observações internas</h2>
-            <Card className="rounded-[10px] bg-secondary border-none">
-              <CardContent className="pt-6">
-                <Textarea
-                  placeholder="Observações internas da avaliação administrativa..."
-                  value={observacoes}
-                  onChange={(e) => setObservacoes(e.target.value)}
-                  className="min-h-[150px] bg-background border-none resize-none"
-                />
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        <Card className="rounded-[10px] bg-secondary border-none mb-8">
+          <CardContent className="grid grid-cols-2 gap-x-12 gap-y-5 px-6 py-6">
+            <Field label="E-mail" value={paciente.email} />
+            <Field label="Gênero" value={paciente.genero || "Não informado"} />
+            <EditableField
+              label="Telefone"
+              value={form.telefone || "—"}
+              editing={isEditing}
+              onChange={(v) => setForm({ ...form, telefone: v })}
+              editValue={form.telefone}
+            />
+            <EditableField
+              label="Data de nascimento"
+              value={formatDate(form.dataNascimento) || "—"}
+              editing={isEditing}
+              onChange={(v) => setForm({ ...form, dataNascimento: v })}
+              editValue={form.dataNascimento}
+              type="date"
+            />
+            <EditableField
+              label="CPF"
+              value={form.cpf || "—"}
+              editing={isEditing}
+              onChange={(v) => setForm({ ...form, cpf: v })}
+              editValue={form.cpf}
+            />
+            <EditableField
+              label="Região"
+              value={form.endereco || "—"}
+              editing={isEditing}
+              onChange={(v) => setForm({ ...form, endereco: v })}
+              editValue={form.endereco}
+            />
+          </CardContent>
+        </Card>
+
+        <h2 className="text-xl font-bold text-foreground mb-4">Dados de uso</h2>
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          <UsageCard label="Nº de consultas realizadas" value={paciente.total_consultas} />
+          <UsageCard label="Nº de receitas emitidas" value={paciente.total_receitas} />
+          <UsageCard label="Nº de pedidos realizados" value={paciente.total_pedidos} />
+        </div>
+
+        <h2 className="text-xl font-bold text-foreground mb-4">Histórico de pagamentos</h2>
+        <Card className="rounded-[10px] bg-secondary border-none mb-8 overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-primary hover:bg-primary border-none">
+                <TableHead className="font-semibold text-white">Data do pagamento</TableHead>
+                <TableHead className="font-semibold text-white">Tipo</TableHead>
+                <TableHead className="font-semibold text-white">Valor</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pagamentos.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                    Nenhum pagamento registrado
+                  </TableCell>
+                </TableRow>
+              ) : (
+                pagamentos.map((p, i) => (
+                  <TableRow key={i} className="bg-card border-b border-border/40 hover:bg-muted/30">
+                    <TableCell>{formatDate(p.data_pagamento)}</TableCell>
+                    <TableCell>{p.tipo}</TableCell>
+                    <TableCell className="font-semibold">{formatCurrency(Number(p.valor))}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </Card>
+
+        <h2 className="text-xl font-bold text-foreground mb-4">Documentos do usuário</h2>
+        <div className="grid grid-cols-2 gap-4 mb-8">
+          {docsUsuario.length === 0 ? (
+            <p className="text-muted-foreground italic col-span-2">Nenhum documento enviado.</p>
+          ) : (
+            docsUsuario.map((doc) => <DocCard key={doc.id} doc={doc} />)
+          )}
+        </div>
+
+        <h2 className="text-xl font-bold text-foreground mb-4">Documentos por produtos</h2>
+        <div className="grid grid-cols-2 gap-4 mb-8">
+          {docsProduto.length === 0 ? (
+            <p className="text-muted-foreground italic col-span-2">Nenhum documento de produto.</p>
+          ) : (
+            docsProduto.map((doc) => <DocCard key={doc.id} doc={doc} />)
+          )}
+        </div>
+
+        <h2 className="text-xl font-bold text-foreground mb-4">Observações internas</h2>
+        <Card className="rounded-[10px] bg-secondary border-none mb-4">
+          <CardContent className="px-6 py-5">
+            <label className="text-sm font-semibold text-foreground mb-2 block">Observações</label>
+            <Textarea
+              value={observacoes}
+              onChange={(e) => setObservacoes(e.target.value)}
+              placeholder="Observações internas ou anotações administrativas..."
+              className="min-h-[150px] bg-background border-border resize-none"
+            />
+            <div className="flex justify-end mt-3">
+              <Button
+                onClick={handleSaveObs}
+                disabled={savingObs}
+                className="bg-primary text-white hover:bg-primary-dark rounded-full"
+              >
+                {savingObs ? "Salvando..." : "Salvar observações"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Inactivate Account Dialog */}
+      <Dialog open={showAnvisaDialog} onOpenChange={setShowAnvisaDialog}>
+        <DialogContent className="sm:max-w-[560px] p-6 [&>button]:hidden">
+          <DialogHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-xl font-semibold">Dados para solicitação Anvisa</DialogTitle>
+              <Button
+                variant="ghost" size="icon" className="h-6 w-6"
+                onClick={() => setShowAnvisaDialog(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground mb-3">
+            Copie os dados abaixo e cole no portal gov.br para abrir a solicitação Anvisa.
+          </p>
+          <pre className="bg-card-green/40 text-foreground rounded-[10px] p-4 text-sm whitespace-pre-wrap font-mono max-h-[280px] overflow-auto">
+{anvisaDados}
+          </pre>
+          <div className="flex gap-3 mt-4">
+            <Button
+              variant="outline"
+              className="flex-1 rounded-full"
+              onClick={() => setShowAnvisaDialog(false)}
+            >
+              Fechar
+            </Button>
+            <Button
+              className="flex-1 bg-primary text-white hover:bg-primary-dark rounded-full gap-2"
+              onClick={handleCopyAnvisa}
+            >
+              <Copy className="h-4 w-4" />
+              Copiar dados
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={showInactivateDialog} onOpenChange={setShowInactivateDialog}>
         <AlertDialogContent className="sm:max-w-[440px] p-6 [&>button]:hidden">
           <AlertDialogHeader>
             <div className="flex items-center justify-between mb-2">
-              <AlertDialogTitle className="text-xl font-semibold">
-                Deseja inativar conta?
-              </AlertDialogTitle>
+              <AlertDialogTitle className="text-xl font-semibold">Deseja inativar conta?</AlertDialogTitle>
               <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
+                variant="ghost" size="icon" className="h-6 w-6"
                 onClick={() => setShowInactivateDialog(false)}
               >
                 <X className="h-4 w-4" />
               </Button>
             </div>
             <AlertDialogDescription className="text-base text-foreground">
-              Deseja realmente inativar esta conta?<br />
-              Essa ação não pode ser desfeita.
+              Deseja realmente inativar esta conta?<br />Essa ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex gap-3 mt-4">
-            <Button
-              variant="outline"
-              className="flex-1 rounded-full"
-              onClick={() => setShowInactivateDialog(false)}
-            >
+            <Button variant="outline" className="flex-1 rounded-full" onClick={() => setShowInactivateDialog(false)}>
               Cancelar
             </Button>
-            <Button
-              className="flex-1 bg-foreground text-background hover:bg-foreground/90 rounded-full"
-              onClick={handleInactivateAccount}
-            >
+            <Button className="flex-1 bg-destructive text-white hover:bg-destructive/90 rounded-full" onClick={handleInactivate}>
               Inativar conta
             </Button>
           </AlertDialogFooter>
@@ -526,5 +493,78 @@ const PacienteDetalhes = () => {
     </div>
   );
 };
+
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border-b border-border/40 pb-3">
+      <p className="text-xs text-muted-foreground mb-1">{label}</p>
+      <p className="text-base font-bold text-foreground break-words">{value}</p>
+    </div>
+  );
+}
+
+function EditableField({
+  label, value, editing, onChange, editValue, type,
+}: {
+  label: string;
+  value: string;
+  editing: boolean;
+  onChange: (v: string) => void;
+  editValue: string;
+  type?: string;
+}) {
+  return (
+    <div className="border-b border-border/40 pb-3">
+      <p className="text-xs text-muted-foreground mb-1">{label}</p>
+      {editing ? (
+        <Input
+          type={type}
+          value={editValue}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-8 bg-background border-border"
+        />
+      ) : (
+        <p className="text-base font-bold text-foreground break-words">{value}</p>
+      )}
+    </div>
+  );
+}
+
+function UsageCard({ label, value }: { label: string; value: number }) {
+  return (
+    <Card className="rounded-[10px] bg-secondary border-none">
+      <CardContent className="px-6 py-5">
+        <p className="text-sm text-muted-foreground mb-1">{label}</p>
+        <p className="text-3xl font-bold text-foreground">{value}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DocCard({ doc }: { doc: DocumentoRow }) {
+  return (
+    <Card className="rounded-[10px] bg-secondary border-none">
+      <CardContent className="px-6 py-4 flex items-center justify-between">
+        <a
+          href={doc.arquivo_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary font-medium hover:underline truncate"
+        >
+          {doc.nome_arquivo}
+        </a>
+        <a
+          href={doc.arquivo_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary hover:text-primary-dark shrink-0"
+          aria-label="Baixar"
+        >
+          <Download className="h-4 w-4" />
+        </a>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default PacienteDetalhes;

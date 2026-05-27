@@ -42,12 +42,35 @@ interface Receita {
     nome: string;
   };
   pedidos: {
+    id?: string;
     numero_pedido: string;
     data_pedido: string;
     valor_total: number;
     canal_aquisicao: string;
+    status?: string;
   }[];
 }
+
+type PedidoStatus =
+  | "pendente"
+  | "aprovado"
+  | "em_analise"
+  | "recusado"
+  | "cancelado"
+  | "em_separacao"
+  | "enviado"
+  | "entregue";
+
+const PEDIDO_STATUS_TAG: Record<PedidoStatus, { label: string; bg: string; fg: string }> = {
+  pendente:     { label: "Pendente",     bg: "hsl(var(--card-purple))", fg: "hsl(291 47% 35%)" },
+  aprovado:     { label: "Aprovado",     bg: "hsl(var(--card-green))",  fg: "hsl(var(--primary-dark))" },
+  em_analise:   { label: "Em análise",   bg: "hsl(var(--card-yellow))", fg: "hsl(45 100% 35%)" },
+  recusado:     { label: "Recusado",     bg: "hsl(var(--card-red))",    fg: "hsl(var(--destructive))" },
+  cancelado:    { label: "Cancelado",    bg: "hsl(var(--muted))",       fg: "hsl(var(--muted-foreground))" },
+  em_separacao: { label: "Em separação", bg: "hsl(var(--card-orange))", fg: "hsl(36 100% 35%)" },
+  enviado:      { label: "Enviado",      bg: "hsl(var(--card-blue))",   fg: "hsl(207 89% 35%)" },
+  entregue:     { label: "Entregue",     bg: "hsl(var(--card-teal))",   fg: "hsl(174 51% 30%)" },
+};
 
 
 const Receitas = () => {
@@ -177,19 +200,21 @@ const Receitas = () => {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusMap: Record<string, { label: string; color: string }> = {
-      ativa: { label: "A", color: "bg-green-500" },
-      utilizada: { label: "U", color: "bg-blue-500" },
-      expirada: { label: "E", color: "bg-red-500" },
-      cancelada: { label: "C", color: "bg-gray-500" },
+  const getPedidoStatusBadge = (status?: string) => {
+    if (!status) {
+      return <span className="text-muted-foreground italic text-sm">Não se aplica</span>;
+    }
+    const tag = PEDIDO_STATUS_TAG[status as PedidoStatus] ?? {
+      label: status,
+      bg: "hsl(var(--muted))",
+      fg: "hsl(var(--muted-foreground))",
     };
-    
-    const statusInfo = statusMap[status] || { label: "-", color: "bg-gray-400" };
-    
     return (
-      <Badge className={`rounded-full w-8 h-8 flex items-center justify-center ${statusInfo.color} text-white hover:${statusInfo.color} font-semibold`}>
-        {statusInfo.label}
+      <Badge
+        style={{ backgroundColor: tag.bg, color: tag.fg }}
+        className="border-none rounded-full px-3 py-1 font-medium hover:opacity-90"
+      >
+        {tag.label}
       </Badge>
     );
   };
@@ -294,14 +319,19 @@ const Receitas = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                receitas.map((receita, index) => {
+                receitas.map((receita) => {
                   const pedido = receita.pedidos && receita.pedidos.length > 0 ? receita.pedidos[0] : null;
-                  
+                  const naoAplica = <span className="text-muted-foreground italic">Não se aplica</span>;
+
                   return (
-                    <TableRow 
+                    <TableRow
                       key={receita.id}
-                      className={`hover:bg-muted/50 cursor-pointer ${index % 2 === 0 ? 'bg-card' : 'bg-card-green/30'}`}
-                      onClick={() => navigate(`/receitas/${receita.id}`)}
+                      className="hover:bg-muted/40 cursor-pointer bg-card border-b border-border/40"
+                      onClick={() =>
+                        pedido?.id
+                          ? navigate(`/pedidos/${pedido.id}`)
+                          : navigate(`/receitas/${receita.id}`)
+                      }
                     >
                       <TableCell className="font-normal">{receita.numero_receita}</TableCell>
                       <TableCell className="font-semibold">
@@ -311,20 +341,18 @@ const Receitas = () => {
                         {(receita.medico as any)?.nome || "N/A"}
                       </TableCell>
                       <TableCell className="font-normal">
-                        {pedido?.numero_pedido || "Não se aplica"}
+                        {pedido?.numero_pedido || naoAplica}
                       </TableCell>
                       <TableCell className="font-normal">
-                        {pedido ? formatDate(pedido.data_pedido) : "Não se aplica"}
+                        {pedido ? formatDate(pedido.data_pedido) : naoAplica}
                       </TableCell>
-                      <TableCell className="font-normal">
-                        {pedido ? formatCurrency(pedido.valor_total || 0) : "Não se aplica"}
+                      <TableCell className="font-semibold">
+                        {pedido ? formatCurrency(pedido.valor_total || 0) : naoAplica}
                       </TableCell>
-                      <TableCell className="font-normal">
-                        {pedido?.canal_aquisicao || "Não se aplica"}
+                      <TableCell className="font-normal capitalize">
+                        {pedido?.canal_aquisicao || naoAplica}
                       </TableCell>
-                      <TableCell>
-                        {getStatusBadge(receita.status)}
-                      </TableCell>
+                      <TableCell>{getPedidoStatusBadge(pedido?.status)}</TableCell>
                     </TableRow>
                   );
                 })

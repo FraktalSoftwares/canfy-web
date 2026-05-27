@@ -1,10 +1,14 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Filter, Download, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, X } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Search, Filter, Download, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, X, Check,
+} from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -15,13 +19,10 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+
+type ValidacaoStatus = "em_analise" | "incompleto" | "aprovado" | "recusado";
 
 interface Medico {
   id: string;
@@ -36,172 +37,223 @@ interface Medico {
   ultimo_acesso: string;
 }
 
+interface MedicoSolicitacao {
+  id: string;
+  nome: string;
+  email: string;
+  telefone: string;
+  crm: string;
+  uf_crm: string;
+  especialidade_nome: string;
+  total_atendimentos: number;
+  ultimo_acesso: string | null;
+  foto_perfil_url: string | null;
+  status_validacao: ValidacaoStatus;
+  etapa_validacao: number;
+  created_at: string;
+}
+
+const VALIDACAO_TAG: Record<ValidacaoStatus, { letter: string; label: string; bg: string; fg: string }> = {
+  em_analise: { letter: "E", label: "Em análise",  bg: "hsl(var(--card-blue))",   fg: "hsl(207 89% 35%)" },
+  incompleto: { letter: "I", label: "Incompleto",  bg: "hsl(var(--card-yellow))", fg: "hsl(45 100% 35%)" },
+  aprovado:   { letter: "A", label: "Aprovado",    bg: "hsl(var(--card-green))",  fg: "hsl(var(--primary-dark))" },
+  recusado:   { letter: "R", label: "Recusado",    bg: "hsl(var(--card-red))",    fg: "hsl(var(--destructive))" },
+};
+
+const itemsPerPage = 10;
+
 const Medicos = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilterDialog, setShowFilterDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
-  const [medicos, setMedicos] = useState<Medico[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
-  const itemsPerPage = 10;
 
-  // Filter states
+  // ATIVOS
+  const [medicos, setMedicos] = useState<Medico[]>([]);
+  const [medicosTotal, setMedicosTotal] = useState(0);
+  const [medicosPage, setMedicosPage] = useState(1);
+
+  // SOLICITAÇÕES
+  const [solicitacoes, setSolicitacoes] = useState<MedicoSolicitacao[]>([]);
+  const [solicitacoesTotal, setSolicitacoesTotal] = useState(0);
+  const [solicitacoesPage, setSolicitacoesPage] = useState(1);
+
+  const [isLoading, setIsLoading] = useState(true);
+
   const [status, setStatus] = useState("todos");
   const [crm, setCrm] = useState("");
   const [especialidade, setEspecialidade] = useState("");
 
-  // Buscar médicos do banco
-  const fetchMedicos = async () => {
+  // Overlay aprovação/recusa solicitação
+  const [selectedSolic, setSelectedSolic] = useState<MedicoSolicitacao | null>(null);
+  const [recusaMotivo, setRecusaMotivo] = useState("");
+  const [showRecusaPanel, setShowRecusaPanel] = useState(false);
+  const [acting, setActing] = useState(false);
+
+  const fetchAll = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await (supabase.rpc as any)('admin_list_medicos');
+      const [a, b] = await Promise.all([
+        (supabase.rpc as any)("admin_list_medicos"),
+        (supabase.rpc as any)("admin_list_medicos_solicitacoes"),
+      ]);
+      if (a.error) throw a.error;
+      if (b.error) throw b.error;
 
-      if (error) throw error;
+      let ativos: Medico[] = (a.data || []).filter((m: Medico) => m.status !== "pendente_aprovacao");
 
-      // Filtros client-side
-      let filteredData = data || [];
-      
       if (searchQuery) {
-        filteredData = filteredData.filter((m: Medico) =>
-          m.nome.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          m.email.toLowerCase().includes(searchQuery.toLowerCase())
-        );
+        const q = searchQuery.toLowerCase();
+        ativos = ativos.filter((m) => m.nome.toLowerCase().includes(q) || m.email.toLowerCase().includes(q));
       }
+      if (status !== "todos") ativos = ativos.filter((m) => m.status === status);
+      if (crm) ativos = ativos.filter((m) => m.crm.toLowerCase().includes(crm.toLowerCase()) || m.uf_crm.toLowerCase().includes(crm.toLowerCase()));
+      if (especialidade) ativos = ativos.filter((m) => m.especialidade_nome.toLowerCase().includes(especialidade.toLowerCase()));
 
-      if (status !== "todos") {
-        filteredData = filteredData.filter((m: Medico) => m.status === status);
+      setMedicosTotal(ativos.length);
+      const aFrom = (medicosPage - 1) * itemsPerPage;
+      setMedicos(ativos.slice(aFrom, aFrom + itemsPerPage));
+
+      let solics: MedicoSolicitacao[] = b.data || [];
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        solics = solics.filter((m) => m.nome.toLowerCase().includes(q) || m.email.toLowerCase().includes(q));
       }
-
-      if (crm) {
-        filteredData = filteredData.filter((m: Medico) =>
-          m.crm.toLowerCase().includes(crm.toLowerCase()) ||
-          m.uf_crm.toLowerCase().includes(crm.toLowerCase())
-        );
-      }
-
-      if (especialidade) {
-        filteredData = filteredData.filter((m: Medico) =>
-          m.especialidade_nome.toLowerCase().includes(especialidade.toLowerCase())
-        );
-      }
-
-      // Paginação
-      const from = (currentPage - 1) * itemsPerPage;
-      const to = from + itemsPerPage;
-      const paginatedData = filteredData.slice(from, to);
-
-      setMedicos(paginatedData);
-      setTotalCount(filteredData.length);
-    } catch (error: any) {
-      console.error('Erro ao buscar médicos:', error);
-      toast({
-        title: "Erro ao carregar médicos",
-        description: error.message,
-        variant: "destructive",
-      });
+      setSolicitacoesTotal(solics.length);
+      const sFrom = (solicitacoesPage - 1) * itemsPerPage;
+      setSolicitacoes(solics.slice(sFrom, sFrom + itemsPerPage));
+    } catch (e: any) {
+      toast({ title: "Erro ao carregar médicos", description: e.message, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchMedicos();
-  }, [currentPage, searchQuery, status, crm, especialidade, toast]);
+    fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [medicosPage, solicitacoesPage, searchQuery, status, crm, especialidade]);
 
-  // Subscrição realtime para atualização automática
   useRealtimeSubscription({
-    table: 'medicos',
-    onInsert: () => fetchMedicos(),
-    onUpdate: () => fetchMedicos(),
-    onDelete: () => fetchMedicos(),
+    table: "medicos",
+    onInsert: () => fetchAll(),
+    onUpdate: () => fetchAll(),
+    onDelete: () => fetchAll(),
   });
 
-  const totalPages = Math.ceil(totalCount / itemsPerPage);
+  const medicosTotalPages = useMemo(() => Math.ceil(medicosTotal / itemsPerPage), [medicosTotal]);
+  const solicitacoesTotalPages = useMemo(() => Math.ceil(solicitacoesTotal / itemsPerPage), [solicitacoesTotal]);
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "Nunca";
+  const formatDate = (d: string | null) => {
+    if (!d) return "Nunca";
     try {
-      return format(new Date(dateString), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+      return format(new Date(d), "dd/MM/yyyy", { locale: ptBR });
     } catch {
-      return "N/A";
+      return "—";
     }
   };
 
-  const handleApplyFilters = () => {
-    setCurrentPage(1);
-    setShowFilterDialog(false);
+  const getInitials = (n: string) =>
+    n.split(" ").map((s) => s[0]).join("").substring(0, 2).toUpperCase();
+
+  const handleAprovar = async () => {
+    if (!selectedSolic) return;
+    try {
+      setActing(true);
+      const { error } = await supabase.rpc("admin_aprovar_medico", { p_id: selectedSolic.id });
+      if (error) throw error;
+      toast({ title: "Médico aprovado" });
+      setSelectedSolic(null);
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: "Erro ao aprovar", description: e.message, variant: "destructive" });
+    } finally {
+      setActing(false);
+    }
   };
 
-  const handleClearFilters = () => {
-    setStatus("todos");
-    setCrm("");
-    setEspecialidade("");
-    setCurrentPage(1);
+  const handleRecusar = async () => {
+    if (!selectedSolic || !recusaMotivo.trim()) {
+      toast({ title: "Informe o motivo da recusa", variant: "destructive" });
+      return;
+    }
+    try {
+      setActing(true);
+      const { error } = await supabase.rpc("admin_recusar_medico", {
+        p_id: selectedSolic.id,
+        p_motivo: recusaMotivo.trim(),
+      });
+      if (error) throw error;
+      toast({ title: "Solicitação recusada" });
+      setSelectedSolic(null);
+      setShowRecusaPanel(false);
+      setRecusaMotivo("");
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: "Erro ao recusar", description: e.message, variant: "destructive" });
+    } finally {
+      setActing(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
+
       <div className="px-6 py-8">
         <Tabs defaultValue="medicos" className="w-full">
-          <TabsList className="mb-6 bg-transparent border-b border-border rounded-none w-full justify-start h-auto p-0">
-            <TabsTrigger 
-              value="medicos" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary px-6 pb-3"
+          <TabsList className="mb-6 bg-transparent border-b border-border rounded-none w-full h-auto p-0 grid grid-cols-2">
+            <TabsTrigger
+              value="medicos"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:font-semibold pb-3"
             >
               Médicos
             </TabsTrigger>
-            <TabsTrigger 
-              value="solicitacoes" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary px-6 pb-3"
+            <TabsTrigger
+              value="solicitacoes"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:font-semibold pb-3"
             >
               Solicitações de novos médicos
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="medicos" className="mt-0">
-            {/* Search and Actions */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="relative w-80">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
-                <Input
-                  placeholder="Buscar médico..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 bg-card border-primary rounded-[20px] text-primary placeholder:text-primary/60"
-                />
-              </div>
-
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-[20px]"
-                  onClick={() => setShowFilterDialog(true)}
-                >
-                  <Filter className="h-4 w-4" />
-                  Filtrar
-                </Button>
-                <Button
-                  variant="outline"
-                  className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-[20px]"
-                  onClick={() => setShowExportDialog(true)}
-                >
-                  <Download className="h-4 w-4" />
-                  Exportar
-                </Button>
-              </div>
+          <div className="flex items-center justify-between mb-6">
+            <div className="relative w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
+              <Input
+                placeholder="Buscar médico..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 bg-card border-primary rounded-[20px] text-primary placeholder:text-primary/60"
+              />
             </div>
 
-            {/* Table */}
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-[20px]"
+                onClick={() => setShowFilterDialog(true)}
+              >
+                <Filter className="h-4 w-4" />
+                Filtrar
+              </Button>
+              <Button
+                variant="outline"
+                className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-[20px]"
+                onClick={() => setShowExportDialog(true)}
+              >
+                <Download className="h-4 w-4" />
+                Exportar
+              </Button>
+            </div>
+          </div>
+
+          <TabsContent value="medicos" className="mt-0">
             <div className="bg-secondary rounded-[10px] overflow-hidden">
               <div className="px-6 py-4">
                 <h2 className="text-lg font-semibold text-foreground">Médicos</h2>
               </div>
-              
               <Table>
                 <TableHeader>
                   <TableRow className="bg-card-green border-none hover:bg-card-green">
@@ -218,39 +270,35 @@ const Medicos = () => {
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">
-                        Carregando médicos...
-                      </TableCell>
+                      <TableCell colSpan={8} className="text-center py-8">Carregando médicos...</TableCell>
                     </TableRow>
                   ) : medicos.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">
-                        Nenhum médico encontrado
-                      </TableCell>
+                      <TableCell colSpan={8} className="text-center py-8">Nenhum médico encontrado</TableCell>
                     </TableRow>
                   ) : (
-                    medicos.map((medico, index) => (
-                      <TableRow 
-                        key={medico.id}
-                        className={`hover:bg-muted/50 cursor-pointer ${index % 2 === 0 ? 'bg-card' : 'bg-card-green/30'}`}
-                        onClick={() => navigate(`/medicos/${medico.id}`)}
+                    medicos.map((m) => (
+                      <TableRow
+                        key={m.id}
+                        className="hover:bg-muted/40 cursor-pointer bg-card border-b border-border/40"
+                        onClick={() => navigate(`/medicos/${m.id}`)}
                       >
-                        <TableCell className="font-semibold">{medico.nome}</TableCell>
-                        <TableCell className="font-normal">{medico.email}</TableCell>
-                        <TableCell className="font-normal">{medico.telefone || "N/A"}</TableCell>
-                        <TableCell className="font-normal">{medico.crm}-{medico.uf_crm}</TableCell>
-                        <TableCell className="font-normal">{medico.especialidade_nome}</TableCell>
-                        <TableCell className="font-normal">{medico.total_atendimentos}</TableCell>
-                        <TableCell className="font-normal text-sm">{formatDate(medico.ultimo_acesso)}</TableCell>
+                        <TableCell className="font-semibold">{m.nome}</TableCell>
+                        <TableCell>{m.email}</TableCell>
+                        <TableCell>{m.telefone || "—"}</TableCell>
+                        <TableCell>{m.crm}-{m.uf_crm}</TableCell>
+                        <TableCell>{m.especialidade_nome}</TableCell>
+                        <TableCell>{m.total_atendimentos}</TableCell>
+                        <TableCell className="text-sm">{formatDate(m.ultimo_acesso)}</TableCell>
                         <TableCell>
-                          <Badge 
-                            className={`rounded-full px-4 py-1 font-medium ${
-                              medico.status === "ativo" 
-                                ? "bg-blue-100 text-blue-600 hover:bg-blue-100" 
-                                : "bg-gray-200 text-gray-600 hover:bg-gray-200"
-                            }`}
+                          <Badge
+                            className={
+                              m.status === "ativo"
+                                ? "rounded-full px-4 py-1 font-medium border-none bg-card-purple text-[hsl(291_47%_35%)] hover:bg-card-purple"
+                                : "rounded-full px-4 py-1 font-medium border-none bg-muted text-muted-foreground hover:bg-muted"
+                            }
                           >
-                            {medico.status === "ativo" ? "Ativo" : "Inativo"}
+                            {m.status === "ativo" ? "Ativo" : "Inativo"}
                           </Badge>
                         </TableCell>
                       </TableRow>
@@ -258,59 +306,194 @@ const Medicos = () => {
                   )}
                 </TableBody>
               </Table>
-
-              {/* Pagination */}
-              <div className="flex items-center justify-center gap-4 py-6">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-8 w-8"
-                  onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronsLeft className="h-4 w-4" />
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-8 w-8"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-sm text-muted-foreground font-normal">
-                  {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalCount)} from {totalCount}
-                </span>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-8 w-8"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-8 w-8"
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={currentPage === totalPages}
-                >
-                  <ChevronsRight className="h-4 w-4" />
-                </Button>
-              </div>
+              <Pagination
+                page={medicosPage}
+                totalPages={medicosTotalPages}
+                total={medicosTotal}
+                onPage={setMedicosPage}
+              />
             </div>
           </TabsContent>
 
-          <TabsContent value="solicitacoes">
-            <div className="text-center py-20 text-muted-foreground">
-              <p>Solicitações de novos médicos em breve...</p>
+          <TabsContent value="solicitacoes" className="mt-0">
+            <div className="bg-secondary rounded-[10px] overflow-hidden">
+              <div className="px-6 py-4">
+                <h2 className="text-lg font-semibold text-foreground">Solicitações de novos médicos</h2>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-card-green border-none hover:bg-card-green">
+                    <TableHead className="font-semibold text-foreground">Nome</TableHead>
+                    <TableHead className="font-semibold text-foreground">E-mail</TableHead>
+                    <TableHead className="font-semibold text-foreground">Telefone</TableHead>
+                    <TableHead className="font-semibold text-foreground">CRM+UF</TableHead>
+                    <TableHead className="font-semibold text-foreground">Especialidade</TableHead>
+                    <TableHead className="font-semibold text-foreground">Etapa</TableHead>
+                    <TableHead className="font-semibold text-foreground">Recebido em</TableHead>
+                    <TableHead className="font-semibold text-foreground">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8">Carregando solicitações...</TableCell>
+                    </TableRow>
+                  ) : solicitacoes.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8">Nenhuma solicitação pendente</TableCell>
+                    </TableRow>
+                  ) : (
+                    solicitacoes.map((s) => {
+                      const tag = VALIDACAO_TAG[s.status_validacao] ?? VALIDACAO_TAG.em_analise;
+                      return (
+                        <TableRow
+                          key={s.id}
+                          className="hover:bg-muted/40 cursor-pointer bg-card border-b border-border/40"
+                          onClick={() => setSelectedSolic(s)}
+                        >
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-9 w-9">
+                                <AvatarImage src={s.foto_perfil_url ?? undefined} />
+                                <AvatarFallback className="bg-card-orange text-foreground text-xs font-semibold">
+                                  {getInitials(s.nome)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="font-semibold">{s.nome}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>{s.email}</TableCell>
+                          <TableCell>{s.telefone || "—"}</TableCell>
+                          <TableCell>{s.crm}-{s.uf_crm}</TableCell>
+                          <TableCell>{s.especialidade_nome}</TableCell>
+                          <TableCell>{s.etapa_validacao}/3</TableCell>
+                          <TableCell className="text-sm">{formatDate(s.created_at)}</TableCell>
+                          <TableCell>
+                            <Badge
+                              style={{ backgroundColor: tag.bg, color: tag.fg }}
+                              className="border-none rounded-full h-7 w-7 p-0 flex items-center justify-center font-bold"
+                              title={tag.label}
+                            >
+                              {tag.letter}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+              <Pagination
+                page={solicitacoesPage}
+                totalPages={solicitacoesTotalPages}
+                total={solicitacoesTotal}
+                onPage={setSolicitacoesPage}
+              />
             </div>
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Overlay aprovar / recusar solicitação */}
+      <Dialog
+        open={!!selectedSolic}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedSolic(null);
+            setShowRecusaPanel(false);
+            setRecusaMotivo("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[520px] p-6 [&>button]:hidden">
+          <DialogHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-xl font-semibold">Solicitação de cadastro</DialogTitle>
+              <Button
+                variant="ghost" size="icon" className="h-6 w-6"
+                onClick={() => setSelectedSolic(null)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </DialogHeader>
+
+          {selectedSolic && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <Avatar className="h-16 w-16">
+                  <AvatarImage src={selectedSolic.foto_perfil_url ?? undefined} />
+                  <AvatarFallback className="bg-card-orange text-foreground text-lg font-semibold">
+                    {getInitials(selectedSolic.nome)}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="font-bold text-lg">{selectedSolic.nome}</p>
+                  <p className="text-sm text-muted-foreground">{selectedSolic.email}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                <Info label="CRM" value={`${selectedSolic.crm}-${selectedSolic.uf_crm}`} />
+                <Info label="Especialidade" value={selectedSolic.especialidade_nome} />
+                <Info label="Telefone" value={selectedSolic.telefone || "—"} />
+                <Info label="Etapa de validação" value={`${selectedSolic.etapa_validacao} de 3`} />
+              </div>
+
+              {!showRecusaPanel ? (
+                <div className="flex gap-3 pt-3">
+                  <Button
+                    variant="outline"
+                    className="flex-1 rounded-full border-destructive text-destructive hover:bg-destructive/10"
+                    onClick={() => setShowRecusaPanel(true)}
+                    disabled={acting}
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Recusar
+                  </Button>
+                  <Button
+                    className="flex-1 bg-primary text-white hover:bg-primary-dark rounded-full"
+                    onClick={handleAprovar}
+                    disabled={acting}
+                  >
+                    <Check className="h-4 w-4 mr-1" />
+                    Aprovar cadastro
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3 pt-3">
+                  <div>
+                    <Label className="text-sm font-semibold">Motivo da recusa</Label>
+                    <Textarea
+                      value={recusaMotivo}
+                      onChange={(e) => setRecusaMotivo(e.target.value)}
+                      placeholder="Explique o motivo para o médico..."
+                      className="min-h-[100px] mt-1 bg-background border-border resize-none"
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <Button
+                      variant="outline"
+                      className="flex-1 rounded-full"
+                      onClick={() => { setShowRecusaPanel(false); setRecusaMotivo(""); }}
+                      disabled={acting}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      className="flex-1 bg-destructive text-white hover:bg-destructive/90 rounded-full"
+                      onClick={handleRecusar}
+                      disabled={acting}
+                    >
+                      Confirmar recusa
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Filter Dialog */}
       <Dialog open={showFilterDialog} onOpenChange={setShowFilterDialog}>
@@ -318,19 +501,13 @@ const Medicos = () => {
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle className="text-xl font-semibold">Filtros</DialogTitle>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                onClick={() => setShowFilterDialog(false)}
-              >
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowFilterDialog(false)}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
           </DialogHeader>
 
           <div className="space-y-6 mt-4">
-            {/* Status */}
             <div>
               <label className="text-sm font-semibold mb-3 block">Status</label>
               <RadioGroup value={status} onValueChange={setStatus}>
@@ -349,24 +526,28 @@ const Medicos = () => {
               </RadioGroup>
             </div>
 
-            {/* CRM e Especialidade */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-semibold mb-2 block">CRM</label>
-                <Input value={crm} onChange={(e) => setCrm(e.target.value)} placeholder="Ex.: 12345-SP" className="h-11" />
-              </div>
-              <div>
-                <label className="text-sm font-semibold mb-2 block">Especialidade</label>
-                <Input value={especialidade} onChange={(e) => setEspecialidade(e.target.value)} placeholder="Ex.: Clínico geral" className="h-11" />
-              </div>
+            <div>
+              <label className="text-sm font-semibold mb-3 block">CRM+UF</label>
+              <Input value={crm} onChange={(e) => setCrm(e.target.value)} placeholder="ex.: 12345-SP" className="h-11" />
             </div>
 
-            {/* Actions */}
+            <div>
+              <label className="text-sm font-semibold mb-3 block">Especialidade</label>
+              <Input value={especialidade} onChange={(e) => setEspecialidade(e.target.value)} placeholder="ex.: Clínico geral" className="h-11" />
+            </div>
+
             <div className="space-y-3 pt-4">
-              <Button className="w-full h-12 bg-green-600 text-white hover:bg-green-700 rounded-[10px]" onClick={handleApplyFilters}>
+              <Button
+                onClick={() => { setMedicosPage(1); setShowFilterDialog(false); }}
+                className="w-full h-12 bg-primary text-white hover:bg-primary-dark rounded-[10px]"
+              >
                 Aplicar filtros
               </Button>
-              <Button variant="link" className="w-full text-green-600 hover:text-green-700" onClick={handleClearFilters}>
+              <Button
+                variant="link"
+                onClick={() => { setStatus("todos"); setCrm(""); setEspecialidade(""); setMedicosPage(1); }}
+                className="w-full text-primary hover:text-primary-dark"
+              >
                 Limpar filtros
               </Button>
             </div>
@@ -376,23 +557,61 @@ const Medicos = () => {
 
       {/* Export Dialog */}
       <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
-        <DialogContent className="sm:max-w-[440px] p-6 [&>button]:hidden">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[400px] p-6 [&>button]:hidden">
+          <DialogHeader className="pb-4">
             <div className="flex items-center justify-between">
-              <DialogTitle className="text-xl font-semibold">Exportar dados</DialogTitle>
+              <DialogTitle className="text-lg font-semibold">Exportar</DialogTitle>
               <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowExportDialog(false)}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
           </DialogHeader>
-          <div className="space-y-6 mt-4">
-            <p className="text-sm text-muted-foreground">Os dados visíveis na tabela serão exportados como CSV.</p>
-            <Button className="w-full h-12 bg-green-600 text-white hover:bg-green-700 rounded-[10px]" onClick={() => setShowExportDialog(false)}>Exportar</Button>
-          </div>
+          <p className="text-sm text-muted-foreground">Funcionalidade em desenvolvimento.</p>
+          <Button className="w-full bg-primary text-white hover:bg-primary-dark rounded-full mt-4" onClick={() => setShowExportDialog(false)}>
+            Fechar
+          </Button>
         </DialogContent>
       </Dialog>
     </div>
   );
 };
+
+function Pagination({
+  page, totalPages, total, onPage,
+}: {
+  page: number;
+  totalPages: number;
+  total: number;
+  onPage: (n: number) => void;
+}) {
+  const from = total === 0 ? 0 : (page - 1) * itemsPerPage + 1;
+  const to = Math.min(page * itemsPerPage, total);
+  return (
+    <div className="flex items-center justify-center gap-4 py-6">
+      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onPage(1)} disabled={page === 1}>
+        <ChevronsLeft className="h-4 w-4" />
+      </Button>
+      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onPage(Math.max(1, page - 1))} disabled={page === 1}>
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
+      <span className="text-sm text-muted-foreground">{from} to {to} from {total}</span>
+      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onPage(Math.min(totalPages, page + 1))} disabled={page >= totalPages}>
+        <ChevronRight className="h-4 w-4" />
+      </Button>
+      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onPage(totalPages)} disabled={page >= totalPages}>
+        <ChevronsRight className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
+
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="font-semibold text-foreground">{value}</p>
+    </div>
+  );
+}
 
 export default Medicos;

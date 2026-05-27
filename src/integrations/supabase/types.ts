@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      blog_posts: {
+        Row: {
+          id: string
+          titulo: string
+          slug: string
+          resumo: string | null
+          conteudo: string
+          capa_url: string | null
+          status: "rascunho" | "publicado" | "agendado" | "arquivado"
+          data_publicacao: string | null
+          autor_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          titulo: string
+          slug: string
+          resumo?: string | null
+          conteudo: string
+          capa_url?: string | null
+          status?: "rascunho" | "publicado" | "agendado" | "arquivado"
+          data_publicacao?: string | null
+          autor_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          titulo?: string
+          slug?: string
+          resumo?: string | null
+          conteudo?: string
+          capa_url?: string | null
+          status?: "rascunho" | "publicado" | "agendado" | "arquivado"
+          data_publicacao?: string | null
+          autor_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       associacoes_marcas: {
         Row: {
           cidade: string | null
@@ -29,6 +71,8 @@ export type Database = {
           status: Database["public"]["Enums"]["status_generico"]
           telefone: string | null
           tipo: Database["public"]["Enums"]["tipo_fornecedor"]
+          documentos_obrigatorios: string[]
+          produtos_ids: string[]
           updated_at: string
         }
         Insert: {
@@ -45,6 +89,8 @@ export type Database = {
           status?: Database["public"]["Enums"]["status_generico"]
           telefone?: string | null
           tipo: Database["public"]["Enums"]["tipo_fornecedor"]
+          documentos_obrigatorios?: string[]
+          produtos_ids?: string[]
           updated_at?: string
         }
         Update: {
@@ -61,6 +107,8 @@ export type Database = {
           status?: Database["public"]["Enums"]["status_generico"]
           telefone?: string | null
           tipo?: Database["public"]["Enums"]["tipo_fornecedor"]
+          documentos_obrigatorios?: string[]
+          produtos_ids?: string[]
           updated_at?: string
         }
         Relationships: []
@@ -217,12 +265,19 @@ export type Database = {
           created_at: string
           crm: string
           email: string
+          endereco_profissional: string | null
           especialidade_id: string | null
+          etapa_validacao: number | null
           id: string
+          motivo_recusa: string | null
           nome: string
+          observacoes_admin: string | null
           status: Database["public"]["Enums"]["status_medico"]
+          status_validacao: "em_analise" | "incompleto" | "aprovado" | "recusado" | null
           telefone: string | null
+          tempo_atuacao_anos: number | null
           total_atendimentos: number
+          total_receitas: number
           uf_crm: string
           ultimo_acesso: string | null
           updated_at: string
@@ -232,12 +287,19 @@ export type Database = {
           created_at?: string
           crm: string
           email: string
+          endereco_profissional?: string | null
           especialidade_id?: string | null
+          etapa_validacao?: number | null
           id?: string
+          motivo_recusa?: string | null
           nome: string
+          observacoes_admin?: string | null
           status?: Database["public"]["Enums"]["status_medico"]
+          status_validacao?: "em_analise" | "incompleto" | "aprovado" | "recusado" | null
           telefone?: string | null
+          tempo_atuacao_anos?: number | null
           total_atendimentos?: number
+          total_receitas?: number
           uf_crm: string
           ultimo_acesso?: string | null
           updated_at?: string
@@ -247,12 +309,19 @@ export type Database = {
           created_at?: string
           crm?: string
           email?: string
+          endereco_profissional?: string | null
           especialidade_id?: string | null
+          etapa_validacao?: number | null
           id?: string
+          motivo_recusa?: string | null
           nome?: string
+          observacoes_admin?: string | null
           status?: Database["public"]["Enums"]["status_medico"]
+          status_validacao?: "em_analise" | "incompleto" | "aprovado" | "recusado" | null
           telefone?: string | null
+          tempo_atuacao_anos?: number | null
           total_atendimentos?: number
+          total_receitas?: number
           uf_crm?: string
           ultimo_acesso?: string | null
           updated_at?: string
@@ -367,9 +436,12 @@ export type Database = {
           created_at: string
           data_nascimento: string
           endereco_completo: string | null
+          genero: string | null
           id: string
+          observacoes_admin: string | null
           total_consultas: number
           total_pedidos: number
+          total_receitas: number
           ultimo_acesso: string | null
           updated_at: string
           user_id: string
@@ -379,9 +451,12 @@ export type Database = {
           created_at?: string
           data_nascimento: string
           endereco_completo?: string | null
+          genero?: string | null
           id?: string
+          observacoes_admin?: string | null
           total_consultas?: number
           total_pedidos?: number
+          total_receitas?: number
           ultimo_acesso?: string | null
           updated_at?: string
           user_id: string
@@ -391,9 +466,12 @@ export type Database = {
           created_at?: string
           data_nascimento?: string
           endereco_completo?: string | null
+          genero?: string | null
           id?: string
+          observacoes_admin?: string | null
           total_consultas?: number
           total_pedidos?: number
+          total_receitas?: number
           ultimo_acesso?: string | null
           updated_at?: string
           user_id?: string
@@ -510,6 +588,11 @@ export type Database = {
           paciente_id: string
           receita_id: string | null
           status: Database["public"]["Enums"]["status_pedido"]
+          status_anvisa: "nao_solicitado" | "em_analise" | "aprovado" | "recusado"
+          codigo_rastreio: string | null
+          rastreio_atualizado_em: string | null
+          prazo_entrega_inicio: string | null
+          prazo_entrega_fim: string | null
           updated_at: string
           valor_total: number | null
         }
@@ -524,6 +607,11 @@ export type Database = {
           paciente_id: string
           receita_id?: string | null
           status?: Database["public"]["Enums"]["status_pedido"]
+          status_anvisa?: "nao_solicitado" | "em_analise" | "aprovado" | "recusado"
+          codigo_rastreio?: string | null
+          rastreio_atualizado_em?: string | null
+          prazo_entrega_inicio?: string | null
+          prazo_entrega_fim?: string | null
           updated_at?: string
           valor_total?: number | null
         }
@@ -538,6 +626,11 @@ export type Database = {
           paciente_id?: string
           receita_id?: string | null
           status?: Database["public"]["Enums"]["status_pedido"]
+          status_anvisa?: "nao_solicitado" | "em_analise" | "aprovado" | "recusado"
+          codigo_rastreio?: string | null
+          rastreio_atualizado_em?: string | null
+          prazo_entrega_inicio?: string | null
+          prazo_entrega_fim?: string | null
           updated_at?: string
           valor_total?: number | null
         }
@@ -661,6 +754,9 @@ export type Database = {
           nome_comercial: string
           principio_ativo: string
           status: Database["public"]["Enums"]["status_generico"]
+          tipo_origem: "nacional" | "internacional"
+          preco_brl: number | null
+          preco_usd: number | null
           updated_at: string
           volume_quantidade: string | null
         }
@@ -676,6 +772,9 @@ export type Database = {
           nome_comercial: string
           principio_ativo: string
           status?: Database["public"]["Enums"]["status_generico"]
+          tipo_origem?: "nacional" | "internacional"
+          preco_brl?: number | null
+          preco_usd?: number | null
           updated_at?: string
           volume_quantidade?: string | null
         }
@@ -691,6 +790,9 @@ export type Database = {
           nome_comercial?: string
           principio_ativo?: string
           status?: Database["public"]["Enums"]["status_generico"]
+          tipo_origem?: "nacional" | "internacional"
+          preco_brl?: number | null
+          preco_usd?: number | null
           updated_at?: string
           volume_quantidade?: string | null
         }
@@ -951,14 +1053,63 @@ export type Database = {
         }[]
       }
       admin_get_dashboard_stats: {
-        Args: never
+        Args: { p_year?: number; p_month?: number }
         Returns: {
-          total_consultas: number
-          total_medicos_ativos: number
-          total_pacientes_ativos: number
-          total_pedidos_ativos: number
-          total_pedidos_cancelados: number
-          total_pedidos_concluidos: number
+          receitas_emitidas: number
+          pedidos_realizados: number
+          aprovacoes_anvisa: number
+          produtos_catalogo: number
+          medicos_ativos: number
+          pacientes_ativos: number
+          associacoes_ativas: number
+        }[]
+      }
+      admin_get_pedido_detalhes: {
+        Args: { p_id: string }
+        Returns: {
+          id: string
+          numero_pedido: string
+          status: string
+          status_anvisa: "nao_solicitado" | "em_analise" | "aprovado" | "recusado"
+          valor_total: number | null
+          canal_aquisicao: string
+          data_pedido: string
+          codigo_rastreio: string | null
+          rastreio_atualizado_em: string | null
+          prazo_entrega_inicio: string | null
+          prazo_entrega_fim: string | null
+          receita_id: string | null
+          numero_receita: string | null
+          data_emissao: string | null
+          paciente_id: string
+          paciente_nome: string
+          medico_nome: string | null
+          documentos: Array<{
+            id: string
+            tipo: string
+            nome_arquivo: string
+            arquivo_url: string
+          }> | null
+          historico: Array<{
+            status_anterior: string | null
+            status_novo: string
+            observacao: string | null
+            created_at: string
+          }> | null
+        }[]
+      }
+      admin_update_pedido_anvisa: {
+        Args: { p_id: string; p_status_anvisa: string; p_observacao?: string | null }
+        Returns: undefined
+      }
+      admin_get_recent_anvisa: {
+        Args: { p_limit?: number }
+        Returns: {
+          id: string
+          numero_pedido: string
+          paciente_nome: string
+          status_anvisa: "nao_solicitado" | "em_analise" | "aprovado" | "recusado"
+          data_pedido: string
         }[]
       }
       admin_get_medico: {
@@ -967,16 +1118,127 @@ export type Database = {
           created_at: string
           crm: string
           email: string
+          endereco_profissional: string | null
           especialidade_nome: string
+          foto_perfil_url: string | null
           id: string
           nome: string
+          observacoes_admin: string | null
           status: string
           telefone: string
+          tempo_atuacao_anos: number | null
           total_atendimentos: number
+          total_receitas: number
           uf_crm: string
           ultimo_acesso: string
-          user_id: string
+          user_id: string | null
         }[]
+      }
+      admin_get_medico_documentos: {
+        Args: { p_medico_id: string }
+        Returns: {
+          id: string
+          tipo: string
+          nome_arquivo: string
+          arquivo_url: string
+          created_at: string
+        }[]
+      }
+      admin_get_medico_repasses: {
+        Args: { p_medico_id: string }
+        Returns: {
+          id: string
+          data_repasse: string
+          valor: number
+          status: string
+          observacao: string | null
+        }[]
+      }
+      admin_update_medico_observacoes: {
+        Args: { p_id: string; p_observacoes: string }
+        Returns: undefined
+      }
+      admin_get_configuracoes_sistema: {
+        Args: never
+        Returns: {
+          percentual_comissao_medico: number
+          valor_consulta_padrao: number
+          taxa_pedido: number
+          frete_internacional: number
+          prazo_entrega_internacional_dias: number
+          feriados: string[]
+          updated_at: string
+        }[]
+      }
+      admin_update_configuracoes_sistema: {
+        Args: {
+          p_percentual_comissao: number
+          p_valor_consulta: number
+          p_taxa_pedido: number
+          p_frete_intl: number
+          p_prazo_intl: number
+          p_feriados: string[]
+        }
+        Returns: undefined
+      }
+      admin_list_blog_posts: {
+        Args: never
+        Returns: {
+          id: string
+          titulo: string
+          slug: string
+          resumo: string | null
+          status: "rascunho" | "publicado" | "agendado" | "arquivado"
+          data_publicacao: string | null
+          autor_nome: string | null
+          created_at: string
+          capa_url: string | null
+        }[]
+      }
+      admin_upsert_blog_post: {
+        Args: {
+          p_id: string | null
+          p_titulo: string
+          p_slug: string
+          p_resumo: string | null
+          p_conteudo: string
+          p_capa_url: string | null
+          p_status: string
+          p_data_publicacao: string | null
+        }
+        Returns: string
+      }
+      admin_delete_blog_post: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
+      admin_list_feedbacks: {
+        Args: { p_nota_min?: number }
+        Returns: {
+          id: string
+          nota: number
+          comentario: string | null
+          paciente_nome: string
+          medico_nome: string | null
+          data_consulta: string | null
+          created_at: string
+        }[]
+      }
+      admin_get_feedbacks_resumo: {
+        Args: never
+        Returns: {
+          total: number
+          media_geral: number
+          notas_baixas: number
+        }[]
+      }
+      admin_aprovar_pedido: {
+        Args: { p_id: string; p_observacao?: string | null }
+        Returns: undefined
+      }
+      admin_recusar_pedido: {
+        Args: { p_id: string; p_motivo: string }
+        Returns: undefined
       }
       admin_get_monthly_pedidos: {
         Args: { p_year: number }
@@ -1003,15 +1265,68 @@ export type Database = {
           data_nascimento: string
           email: string
           endereco_completo: string
-          foto_perfil_url: string
+          foto_perfil_url: string | null
+          genero: string | null
           id: string
           nome_completo: string
+          observacoes_admin: string | null
           telefone: string
           total_consultas: number
           total_pedidos: number
+          total_receitas: number
           ultimo_acesso: string
           user_id: string
         }[]
+      }
+      admin_get_paciente_pagamentos: {
+        Args: { p_paciente_id: string }
+        Returns: {
+          data_pagamento: string
+          tipo: string
+          valor: number
+          referencia: string
+        }[]
+      }
+      admin_get_paciente_documentos: {
+        Args: { p_paciente_id: string }
+        Returns: {
+          id: string
+          tipo: string
+          nome_arquivo: string
+          arquivo_url: string
+          categoria: "usuario" | "produto"
+          created_at: string
+        }[]
+      }
+      admin_update_paciente_observacoes: {
+        Args: { p_id: string; p_observacoes: string }
+        Returns: undefined
+      }
+      admin_list_medicos_solicitacoes: {
+        Args: never
+        Returns: {
+          id: string
+          nome: string
+          email: string
+          telefone: string
+          crm: string
+          uf_crm: string
+          especialidade_nome: string
+          total_atendimentos: number
+          ultimo_acesso: string | null
+          foto_perfil_url: string | null
+          status_validacao: "em_analise" | "incompleto" | "aprovado" | "recusado"
+          etapa_validacao: number
+          created_at: string
+        }[]
+      }
+      admin_aprovar_medico: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
+      admin_recusar_medico: {
+        Args: { p_id: string; p_motivo: string }
+        Returns: undefined
       }
       admin_get_recent_medicos: {
         Args: { p_limit?: number }
@@ -1019,6 +1334,7 @@ export type Database = {
           created_at: string
           crm: string
           email: string
+          foto_perfil_url: string | null
           id: string
           nome: string
           status: string

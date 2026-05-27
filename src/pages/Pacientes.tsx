@@ -145,12 +145,12 @@ const Pacientes = () => {
         {/* Search and Actions */}
         <div className="flex items-center justify-between mb-6">
           <div className="relative w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
             <Input
               placeholder="Buscar paciente..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-card border-primary rounded-[20px]"
+              className="pl-10 bg-card border-primary rounded-[20px] text-primary placeholder:text-primary/60"
             />
           </div>
 
@@ -203,10 +203,10 @@ const Pacientes = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {currentPacientes.map((paciente, index) => (
-                    <TableRow 
+                  {currentPacientes.map((paciente) => (
+                    <TableRow
                       key={paciente.id}
-                      className={`hover:bg-muted/50 cursor-pointer ${index % 2 === 0 ? 'bg-card' : 'bg-card-green/30'}`}
+                      className="hover:bg-muted/40 cursor-pointer bg-card border-b border-border/40"
                       onClick={() => navigate(`/pacientes/${paciente.id}`)}
                     >
                       <TableCell className="font-semibold">{paciente.nome_completo}</TableCell>
@@ -242,7 +242,7 @@ const Pacientes = () => {
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <span className="text-sm text-muted-foreground font-normal">
-                  {startIndex + 1} a {Math.min(endIndex, filteredPacientes.length)} de {filteredPacientes.length}
+                  {startIndex + 1} to {Math.min(endIndex, filteredPacientes.length)} from {filteredPacientes.length}
                 </span>
                 <Button 
                   variant="ghost" 

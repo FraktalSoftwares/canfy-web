@@ -30,6 +30,9 @@ const ProdutoCadastro = () => {
   const [concentracaoTHC, setConcentracaoTHC] = useState("");
   const [fabricante, setFabricante] = useState("");
   const [volumeQuantidade, setVolumeQuantidade] = useState("");
+  const [tipoOrigem, setTipoOrigem] = useState<"nacional" | "internacional">("nacional");
+  const [precoBrl, setPrecoBrl] = useState("");
+  const [precoUsd, setPrecoUsd] = useState("");
   const [orientacoes, setOrientacoes] = useState("");
   const [imagemProduto, setImagemProduto] = useState<File | null>(null);
   const [imagemPreview, setImagemPreview] = useState<string>("");
@@ -90,6 +93,14 @@ const ProdutoCadastro = () => {
 
       if (insertError) {
         throw insertError;
+      }
+
+      if (newProductId) {
+        await supabase.from("produtos").update({
+          tipo_origem: tipoOrigem,
+          preco_brl: precoBrl ? Number(precoBrl) : null,
+          preco_usd: precoUsd ? Number(precoUsd) : null,
+        }).eq("id", newProductId as unknown as string);
       }
 
       toast({
@@ -300,6 +311,58 @@ const ProdutoCadastro = () => {
                   placeholder="Ex.: 30ml"
                   className="h-11 bg-background"
                 />
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold mb-2 block">Origem</label>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setTipoOrigem("nacional")}
+                    className={
+                      tipoOrigem === "nacional"
+                        ? "flex-1 h-11 rounded-full bg-primary text-white text-sm font-semibold"
+                        : "flex-1 h-11 rounded-full border border-border bg-background text-sm hover:bg-muted"
+                    }
+                  >
+                    Nacional
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTipoOrigem("internacional")}
+                    className={
+                      tipoOrigem === "internacional"
+                        ? "flex-1 h-11 rounded-full bg-primary text-white text-sm font-semibold"
+                        : "flex-1 h-11 rounded-full border border-border bg-background text-sm hover:bg-muted"
+                    }
+                  >
+                    Internacional
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-semibold mb-2 block">Preço (R$)</label>
+                  <Input
+                    type="number" step="0.01"
+                    value={precoBrl}
+                    onChange={(e) => setPrecoBrl(e.target.value)}
+                    placeholder="Ex.: 140.00"
+                    className="h-11 bg-background"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold mb-2 block">Preço (US$)</label>
+                  <Input
+                    type="number" step="0.01"
+                    value={precoUsd}
+                    onChange={(e) => setPrecoUsd(e.target.value)}
+                    placeholder="Ex.: 28.00"
+                    disabled={tipoOrigem === "nacional"}
+                    className="h-11 bg-background disabled:opacity-50"
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>

@@ -1486,22 +1486,22 @@ const MinhaConta = () => {
 
                 {/* Seção 3 */}
                 <div>
-                  <h3 className="text-lg font-bold text-green-600 mb-4">3. Sobre a aplicação inLida</h3>
+                  <h3 className="text-lg font-bold text-green-600 mb-4">3. Sobre a aplicação Canfy</h3>
                   <div className="space-y-4 text-sm text-muted-foreground leading-relaxed">
                     <p>
-                      O inLida é um software para a gestão da produção de bovinos, composto por uma aplicação para smartphones e tablets e de uma webpage (http://app.inLida.com.br/), que contêm as mesmas funcionalidades da aplicação, acrescida de gráficos e índices calculados a partir dos dados inseridos pelo USUÁRIO.
+                      O Canfy é uma plataforma de gestão médica para prescrição e acompanhamento de produtos à base de cannabis medicinal, composta por uma aplicação para smartphones e tablets e de uma webpage administrativa, que contém as mesmas funcionalidades da aplicação, acrescida de gráficos e índices calculados a partir dos dados inseridos pelo USUÁRIO.
                     </p>
                     <p>
-                      O USUÁRIO garante que os dados fornecidos ao inLida sejam verdadeiros, precisos, completos e atualizados. Para esses fins, o USUÁRIO responde à veracidade dos dados que ele comunicar à ora referida aplicações convenientemente, para que ele responda à sua situação atual.
+                      O USUÁRIO garante que os dados fornecidos ao Canfy sejam verdadeiros, precisos, completos e atualizados. Para esses fins, o USUÁRIO responde à veracidade dos dados que ele comunicar às ora referidas aplicações convenientemente, para que ele responda à sua situação atual.
                     </p>
                     <p>
-                      O USUÁRIO será responsável pelas informações falsas, excessivas ou imprecisas que ele fornecer por meio das aplicações da inLida e pelos danos, diretos ou indiretos, que isso cause à inLida ou a terceiros.
+                      O USUÁRIO será responsável pelas informações falsas, excessivas ou imprecisas que ele fornecer por meio das aplicações do Canfy e pelos danos, diretos ou indiretos, que isso cause ao Canfy ou a terceiros.
                     </p>
                     <p>
-                      A inLida não será responsável pelos dados fornecidos por menores de idade que não tenham a idade mínima legalmente prevista nos regulamentos atuais para poder consentir com o processamento de seus dados pessoais por conta própria, sem o consentimento prévio de seus pais, esponsores ou representantes legais.
+                      O Canfy não será responsável pelos dados fornecidos por menores de idade que não tenham a idade mínima legalmente prevista nos regulamentos atuais para poder consentir com o processamento de seus dados pessoais por conta própria, sem o consentimento prévio de seus pais, responsáveis ou representantes legais.
                     </p>
                     <p>
-                      Novas funcionalidades podem ser adicionadas, alteradas ou suprimidas na aplicação inLida sem aviso prévio e liberadas nos ciclos de atualização do software, sem que isso gere para o USUÁRIO qualquer direito.
+                      Novas funcionalidades podem ser adicionadas, alteradas ou suprimidas na aplicação Canfy sem aviso prévio e liberadas nos ciclos de atualização do software, sem que isso gere para o USUÁRIO qualquer direito.
                     </p>
                   </div>
                 </div>
