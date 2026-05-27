@@ -47,11 +47,7 @@ cd canfy-web
 2. **Instale as dependências**
 ```bash
 npm install
-# ou
-npm install --legacy-peer-deps
 ```
-
-> **Nota**: Use `--legacy-peer-deps` se encontrar conflitos de dependências entre `date-fns@4.1.0` e `react-day-picker@8.10.1`
 
 3. **Configure as variáveis de ambiente**
 
