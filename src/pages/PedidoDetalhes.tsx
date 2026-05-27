@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, Check, Copy, Download, X, ShieldCheck, ShieldX } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Copy, Download, X, ShieldCheck, ShieldX, Truck } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -100,10 +100,16 @@ const PedidoDetalhes = () => {
   const [showAprovar, setShowAprovar] = useState(false);
   const [showRecusar, setShowRecusar] = useState(false);
   const [showAnvisa, setShowAnvisa] = useState(false);
+  const [showEntrega, setShowEntrega] = useState(false);
   const [obsAprovar, setObsAprovar] = useState("");
   const [motivoRecusa, setMotivoRecusa] = useState("");
   const [novoStatusAnvisa, setNovoStatusAnvisa] = useState<AnvisaStatus>("em_analise");
   const [obsAnvisa, setObsAnvisa] = useState("");
+  const [entregaStatus, setEntregaStatus] = useState<"em_separacao" | "enviado" | "entregue">("em_separacao");
+  const [entregaRastreio, setEntregaRastreio] = useState("");
+  const [entregaInicio, setEntregaInicio] = useState("");
+  const [entregaFim, setEntregaFim] = useState("");
+  const [entregaObs, setEntregaObs] = useState("");
   const [acting, setActing] = useState(false);
 
   useEffect(() => {
@@ -209,6 +215,46 @@ const PedidoDetalhes = () => {
     }
   };
 
+  const openEntregaDialog = () => {
+    if (!pedido) return;
+    const initial: "em_separacao" | "enviado" | "entregue" =
+      pedido.status === "enviado" || pedido.status === "entregue" || pedido.status === "em_separacao"
+        ? (pedido.status as "em_separacao" | "enviado" | "entregue")
+        : "em_separacao";
+    setEntregaStatus(initial);
+    setEntregaRastreio(pedido.codigo_rastreio ?? "");
+    setEntregaInicio(pedido.prazo_entrega_inicio ?? "");
+    setEntregaFim(pedido.prazo_entrega_fim ?? "");
+    setEntregaObs("");
+    setShowEntrega(true);
+  };
+
+  const handleUpdateEntrega = async () => {
+    if (entregaInicio && entregaFim && entregaInicio > entregaFim) {
+      toast({ title: "Prazo inválido", description: "Data inicial deve ser anterior ou igual à final.", variant: "destructive" });
+      return;
+    }
+    try {
+      setActing(true);
+      const { error } = await supabase.rpc("admin_update_pedido_entrega", {
+        p_id: pedido!.id,
+        p_status: entregaStatus,
+        p_codigo_rastreio: entregaRastreio.trim() ? entregaRastreio.trim() : null,
+        p_prazo_entrega_inicio: entregaInicio || null,
+        p_prazo_entrega_fim: entregaFim || null,
+        p_observacao: entregaObs.trim() ? entregaObs.trim() : null,
+      });
+      if (error) throw error;
+      toast({ title: "Entrega atualizada" });
+      setShowEntrega(false);
+      fetchPedido();
+    } catch (e: any) {
+      toast({ title: "Erro ao atualizar entrega", description: e.message, variant: "destructive" });
+    } finally {
+      setActing(false);
+    }
+  };
+
   const handleCopyRastreio = async () => {
     if (!pedido?.codigo_rastreio) return;
     try {
@@ -269,6 +315,16 @@ const PedidoDetalhes = () => {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-foreground">Dados do pedido</h2>
           <div className="flex gap-2">
+            {["aprovado", "em_separacao", "enviado", "entregue"].includes(pedido.status) && (
+              <Button
+                variant="outline"
+                className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-full"
+                onClick={openEntregaDialog}
+              >
+                <Truck className="h-4 w-4" />
+                Atualizar entrega
+              </Button>
+            )}
             <Button
               variant="outline"
               className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-full"
@@ -497,6 +553,77 @@ const PedidoDetalhes = () => {
                 Cancelar
               </Button>
               <Button className="flex-1 bg-primary text-white hover:bg-primary-dark rounded-full" onClick={handleUpdateAnvisa} disabled={acting}>
+                Atualizar
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showEntrega} onOpenChange={setShowEntrega}>
+          <DialogContent className="sm:max-w-[520px] p-6 [&>button]:hidden">
+            <DialogHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <DialogTitle className="text-xl font-semibold">Atualizar entrega</DialogTitle>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowEntrega(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </DialogHeader>
+
+            <label className="text-sm font-semibold mb-1 block">Status do pedido</label>
+            <select
+              value={entregaStatus}
+              onChange={(e) => setEntregaStatus(e.target.value as "em_separacao" | "enviado" | "entregue")}
+              className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm mb-3"
+            >
+              <option value="em_separacao">Em separação</option>
+              <option value="enviado">Enviado</option>
+              <option value="entregue">Entregue</option>
+            </select>
+
+            <label className="text-sm font-semibold mb-1 block">Código de rastreio</label>
+            <input
+              type="text"
+              value={entregaRastreio}
+              onChange={(e) => setEntregaRastreio(e.target.value)}
+              placeholder="Informado pela transportadora"
+              className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm mb-3 font-mono"
+            />
+
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <label className="text-sm font-semibold mb-1 block">Prazo — início</label>
+                <input
+                  type="date"
+                  value={entregaInicio}
+                  onChange={(e) => setEntregaInicio(e.target.value)}
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-semibold mb-1 block">Prazo — fim</label>
+                <input
+                  type="date"
+                  value={entregaFim}
+                  onChange={(e) => setEntregaFim(e.target.value)}
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                />
+              </div>
+            </div>
+
+            <label className="text-sm font-semibold mb-1 block">Observação (opcional)</label>
+            <Textarea
+              value={entregaObs}
+              onChange={(e) => setEntregaObs(e.target.value)}
+              className="min-h-[80px] resize-none"
+              placeholder="Notas sobre essa atualização..."
+            />
+
+            <div className="flex gap-3 mt-4">
+              <Button variant="outline" className="flex-1 rounded-full" onClick={() => setShowEntrega(false)} disabled={acting}>
+                Cancelar
+              </Button>
+              <Button className="flex-1 bg-primary text-white hover:bg-primary-dark rounded-full" onClick={handleUpdateEntrega} disabled={acting}>
                 Atualizar
               </Button>
             </div>

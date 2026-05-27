@@ -1240,6 +1240,17 @@ export type Database = {
         Args: { p_id: string; p_motivo: string }
         Returns: undefined
       }
+      admin_update_pedido_entrega: {
+        Args: {
+          p_id: string
+          p_status?: string | null
+          p_codigo_rastreio?: string | null
+          p_prazo_entrega_inicio?: string | null
+          p_prazo_entrega_fim?: string | null
+          p_observacao?: string | null
+        }
+        Returns: undefined
+      }
       admin_get_monthly_pedidos: {
         Args: { p_year: number }
         Returns: {
