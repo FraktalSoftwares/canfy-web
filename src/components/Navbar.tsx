@@ -18,6 +18,7 @@ const Navbar = () => {
   const [userName, setUserName] = useState("Usuário");
   const [userEmail, setUserEmail] = useState("");
   const [userPhoto, setUserPhoto] = useState("");
+  const [naoLidas, setNaoLidas] = useState(0);
 
   const navItems = [
     { name: "Dashboard", path: "/home" },
@@ -57,6 +58,17 @@ const Navbar = () => {
 
     fetchUserData();
 
+    const fetchNaoLidas = async () => {
+      const { count, error } = await supabase
+        .from('notificacoes')
+        .select('id', { count: 'exact', head: true })
+        .eq('lida', false);
+
+      if (!error) setNaoLidas(count ?? 0);
+    };
+
+    fetchNaoLidas();
+
     // Atualizar dados quando o usuário voltar de outra aba
     const channel = supabase
       .channel('profile-changes')
@@ -77,8 +89,18 @@ const Navbar = () => {
       )
       .subscribe();
 
+    const notifChannel = supabase
+      .channel('notificacoes-badge')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notificacoes' },
+        () => fetchNaoLidas()
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(notifChannel);
     };
   }, []);
 
@@ -125,7 +147,9 @@ const Navbar = () => {
           <Link to="/notificacoes" className="relative">
             <button className="p-2 hover:bg-muted rounded-lg">
               <Bell className="h-5 w-5 text-muted-foreground" />
-              <div className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></div>
+              {naoLidas > 0 && (
+                <div className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+              )}
             </button>
           </Link>
 
