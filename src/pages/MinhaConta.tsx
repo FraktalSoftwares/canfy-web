@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -640,7 +639,7 @@ const MinhaConta = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <Navbar />
+
         <div className="flex items-center justify-center h-96">
           <div className="animate-pulse text-muted-foreground">Carregando...</div>
         </div>
@@ -650,7 +649,7 @@ const MinhaConta = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
+
       
       <div className="px-6 py-8 max-w-7xl mx-auto">
         {/* Header */}

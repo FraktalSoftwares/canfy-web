@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import Navbar from "@/components/Navbar";
 import StatCard from "@/components/StatCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -166,7 +165,7 @@ const Dashboard = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <Navbar />
+
         <div className="flex items-center justify-center py-12">
           <div className="animate-pulse text-muted-foreground">Carregando...</div>
         </div>
@@ -176,7 +175,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
+
 
       <div className="px-6 py-8 max-w-[1400px] mx-auto">
         <div className="flex items-center justify-between mb-6">

@@ -1,5 +1,4 @@
 import { useNavigate, useParams } from "react-router-dom";
-import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Download, Copy, CheckCircle2, Circle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -50,7 +49,7 @@ const ReceitaDetalhes = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
+
       
       <div className="px-6 py-8 max-w-5xl mx-auto">
         {/* Breadcrumb */}

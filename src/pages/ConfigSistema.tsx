@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -81,7 +80,7 @@ const ConfigSistema = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <Navbar />
+
         <div className="flex items-center justify-center py-12">
           <div className="animate-pulse text-muted-foreground">Carregando...</div>
         </div>
@@ -91,7 +90,7 @@ const ConfigSistema = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
+
 
       <div className="px-6 py-8 max-w-[960px] mx-auto">
         <Button

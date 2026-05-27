@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AppLayout } from "@/components/AppLayout";
 import { RouteTitle } from "@/components/RouteTitle";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -46,39 +46,41 @@ const App = () => (
           <Route path="/esqueci-senha" element={<ForgotPassword />} />
           <Route path="/termos-de-uso" element={<TermosDeUso />} />
           <Route path="/politica-privacidade" element={<PoliticaPrivacidade />} />
-          
-          {/* Rotas protegidas */}
-          <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/home" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/inicio" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/painel" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          
-          <Route path="/pacientes" element={<ProtectedRoute><Pacientes /></ProtectedRoute>} />
-          <Route path="/pacientes/:id" element={<ProtectedRoute><PacienteDetalhes /></ProtectedRoute>} />
-          
-          <Route path="/medicos" element={<ProtectedRoute><Medicos /></ProtectedRoute>} />
-          <Route path="/medicos/:id" element={<ProtectedRoute><MedicoDetalhes /></ProtectedRoute>} />
-          
-          <Route path="/produtos" element={<ProtectedRoute><Produtos /></ProtectedRoute>} />
-          <Route path="/produtos/novo" element={<ProtectedRoute><ProdutoCadastro /></ProtectedRoute>} />
-          <Route path="/produtos/:id" element={<ProtectedRoute><ProdutoDetalhes /></ProtectedRoute>} />
-          
-          <Route path="/receitas" element={<ProtectedRoute><Receitas /></ProtectedRoute>} />
-          <Route path="/receitas/:id" element={<ProtectedRoute><ReceitaDetalhes /></ProtectedRoute>} />
-          <Route path="/pedidos/:id" element={<ProtectedRoute><PedidoDetalhes /></ProtectedRoute>} />
-          
-          <Route path="/associacoes" element={<ProtectedRoute><Associacoes /></ProtectedRoute>} />
-          <Route path="/associacoes/:id" element={<ProtectedRoute><AssociacaoDetalhes /></ProtectedRoute>} />
-          
-          <Route path="/notificacoes" element={<ProtectedRoute><Notificacoes /></ProtectedRoute>} />
-          <Route path="/notificacoes/personalizadas" element={<ProtectedRoute><NotificacoesPersonalizadas /></ProtectedRoute>} />
-          
-          <Route path="/minha-conta" element={<ProtectedRoute><MinhaConta /></ProtectedRoute>} />
 
-          <Route path="/configuracoes-sistema" element={<ProtectedRoute><ConfigSistema /></ProtectedRoute>} />
-          <Route path="/blog" element={<ProtectedRoute><BlogAdmin /></ProtectedRoute>} />
-          <Route path="/feedbacks" element={<ProtectedRoute><FeedbacksConsultas /></ProtectedRoute>} />
-          
+          {/* Rotas protegidas com Navbar persistente */}
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/home" element={<Dashboard />} />
+            <Route path="/inicio" element={<Dashboard />} />
+            <Route path="/painel" element={<Dashboard />} />
+
+            <Route path="/pacientes" element={<Pacientes />} />
+            <Route path="/pacientes/:id" element={<PacienteDetalhes />} />
+
+            <Route path="/medicos" element={<Medicos />} />
+            <Route path="/medicos/:id" element={<MedicoDetalhes />} />
+
+            <Route path="/produtos" element={<Produtos />} />
+            <Route path="/produtos/novo" element={<ProdutoCadastro />} />
+            <Route path="/produtos/:id" element={<ProdutoDetalhes />} />
+
+            <Route path="/receitas" element={<Receitas />} />
+            <Route path="/receitas/:id" element={<ReceitaDetalhes />} />
+            <Route path="/pedidos/:id" element={<PedidoDetalhes />} />
+
+            <Route path="/associacoes" element={<Associacoes />} />
+            <Route path="/associacoes/:id" element={<AssociacaoDetalhes />} />
+
+            <Route path="/notificacoes" element={<Notificacoes />} />
+            <Route path="/notificacoes/personalizadas" element={<NotificacoesPersonalizadas />} />
+
+            <Route path="/minha-conta" element={<MinhaConta />} />
+
+            <Route path="/configuracoes-sistema" element={<ConfigSistema />} />
+            <Route path="/blog" element={<BlogAdmin />} />
+            <Route path="/feedbacks" element={<FeedbacksConsultas />} />
+          </Route>
+
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Download, Pencil, Copy, AlertCircle, Trash2, Check, Upload } from "lucide-react";
@@ -339,7 +338,7 @@ const ProdutoDetalhes = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <Navbar />
+
         <div className="px-6 py-8 flex items-center justify-center">
           <p>Carregando produto...</p>
         </div>
@@ -350,7 +349,7 @@ const ProdutoDetalhes = () => {
   if (!produto) {
     return (
       <div className="min-h-screen bg-background">
-        <Navbar />
+
         <div className="px-6 py-8">
           <p>Produto não encontrado</p>
         </div>
@@ -360,7 +359,7 @@ const ProdutoDetalhes = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
+
       
       <div className="px-6 py-8 max-w-5xl mx-auto">
         {/* Breadcrumb */}

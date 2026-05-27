@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -146,7 +145,7 @@ const BlogAdmin = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
+
 
       <div className="px-6 py-8 max-w-[1200px] mx-auto">
         <h1 className="text-2xl font-bold text-foreground mb-6">Blog</h1>

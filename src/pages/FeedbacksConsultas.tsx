@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import Navbar from "@/components/Navbar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -57,7 +56,7 @@ const FeedbacksConsultas = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
+
 
       <div className="px-6 py-8 max-w-[1200px] mx-auto">
         <h1 className="text-2xl font-bold text-foreground mb-6">Feedbacks de consultas</h1>

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -223,7 +222,7 @@ const PedidoDetalhes = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <Navbar />
+
         <div className="flex items-center justify-center py-12">
           <div className="animate-pulse text-muted-foreground">Carregando...</div>
         </div>
@@ -234,7 +233,7 @@ const PedidoDetalhes = () => {
   if (!pedido) {
     return (
       <div className="min-h-screen bg-background">
-        <Navbar />
+
         <div className="px-6 py-8 max-w-[1400px] mx-auto">
           <p className="text-muted-foreground">Pedido não encontrado.</p>
         </div>
@@ -249,7 +248,7 @@ const PedidoDetalhes = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
+
 
       <div className="px-6 py-8 max-w-[1080px] mx-auto">
         <Button

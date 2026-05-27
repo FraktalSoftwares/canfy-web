@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "@/components/Navbar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -251,7 +250,7 @@ const Receitas = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
+
       
       <div className="px-6 py-8">
         {/* Search and Actions */}

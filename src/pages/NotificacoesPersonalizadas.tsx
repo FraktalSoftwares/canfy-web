@@ -1,68 +1,193 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Plus, MoreVertical, X } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ArrowLeft, Plus, MoreVertical, X, Trash2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import type { Database } from "@/integrations/supabase/types";
+
+type Notificacao = Database["public"]["Tables"]["notificacoes"]["Row"];
+type DestinatarioTipo = Database["public"]["Enums"]["destinatario_tipo"];
+type TipoEnvio = Database["public"]["Enums"]["tipo_envio"];
 
 const NotificacoesPersonalizadas = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
+  const [loading, setLoading] = useState(true);
   const [novaNotificacaoOpen, setNovaNotificacaoOpen] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+
   const [titulo, setTitulo] = useState("");
   const [observacoes, setObservacoes] = useState("");
-  const [destinatario, setDestinatario] = useState("");
-  const [tipoEnvio, setTipoEnvio] = useState("");
+  const [destinatario, setDestinatario] = useState<DestinatarioTipo | "">("");
+  const [tipoEnvio, setTipoEnvio] = useState<TipoEnvio | "">("");
   const [data, setData] = useState("");
   const [hora, setHora] = useState("");
 
-  const notificacoes = [
-    {
-      id: 1,
-      status: "Enviada",
-      statusColor: "bg-green-100 text-green-700",
-      data: "01/09/25 • 09:30",
-      titulo: "Consulta agendada para amanhã!",
-      descricao: "Sua consulta na Canfy é amanhã às 15h. Acesso o app para mais detalhes.",
-      destinatario: "Paciente João Carlos Fonseca",
-    },
-    {
-      id: 2,
-      status: "Agendada",
-      statusColor: "bg-blue-100 text-blue-700",
-      data: "05/09/25 • 14:00",
-      titulo: "Atualização do cadastro de pacientes",
-      descricao: "Lembre-se de revisar o cadastro de pacientes no sistema.",
-      destinatario: "Todos os médicos",
-    },
-    {
-      id: 3,
-      status: "Agendada",
-      statusColor: "bg-blue-100 text-blue-700",
-      data: "05/09/25 • 14:00",
-      titulo: "Atualização do cadastro de pacientes",
-      descricao: "Lembre-se de revisar o cadastro de pacientes no sistema.",
-      destinatario: "Todos os médicos",
-    },
-    {
-      id: 4,
-      status: "Enviada",
-      statusColor: "bg-green-100 text-green-700",
-      data: "01/09/25 • 09:30",
-      titulo: "Consulta agendada para amanhã!",
-      descricao: "Sua consulta na Canfy é amanhã às 15h. Acesso o app para mais detalhes.",
-      destinatario: "Paciente João Carlos Fonseca",
-    },
-  ];
+  const fetchNotificacoes = async () => {
+    const { data, error } = await supabase
+      .from("notificacoes")
+      .select("*")
+      .eq("tipo", "personalizada")
+      .order("data_envio", { ascending: false });
+
+    if (error) {
+      toast({
+        title: "Erro ao carregar notificações",
+        description: error.message,
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
+    setNotificacoes(data ?? []);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchNotificacoes();
+  }, []);
+
+  useRealtimeSubscription({
+    table: "notificacoes",
+    onInsert: () => fetchNotificacoes(),
+    onUpdate: () => fetchNotificacoes(),
+    onDelete: () => fetchNotificacoes(),
+  });
+
+  const resetForm = () => {
+    setTitulo("");
+    setObservacoes("");
+    setDestinatario("");
+    setTipoEnvio("");
+    setData("");
+    setHora("");
+  };
+
+  const handleSalvar = async () => {
+    if (!titulo.trim() || !observacoes.trim() || !destinatario || !tipoEnvio) {
+      toast({
+        title: "Preencha todos os campos",
+        description: "Título, descrição, destinatário e tipo de envio são obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    let dataEnvio = new Date().toISOString();
+    if (tipoEnvio === "agendado") {
+      if (!data || !hora) {
+        toast({
+          title: "Data e hora obrigatórias",
+          description: "Para envio agendado informe data e hora.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const combinado = new Date(`${data}T${hora}:00`);
+      if (Number.isNaN(combinado.getTime())) {
+        toast({
+          title: "Data inválida",
+          description: "Verifique data e hora.",
+          variant: "destructive",
+        });
+        return;
+      }
+      dataEnvio = combinado.toISOString();
+    }
+
+    setSalvando(true);
+    const { error } = await supabase.from("notificacoes").insert({
+      titulo: titulo.trim(),
+      descricao: observacoes.trim(),
+      tipo: "personalizada",
+      categoria: "geral",
+      tipo_envio: tipoEnvio,
+      destinatario_tipo: destinatario,
+      data_envio: dataEnvio,
+    });
+    setSalvando(false);
+
+    if (error) {
+      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
+      return;
+    }
+
+    toast({ title: "Notificação salva", description: "Notificação cadastrada com sucesso." });
+    setNovaNotificacaoOpen(false);
+    resetForm();
+    fetchNotificacoes();
+  };
+
+  const handleExcluir = async (id: string) => {
+    const { error } = await supabase.from("notificacoes").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Notificação excluída" });
+    fetchNotificacoes();
+  };
+
+  const formatData = (iso: string) =>
+    format(new Date(iso), "dd/MM/yy • HH:mm", { locale: ptBR });
+
+  const statusOf = (n: Notificacao) => {
+    const enviada = new Date(n.data_envio).getTime() <= Date.now();
+    return enviada
+      ? { label: "Enviada", color: "bg-green-100 text-green-700" }
+      : { label: "Agendada", color: "bg-blue-100 text-blue-700" };
+  };
+
+  const destinatarioLabel = (tipo: DestinatarioTipo) => {
+    switch (tipo) {
+      case "todos":
+        return "Todos os usuários";
+      case "todos_medicos":
+        return "Todos os médicos";
+      case "todos_pacientes":
+        return "Todos os pacientes";
+      case "especifico":
+        return "Destinatário específico";
+    }
+  };
+
+  const podeMostrarDataHora = useMemo(() => tipoEnvio === "agendado", [tipoEnvio]);
 
   return (
     <div className="min-h-screen bg-background">
+
+
       <div className="px-6 py-8 max-w-5xl mx-auto">
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <Button
             variant="ghost"
@@ -81,13 +206,14 @@ const NotificacoesPersonalizadas = () => {
           </Button>
         </div>
 
-        {/* Modal Nova Notificação */}
         <Dialog open={novaNotificacaoOpen} onOpenChange={setNovaNotificacaoOpen}>
           <DialogContent className="max-w-md [&>button]:hidden">
             <DialogHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <DialogTitle className="text-lg font-bold mb-1">Cadastrar nova notificação</DialogTitle>
+                  <DialogTitle className="text-lg font-bold mb-1">
+                    Cadastrar nova notificação
+                  </DialogTitle>
                   <p className="text-sm text-muted-foreground font-normal">
                     Preencha as informações abaixo para cadastrar uma nova notificação.
                   </p>
@@ -121,40 +247,42 @@ const NotificacoesPersonalizadas = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="observacoes">Observações</Label>
+                <Label htmlFor="observacoes">Descrição</Label>
                 <div className="relative">
                   <Textarea
                     id="observacoes"
                     placeholder="Ex.: Sua consulta está marcada para amanhã às 15h."
                     value={observacoes}
-                    onChange={(e) => setObservacoes(e.target.value.slice(0, 100))}
-                    maxLength={100}
+                    onChange={(e) => setObservacoes(e.target.value.slice(0, 200))}
+                    maxLength={200}
                     className="min-h-[80px] resize-none"
                   />
                   <span className="absolute right-3 bottom-3 text-xs text-muted-foreground">
-                    {observacoes.length}/100
+                    {observacoes.length}/200
                   </span>
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="destinatario">Destinatário</Label>
-                <Select value={destinatario} onValueChange={setDestinatario}>
+                <Select
+                  value={destinatario}
+                  onValueChange={(v) => setDestinatario(v as DestinatarioTipo)}
+                >
                   <SelectTrigger id="destinatario">
                     <SelectValue placeholder="Selecione os destinatários" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="todos-pacientes">Todos os pacientes</SelectItem>
-                    <SelectItem value="todos-medicos">Todos os médicos</SelectItem>
-                    <SelectItem value="paciente-especifico">Paciente específico</SelectItem>
-                    <SelectItem value="medico-especifico">Médico específico</SelectItem>
+                    <SelectItem value="todos">Todos os usuários</SelectItem>
+                    <SelectItem value="todos_pacientes">Todos os pacientes</SelectItem>
+                    <SelectItem value="todos_medicos">Todos os médicos</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="tipo-envio">Tipo de envio</Label>
-                <Select value={tipoEnvio} onValueChange={setTipoEnvio}>
+                <Select value={tipoEnvio} onValueChange={(v) => setTipoEnvio(v as TipoEnvio)}>
                   <SelectTrigger id="tipo-envio">
                     <SelectValue placeholder="Selecione o tipo de envio" />
                   </SelectTrigger>
@@ -165,57 +293,54 @@ const NotificacoesPersonalizadas = () => {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="data">Data</Label>
-                <Input
-                  id="data"
-                  type="text"
-                  placeholder="dd/mm/aaaa"
-                  value={data}
-                  onChange={(e) => setData(e.target.value)}
-                />
-              </div>
+              {podeMostrarDataHora && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="data">Data</Label>
+                    <Input
+                      id="data"
+                      type="date"
+                      value={data}
+                      onChange={(e) => setData(e.target.value)}
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="hora">Hora</Label>
-                <Input
-                  id="hora"
-                  type="text"
-                  placeholder="hh:mm (24h)"
-                  value={hora}
-                  onChange={(e) => setHora(e.target.value)}
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="hora">Hora</Label>
+                    <Input
+                      id="hora"
+                      type="time"
+                      value={hora}
+                      onChange={(e) => setHora(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="flex gap-3 pt-4">
                 <Button
                   variant="outline"
                   className="flex-1 rounded-full"
-                  onClick={() => setNovaNotificacaoOpen(false)}
+                  onClick={() => {
+                    setNovaNotificacaoOpen(false);
+                    resetForm();
+                  }}
+                  disabled={salvando}
                 >
                   Cancelar
                 </Button>
                 <Button
                   className="flex-1 rounded-full bg-green-600 hover:bg-green-700 text-white"
-                  onClick={() => {
-                    // Lógica para salvar notificação
-                    setNovaNotificacaoOpen(false);
-                    setTitulo("");
-                    setObservacoes("");
-                    setDestinatario("");
-                    setTipoEnvio("");
-                    setData("");
-                    setHora("");
-                  }}
+                  onClick={handleSalvar}
+                  disabled={salvando}
                 >
-                  Salvar notificação
+                  {salvando ? "Salvando..." : "Salvar notificação"}
                 </Button>
               </div>
             </div>
           </DialogContent>
         </Dialog>
 
-        {/* Breadcrumb */}
         <div className="mb-6">
           <p className="text-sm text-muted-foreground">
             Notificações <span className="mx-1">›</span>{" "}
@@ -223,53 +348,70 @@ const NotificacoesPersonalizadas = () => {
           </p>
         </div>
 
-        {/* Breadcrumb */}
-        <div className="mb-6">
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Carregando...</p>
+        ) : notificacoes.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Notificações <span className="mx-1">›</span>{" "}
-            <span className="text-foreground font-semibold">Notificações personalizadas</span>
+            Nenhuma notificação personalizada cadastrada.
           </p>
-        </div>
+        ) : (
+          <div className="space-y-4">
+            {notificacoes.map((notif) => {
+              const status = statusOf(notif);
+              return (
+                <Card key={notif.id} className="rounded-[10px] bg-secondary border-none">
+                  <CardContent className="pt-6">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Badge className={`${status.color} px-3 py-1 rounded-md font-medium`}>
+                            {status.label}
+                          </Badge>
+                          <span className="text-sm text-foreground">
+                            {formatData(notif.data_envio)}
+                          </span>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="h-5 w-5 text-muted-foreground" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => handleExcluir(notif.id)}
+                              className="text-red-600 focus:text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
 
-        {/* Lista de Notificações */}
-        <div className="space-y-4">
-          {notificacoes.map((notif) => (
-            <Card key={notif.id} className="rounded-[10px] bg-secondary border-none">
-              <CardContent className="pt-6">
-                <div className="space-y-4">
-                  {/* Header do Card */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Badge className={`${notif.statusColor} px-3 py-1 rounded-md font-medium`}>
-                        {notif.status}
-                      </Badge>
-                      <span className="text-sm text-foreground">{notif.data}</span>
+                      <div className="space-y-2">
+                        <div>
+                          <span className="text-sm font-semibold">Título: </span>
+                          <span className="text-sm text-muted-foreground">{notif.titulo}</span>
+                        </div>
+                        <div>
+                          <span className="text-sm font-semibold">Descrição: </span>
+                          <span className="text-sm text-muted-foreground">{notif.descricao}</span>
+                        </div>
+                        <div>
+                          <span className="text-sm font-semibold">Destinatário: </span>
+                          <span className="text-sm text-muted-foreground">
+                            {destinatarioLabel(notif.destinatario_tipo)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreVertical className="h-5 w-5 text-muted-foreground" />
-                    </Button>
-                  </div>
-
-                  {/* Conteúdo */}
-                  <div className="space-y-2">
-                    <div>
-                      <span className="text-sm font-semibold">Título: </span>
-                      <span className="text-sm text-muted-foreground">{notif.titulo}</span>
-                    </div>
-                    <div>
-                      <span className="text-sm font-semibold">Descrição: </span>
-                      <span className="text-sm text-muted-foreground">{notif.descricao}</span>
-                    </div>
-                    <div>
-                      <span className="text-sm font-semibold">Destinatário: </span>
-                      <span className="text-sm text-muted-foreground">{notif.destinatario}</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -185,7 +184,7 @@ const MedicoDetalhes = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <Navbar />
+
         <div className="flex items-center justify-center py-12">
           <div className="animate-pulse text-muted-foreground">Carregando...</div>
         </div>
@@ -196,7 +195,7 @@ const MedicoDetalhes = () => {
   if (!medico) {
     return (
       <div className="min-h-screen bg-background">
-        <Navbar />
+
         <div className="px-6 py-8"><p className="text-muted-foreground">Médico não encontrado.</p></div>
       </div>
     );
@@ -207,7 +206,7 @@ const MedicoDetalhes = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
+
 
       <div className="px-6 py-8 max-w-[1080px] mx-auto">
         <Button
