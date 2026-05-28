@@ -1173,6 +1173,39 @@ export type Database = {
           created_at: string
         }[]
       }
+      admin_get_medico_atendimentos: {
+        Args: { p_medico_id: string; p_limit?: number }
+        Returns: {
+          id: string
+          data_consulta: string
+          status: string
+          queixa_principal: string | null
+          paciente_nome: string
+          receita_id: string | null
+          cancelada_por: string | null
+          motivo_cancelamento: string | null
+        }[]
+      }
+      admin_get_medico_receitas: {
+        Args: { p_medico_id: string; p_limit?: number }
+        Returns: {
+          id: string
+          numero_receita: string
+          data_emissao: string
+          validade: string | null
+          status: string
+          paciente_nome: string
+          documento_url: string | null
+        }[]
+      }
+      admin_register_medico_ausencia: {
+        Args: { p_medico_id: string; p_consulta_id?: string | null; p_motivo?: string | null }
+        Returns: undefined
+      }
+      admin_reset_medico_ausencias: {
+        Args: { p_medico_id?: string | null }
+        Returns: number
+      }
       admin_get_medico_repasses: {
         Args: { p_medico_id: string }
         Returns: {

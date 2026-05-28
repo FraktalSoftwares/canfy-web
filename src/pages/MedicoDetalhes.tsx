@@ -13,8 +13,9 @@ import {
   AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-  ChevronLeft, ChevronRight, Check, MinusCircle, Pencil, X, Download,
+  ChevronLeft, ChevronRight, Check, MinusCircle, Pencil, X, Download, FileText, AlertTriangle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -61,6 +62,61 @@ interface RepasseRow {
   observacao: string | null;
 }
 
+interface AtendimentoRow {
+  id: string;
+  data_consulta: string;
+  status: string;
+  queixa_principal: string | null;
+  paciente_nome: string;
+  receita_id: string | null;
+  cancelada_por: string | null;
+  motivo_cancelamento: string | null;
+}
+
+interface ReceitaRow {
+  id: string;
+  numero_receita: string;
+  data_emissao: string;
+  validade: string | null;
+  status: string;
+  paciente_nome: string;
+  documento_url: string | null;
+}
+
+const DOC_LABEL: Record<string, string> = {
+  rg_ou_cnh: "RG ou CNH",
+  comprovante_crm_cro: "Comprovante do CRM/CRO",
+  diploma: "Diploma",
+  certificado_complementar: "Certificação complementar",
+  certificado_prescritor: "Certificado de prescritor de cannabis",
+  comprovante_residencia: "Comprovante de residência",
+  outros_documentos: "Outros documentos",
+};
+const DOC_ORDER = [
+  "rg_ou_cnh",
+  "comprovante_crm_cro",
+  "certificado_prescritor",
+  "diploma",
+  "certificado_complementar",
+  "comprovante_residencia",
+  "outros_documentos",
+];
+
+const labelDocumento = (t: string) => DOC_LABEL[t] ?? t.replace(/_/g, " ");
+
+const STATUS_CONSULTA_LABEL: Record<string, string> = {
+  agendada: "Agendada",
+  em_andamento: "Em andamento",
+  finalizada: "Finalizada",
+  cancelada: "Cancelada",
+};
+const STATUS_RECEITA_LABEL: Record<string, string> = {
+  ativa: "Ativa",
+  utilizada: "Utilizada",
+  expirada: "Expirada",
+  cancelada: "Cancelada",
+};
+
 const formatCurrency = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
@@ -96,6 +152,18 @@ const MedicoDetalhes = () => {
   const [showInactivateDialog, setShowInactivateDialog] = useState(false);
   const [observacoes, setObservacoes] = useState("");
   const [savingObs, setSavingObs] = useState(false);
+
+  const [showAtendimentosModal, setShowAtendimentosModal] = useState(false);
+  const [atendimentos, setAtendimentos] = useState<AtendimentoRow[]>([]);
+  const [loadingAtend, setLoadingAtend] = useState(false);
+
+  const [showReceitasModal, setShowReceitasModal] = useState(false);
+  const [receitas, setReceitas] = useState<ReceitaRow[]>([]);
+  const [loadingReceitas, setLoadingReceitas] = useState(false);
+
+  const [showAusenciaDialog, setShowAusenciaDialog] = useState(false);
+  const [ausenciaMotivo, setAusenciaMotivo] = useState("");
+  const [savingAusencia, setSavingAusencia] = useState(false);
 
   const [form, setForm] = useState({
     telefone: "",
@@ -173,6 +241,62 @@ const MedicoDetalhes = () => {
       toast({ title: "Erro ao salvar", description: e.message, variant: "destructive" });
     } finally {
       setSavingObs(false);
+    }
+  };
+
+  const openAtendimentos = async () => {
+    setShowAtendimentosModal(true);
+    if (atendimentos.length === 0) {
+      setLoadingAtend(true);
+      try {
+        const { data, error } = await supabase.rpc("admin_get_medico_atendimentos", { p_medico_id: id!, p_limit: 200 });
+        if (error) throw error;
+        setAtendimentos((data as AtendimentoRow[]) || []);
+      } catch (e: any) {
+        toast({ title: "Erro ao carregar atendimentos", description: e.message, variant: "destructive" });
+      } finally {
+        setLoadingAtend(false);
+      }
+    }
+  };
+
+  const openReceitas = async () => {
+    setShowReceitasModal(true);
+    if (receitas.length === 0) {
+      setLoadingReceitas(true);
+      try {
+        const { data, error } = await supabase.rpc("admin_get_medico_receitas", { p_medico_id: id!, p_limit: 200 });
+        if (error) throw error;
+        setReceitas((data as ReceitaRow[]) || []);
+      } catch (e: any) {
+        toast({ title: "Erro ao carregar receitas", description: e.message, variant: "destructive" });
+      } finally {
+        setLoadingReceitas(false);
+      }
+    }
+  };
+
+  const handleRegistrarAusencia = async () => {
+    if (!ausenciaMotivo.trim()) {
+      toast({ title: "Informe o motivo da ausência", variant: "destructive" });
+      return;
+    }
+    try {
+      setSavingAusencia(true);
+      const { error } = await supabase.rpc("admin_register_medico_ausencia", {
+        p_medico_id: id!,
+        p_consulta_id: null,
+        p_motivo: ausenciaMotivo.trim(),
+      });
+      if (error) throw error;
+      toast({ title: "Ausência registrada" });
+      setShowAusenciaDialog(false);
+      setAusenciaMotivo("");
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: "Erro ao registrar ausência", description: e.message, variant: "destructive" });
+    } finally {
+      setSavingAusencia(false);
     }
   };
 
@@ -333,8 +457,8 @@ const MedicoDetalhes = () => {
 
         <h2 className="text-xl font-bold text-foreground mb-4">Dados de uso</h2>
         <div className="grid grid-cols-2 gap-4 mb-4">
-          <UsageCard label="Nº de atendimento realizadas" value={medico.total_atendimentos} />
-          <UsageCard label="Nº de receitas emitidas" value={medico.total_receitas} />
+          <UsageCard label="Nº de atendimento realizadas" value={medico.total_atendimentos} onClick={openAtendimentos} />
+          <UsageCard label="Nº de receitas emitidas" value={medico.total_receitas} onClick={openReceitas} />
         </div>
         <Card className="rounded-[10px] bg-secondary border-none mb-8">
           <CardContent className="px-6 py-5">
@@ -368,8 +492,19 @@ const MedicoDetalhes = () => {
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-3">
-              Tolerância: {LIMITE_AUSENCIAS_ANO} ausências por ano. Ultrapassado o limite, a conta poderá ser inativada.
+              Tolerância: {LIMITE_AUSENCIAS_ANO} ausências por ano. Ao ultrapassar o limite, a conta é inativada automaticamente.
             </p>
+            <div className="flex justify-end mt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAusenciaDialog(true)}
+                className="gap-2 rounded-full border-destructive/40 text-destructive hover:bg-destructive/10"
+              >
+                <AlertTriangle className="h-4 w-4" />
+                Registrar ausência
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
@@ -393,29 +528,47 @@ const MedicoDetalhes = () => {
           </Card>
         </div>
 
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 gap-3 mb-8">
           {documentos.length === 0 ? (
-            <p className="text-muted-foreground italic col-span-3">Nenhum documento enviado.</p>
+            <p className="text-muted-foreground italic">Nenhum documento enviado.</p>
           ) : (
-            documentos.map((doc) => (
-              <Card key={doc.id} className="rounded-[10px] bg-secondary border-none">
-                <CardContent className="px-6 py-4 flex items-center justify-between">
-                  <a
-                    href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
-                    className="text-primary font-medium hover:underline truncate"
-                  >
-                    {doc.nome_arquivo}
-                  </a>
-                  <a
-                    href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
-                    className="text-primary hover:text-primary-dark shrink-0"
-                    aria-label="Baixar"
-                  >
-                    <Download className="h-4 w-4" />
-                  </a>
-                </CardContent>
-              </Card>
-            ))
+            DOC_ORDER
+              .map((t) => ({ tipo: t, docs: documentos.filter((d) => d.tipo === t) }))
+              .concat(
+                documentos.filter((d) => !DOC_ORDER.includes(d.tipo)).length > 0
+                  ? [{ tipo: "_extras", docs: documentos.filter((d) => !DOC_ORDER.includes(d.tipo)) }]
+                  : []
+              )
+              .filter((g) => g.docs.length > 0)
+              .map((g) => (
+                <Card key={g.tipo} className="rounded-[10px] bg-secondary border-none">
+                  <CardContent className="px-6 py-4">
+                    <p className="text-xs text-muted-foreground mb-2">
+                      {g.tipo === "_extras" ? "Outros" : labelDocumento(g.tipo)}
+                    </p>
+                    <div className="space-y-2">
+                      {g.docs.map((doc) => (
+                        <div key={doc.id} className="flex items-center justify-between">
+                          <a
+                            href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
+                            className="text-primary font-medium hover:underline truncate flex items-center gap-2"
+                          >
+                            <FileText className="h-4 w-4 shrink-0" />
+                            <span className="truncate">{doc.nome_arquivo}</span>
+                          </a>
+                          <a
+                            href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
+                            className="text-primary hover:text-primary-dark shrink-0 ml-3"
+                            aria-label="Baixar"
+                          >
+                            <Download className="h-4 w-4" />
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
           )}
         </div>
 
@@ -469,6 +622,164 @@ const MedicoDetalhes = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal Atendimentos */}
+      <Dialog open={showAtendimentosModal} onOpenChange={setShowAtendimentosModal}>
+        <DialogContent className="sm:max-w-[820px] max-h-[80vh] overflow-hidden p-6 [&>button]:hidden">
+          <DialogHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-xl font-semibold">Atendimentos realizados</DialogTitle>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowAtendimentosModal(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </DialogHeader>
+          <div className="overflow-y-auto max-h-[60vh]">
+            {loadingAtend ? (
+              <p className="text-center py-8 text-muted-foreground">Carregando...</p>
+            ) : atendimentos.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground">Nenhum atendimento encontrado.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-card-green hover:bg-card-green border-none">
+                    <TableHead>Data</TableHead>
+                    <TableHead>Paciente</TableHead>
+                    <TableHead>Queixa</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {atendimentos.map((a) => {
+                    const isCancNoShow = a.status === "cancelada" && a.cancelada_por === "medico";
+                    return (
+                      <TableRow key={a.id} className="bg-card border-b border-border/40 hover:bg-muted/30">
+                        <TableCell className="text-sm">{formatDateTime(a.data_consulta)}</TableCell>
+                        <TableCell className="font-medium">{a.paciente_nome}</TableCell>
+                        <TableCell className="text-sm">{a.queixa_principal || "—"}</TableCell>
+                        <TableCell>
+                          <Badge
+                            className={
+                              isCancNoShow
+                                ? "border-none rounded-full bg-card-red text-destructive hover:bg-card-red"
+                                : a.status === "finalizada"
+                                ? "border-none rounded-full bg-card-green text-[hsl(var(--primary-dark))] hover:bg-card-green"
+                                : a.status === "cancelada"
+                                ? "border-none rounded-full bg-muted text-muted-foreground hover:bg-muted"
+                                : "border-none rounded-full bg-card-blue text-[hsl(207_89%_35%)] hover:bg-card-blue"
+                            }
+                          >
+                            {isCancNoShow ? "Ausência" : STATUS_CONSULTA_LABEL[a.status] || a.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Receitas */}
+      <Dialog open={showReceitasModal} onOpenChange={setShowReceitasModal}>
+        <DialogContent className="sm:max-w-[820px] max-h-[80vh] overflow-hidden p-6 [&>button]:hidden">
+          <DialogHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-xl font-semibold">Receitas emitidas</DialogTitle>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowReceitasModal(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </DialogHeader>
+          <div className="overflow-y-auto max-h-[60vh]">
+            {loadingReceitas ? (
+              <p className="text-center py-8 text-muted-foreground">Carregando...</p>
+            ) : receitas.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground">Nenhuma receita emitida.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-card-green hover:bg-card-green border-none">
+                    <TableHead>Nº receita</TableHead>
+                    <TableHead>Paciente</TableHead>
+                    <TableHead>Emissão</TableHead>
+                    <TableHead>Validade</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Documento</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {receitas.map((r) => (
+                    <TableRow key={r.id} className="bg-card border-b border-border/40 hover:bg-muted/30">
+                      <TableCell className="font-mono text-sm">{r.numero_receita}</TableCell>
+                      <TableCell className="font-medium">{r.paciente_nome}</TableCell>
+                      <TableCell className="text-sm">{formatDate(r.data_emissao)}</TableCell>
+                      <TableCell className="text-sm">{formatDate(r.validade)}</TableCell>
+                      <TableCell>
+                        <Badge className="border-none rounded-full bg-card-blue text-[hsl(207_89%_35%)] hover:bg-card-blue">
+                          {STATUS_RECEITA_LABEL[r.status] || r.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {r.documento_url ? (
+                          <a
+                            href={r.documento_url} target="_blank" rel="noopener noreferrer"
+                            className="text-primary hover:text-primary-dark inline-flex items-center gap-1"
+                          >
+                            <Download className="h-4 w-4" /> baixar
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">—</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Registrar Ausência */}
+      <Dialog open={showAusenciaDialog} onOpenChange={(open) => { if (!open) { setShowAusenciaDialog(false); setAusenciaMotivo(""); } }}>
+        <DialogContent className="sm:max-w-[480px] p-6 [&>button]:hidden">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-xl font-semibold">Registrar ausência</DialogTitle>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowAusenciaDialog(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Adiciona +1 ao contador anual de ausências. Ao ultrapassar {LIMITE_AUSENCIAS_ANO}, a conta é inativada automaticamente.
+          </p>
+          <div className="mt-3">
+            <label className="text-sm font-semibold">Motivo</label>
+            <Textarea
+              value={ausenciaMotivo}
+              onChange={(e) => setAusenciaMotivo(e.target.value)}
+              placeholder="Descreva brevemente o motivo da ausência..."
+              className="min-h-[100px] mt-1 bg-background border-border resize-none"
+            />
+          </div>
+          <div className="flex gap-3 mt-4">
+            <Button variant="outline" className="flex-1 rounded-full" onClick={() => setShowAusenciaDialog(false)} disabled={savingAusencia}>
+              Cancelar
+            </Button>
+            <Button
+              className="flex-1 bg-destructive text-white hover:bg-destructive/90 rounded-full"
+              onClick={handleRegistrarAusencia}
+              disabled={savingAusencia}
+            >
+              {savingAusencia ? "Salvando..." : "Confirmar"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={showInactivateDialog} onOpenChange={setShowInactivateDialog}>
         <AlertDialogContent className="sm:max-w-[440px] p-6 [&>button]:hidden">
@@ -539,12 +850,21 @@ function EditableField({
   );
 }
 
-function UsageCard({ label, value }: { label: string; value: number }) {
+function UsageCard({ label, value, onClick }: { label: string; value: number; onClick?: () => void }) {
+  const interactive = !!onClick;
   return (
-    <Card className="rounded-[10px] bg-secondary border-none">
+    <Card
+      className={`rounded-[10px] bg-secondary border-none ${interactive ? "cursor-pointer hover:bg-secondary/70 transition" : ""}`}
+      onClick={onClick}
+    >
       <CardContent className="px-6 py-5">
-        <p className="text-sm text-muted-foreground mb-1">{label}</p>
-        <p className="text-3xl font-bold text-foreground">{value}</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground mb-1">{label}</p>
+            <p className="text-3xl font-bold text-foreground">{value}</p>
+          </div>
+          {interactive && <ChevronRight className="h-5 w-5 text-muted-foreground" />}
+        </div>
       </CardContent>
     </Card>
   );
