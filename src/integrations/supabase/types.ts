@@ -1173,6 +1173,19 @@ export type Database = {
           created_at: string
         }[]
       }
+      admin_upsert_medico_documento: {
+        Args: {
+          p_medico_id: string
+          p_tipo: string
+          p_nome_arquivo: string
+          p_arquivo_url: string
+        }
+        Returns: string
+      }
+      admin_delete_medico_documento: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
       admin_get_medico_atendimentos: {
         Args: { p_medico_id: string; p_limit?: number }
         Returns: {

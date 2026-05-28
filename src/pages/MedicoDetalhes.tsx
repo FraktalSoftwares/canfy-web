@@ -16,6 +16,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   ChevronLeft, ChevronRight, Check, MinusCircle, Pencil, X, Download, FileText, AlertTriangle,
+  CloudUpload, Loader2, Trash2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -84,25 +85,33 @@ interface ReceitaRow {
 }
 
 const DOC_LABEL: Record<string, string> = {
-  rg_ou_cnh: "RG ou CNH",
-  comprovante_crm_cro: "Comprovante do CRM/CRO",
-  diploma: "Diploma",
-  certificado_complementar: "Certificação complementar",
-  certificado_prescritor: "Certificado de prescritor de cannabis",
+  rg_ou_cnh: "CNH ou RG",
+  comprovante_crm_cro: "Comprovante CRM",
+  certificado_prescritor: "Certificado do prescritor",
+  diploma: "Diploma de formação",
+  certificado_complementar: "Certificado complementar",
   comprovante_residencia: "Comprovante de residência",
   outros_documentos: "Outros documentos",
 };
-const DOC_ORDER = [
+
+const DOC_OPTIONAL: Record<string, boolean> = {
+  certificado_complementar: true,
+  outros_documentos: true,
+};
+
+const DOC_ORDER: Array<keyof typeof DOC_LABEL> = [
   "rg_ou_cnh",
   "comprovante_crm_cro",
   "certificado_prescritor",
   "diploma",
   "certificado_complementar",
-  "comprovante_residencia",
   "outros_documentos",
 ];
 
 const labelDocumento = (t: string) => DOC_LABEL[t] ?? t.replace(/_/g, " ");
+
+const MAX_UPLOAD_MB = 10;
+const ACCEPTED_MIMES = ["application/pdf", "image/png", "image/jpeg", "image/jpg"];
 
 const STATUS_CONSULTA_LABEL: Record<string, string> = {
   agendada: "Agendada",
@@ -164,6 +173,8 @@ const MedicoDetalhes = () => {
   const [showAusenciaDialog, setShowAusenciaDialog] = useState(false);
   const [ausenciaMotivo, setAusenciaMotivo] = useState("");
   const [savingAusencia, setSavingAusencia] = useState(false);
+
+  const [uploadingTipo, setUploadingTipo] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     telefone: "",
@@ -300,6 +311,53 @@ const MedicoDetalhes = () => {
     }
   };
 
+  const handleUploadDoc = async (tipo: string, file: File) => {
+    if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      toast({ title: "Arquivo muito grande", description: `Máximo ${MAX_UPLOAD_MB}MB`, variant: "destructive" });
+      return;
+    }
+    if (!ACCEPTED_MIMES.includes(file.type)) {
+      toast({ title: "Formato inválido", description: "Aceitos: PDF, PNG, JPG", variant: "destructive" });
+      return;
+    }
+    try {
+      setUploadingTipo(tipo);
+      const ext = file.name.split(".").pop() || "bin";
+      const path = `medico_docs/${id}/${tipo}_${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("documents").upload(path, file, {
+        cacheControl: "3600",
+        upsert: true,
+        contentType: file.type,
+      });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from("documents").getPublicUrl(path);
+      const { error: rpcErr } = await supabase.rpc("admin_upsert_medico_documento", {
+        p_medico_id: id!,
+        p_tipo: tipo,
+        p_nome_arquivo: file.name,
+        p_arquivo_url: pub.publicUrl,
+      });
+      if (rpcErr) throw rpcErr;
+      toast({ title: "Documento enviado" });
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: "Erro no upload", description: e.message, variant: "destructive" });
+    } finally {
+      setUploadingTipo(null);
+    }
+  };
+
+  const handleDeleteDoc = async (docId: string) => {
+    try {
+      const { error } = await supabase.rpc("admin_delete_medico_documento", { p_id: docId });
+      if (error) throw error;
+      toast({ title: "Documento removido" });
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: "Erro ao remover", description: e.message, variant: "destructive" });
+    }
+  };
+
   const handleInactivate = async () => {
     try {
       const { error } = await supabase.rpc("admin_inativar_medico", { p_id: id! });
@@ -339,7 +397,7 @@ const MedicoDetalhes = () => {
     <div className="min-h-screen bg-background">
 
 
-      <div className="px-6 py-8 max-w-[1080px] mx-auto">
+      <div className="px-6 py-12 max-w-[1280px] mx-auto">
         <Button
           variant="ghost"
           onClick={() => navigate(-1)}
@@ -411,49 +469,65 @@ const MedicoDetalhes = () => {
           </CardContent>
         </Card>
 
-        <Card className="rounded-[10px] bg-secondary border-none mb-8">
-          <CardContent className="grid grid-cols-2 gap-x-12 gap-y-5 px-6 py-6">
-            <EditableField
-              label="E-mail" editing={isEditing}
-              value={form.email || "—"} editValue={form.email}
-              onChange={(v) => setForm({ ...form, email: v })}
-            />
-            <Field label="Especialidade" value={medico.especialidade_nome} />
-            <EditableField
-              label="Telefone" editing={isEditing}
-              value={form.telefone || "—"} editValue={form.telefone}
-              onChange={(v) => setForm({ ...form, telefone: v })}
-            />
-            <EditableField
-              label="CPF" editing={isEditing}
-              value={form.cpf || "—"} editValue={form.cpf}
-              onChange={(v) => setForm({ ...form, cpf: v })}
-            />
-            <Field label="Nº de atendimento" value={String(medico.total_atendimentos)} />
-            <div className="border-b border-border/40 pb-3">
-              <p className="text-xs text-muted-foreground mb-1">CRM+UF</p>
-              {isEditing ? (
-                <div className="flex gap-2">
-                  <Input
-                    value={form.crm}
-                    onChange={(e) => setForm({ ...form, crm: e.target.value })}
-                    className="h-8 bg-background border-border flex-1"
-                    placeholder="CRM"
-                  />
-                  <Input
-                    value={form.uf_crm}
-                    onChange={(e) => setForm({ ...form, uf_crm: e.target.value })}
-                    className="h-8 bg-background border-border w-16"
-                    placeholder="UF"
-                  />
-                </div>
-              ) : (
-                <p className="text-base font-bold text-foreground">{form.crm}-{form.uf_crm}</p>
-              )}
-            </div>
-            <Field label="Último acesso" value={formatDateTime(medico.ultimo_acesso)} />
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-2 gap-4 mb-8">
+          <Card className="rounded-[16px] bg-secondary border-none">
+            <CardContent className="px-6 py-6 space-y-4">
+              <EditableField
+                label="E-mail" editing={isEditing}
+                value={form.email || "—"} editValue={form.email}
+                onChange={(v) => setForm({ ...form, email: v })}
+              />
+              <EditableField
+                label="Telefone" editing={isEditing}
+                value={form.telefone || "—"} editValue={form.telefone}
+                onChange={(v) => setForm({ ...form, telefone: v })}
+              />
+              <div className="border-b border-border/40 pb-3 last:border-b-0">
+                <p className="text-xs text-muted-foreground mb-1">CRM+UF</p>
+                {isEditing ? (
+                  <div className="flex gap-2">
+                    <Input
+                      value={form.crm}
+                      onChange={(e) => setForm({ ...form, crm: e.target.value })}
+                      className="h-9 bg-background border-border flex-1 rounded-full px-4"
+                      placeholder="CRM"
+                    />
+                    <Input
+                      value={form.uf_crm}
+                      onChange={(e) => setForm({ ...form, uf_crm: e.target.value })}
+                      className="h-9 bg-background border-border w-20 rounded-full px-4"
+                      placeholder="UF"
+                    />
+                  </div>
+                ) : (
+                  <p className="text-base font-bold text-foreground">{form.crm}-{form.uf_crm}</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="rounded-[16px] bg-secondary border-none">
+            <CardContent className="px-6 py-6 space-y-4">
+              <Field label="Especialidade" value={medico.especialidade_nome} />
+              <Field label="Nº de atendimento" value={String(medico.total_atendimentos)} />
+              <div className="pb-1">
+                <p className="text-xs text-muted-foreground mb-1">Último acesso</p>
+                <p className="text-base font-bold text-foreground">{formatDateTime(medico.ultimo_acesso)}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {isEditing && (
+          <Card className="rounded-[16px] bg-secondary border-none mb-8">
+            <CardContent className="px-6 py-6">
+              <EditableField
+                label="CPF" editing={isEditing}
+                value={form.cpf || "—"} editValue={form.cpf}
+                onChange={(v) => setForm({ ...form, cpf: v })}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         <h2 className="text-xl font-bold text-foreground mb-4">Dados de uso</h2>
         <div className="grid grid-cols-2 gap-4 mb-4">
@@ -510,75 +584,76 @@ const MedicoDetalhes = () => {
 
         <h2 className="text-xl font-bold text-foreground mb-4">Dados de validação profissional</h2>
         <div className="grid grid-cols-2 gap-4 mb-4">
-          <Card className="rounded-[10px] bg-secondary border-none">
-            <CardContent className="px-6 py-5">
-              <p className="text-xs text-muted-foreground mb-1">Endereço profissional</p>
-              <p className="text-base font-bold text-foreground">
-                {medico.endereco_profissional ?? "—"}
-              </p>
+          <Card className="rounded-[16px] bg-secondary border-none">
+            <CardContent className="px-6 py-6">
+              {isEditing ? (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1 font-semibold">Endereço profissional</p>
+                  <Input
+                    value={medico.endereco_profissional ?? ""}
+                    readOnly
+                    className="h-9 bg-background border-border rounded-full px-4"
+                    placeholder="—"
+                  />
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground mb-1">Endereço profissional</p>
+                  <p className="text-base font-bold text-foreground">
+                    {medico.endereco_profissional ?? "—"}
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
-          <Card className="rounded-[10px] bg-secondary border-none">
-            <CardContent className="px-6 py-5">
-              <p className="text-xs text-muted-foreground mb-1">Tempo de atuação</p>
-              <p className="text-base font-bold text-foreground">
-                {medico.tempo_atuacao_anos != null ? `+${medico.tempo_atuacao_anos} anos` : "—"}
-              </p>
+          <Card className="rounded-[16px] bg-secondary border-none">
+            <CardContent className="px-6 py-6">
+              {isEditing ? (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1 font-semibold">Tempo de atuação</p>
+                  <Input
+                    value={medico.tempo_atuacao_anos != null ? `+${medico.tempo_atuacao_anos} anos` : ""}
+                    readOnly
+                    className="h-9 bg-background border-border rounded-full px-4"
+                    placeholder="—"
+                  />
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground mb-1">Tempo de atuação</p>
+                  <p className="text-base font-bold text-foreground">
+                    {medico.tempo_atuacao_anos != null ? `+${medico.tempo_atuacao_anos} anos` : "—"}
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 mb-8">
-          {documentos.length === 0 ? (
-            <p className="text-muted-foreground italic">Nenhum documento enviado.</p>
-          ) : (
-            DOC_ORDER
-              .map((t) => ({ tipo: t, docs: documentos.filter((d) => d.tipo === t) }))
-              .concat(
-                documentos.filter((d) => !DOC_ORDER.includes(d.tipo)).length > 0
-                  ? [{ tipo: "_extras", docs: documentos.filter((d) => !DOC_ORDER.includes(d.tipo)) }]
-                  : []
-              )
-              .filter((g) => g.docs.length > 0)
-              .map((g) => (
-                <Card key={g.tipo} className="rounded-[10px] bg-secondary border-none">
-                  <CardContent className="px-6 py-4">
-                    <p className="text-xs text-muted-foreground mb-2">
-                      {g.tipo === "_extras" ? "Outros" : labelDocumento(g.tipo)}
-                    </p>
-                    <div className="space-y-2">
-                      {g.docs.map((doc) => (
-                        <div key={doc.id} className="flex items-center justify-between">
-                          <a
-                            href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
-                            className="text-primary font-medium hover:underline truncate flex items-center gap-2"
-                          >
-                            <FileText className="h-4 w-4 shrink-0" />
-                            <span className="truncate">{doc.nome_arquivo}</span>
-                          </a>
-                          <a
-                            href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
-                            className="text-primary hover:text-primary-dark shrink-0 ml-3"
-                            aria-label="Baixar"
-                          >
-                            <Download className="h-4 w-4" />
-                          </a>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-          )}
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          {DOC_ORDER.map((tipo) => {
+            const doc = documentos.find((d) => d.tipo === tipo);
+            return (
+              <DocSlot
+                key={tipo}
+                tipo={tipo}
+                doc={doc}
+                editing={isEditing}
+                uploading={uploadingTipo === tipo}
+                onUpload={(f) => handleUploadDoc(tipo, f)}
+                onDelete={doc ? () => handleDeleteDoc(doc.id) : undefined}
+              />
+            );
+          })}
         </div>
 
         <h2 className="text-xl font-bold text-foreground mb-4">Histórico de repasses</h2>
-        <Card className="rounded-[10px] bg-secondary border-none mb-8 overflow-hidden">
+        <Card className="rounded-[16px] bg-white border-none mb-8 overflow-hidden">
           <Table>
             <TableHeader>
-              <TableRow className="bg-primary hover:bg-primary border-none">
-                <TableHead className="font-semibold text-white">Data do repasse</TableHead>
-                <TableHead className="font-semibold text-white">Valor</TableHead>
+              <TableRow className="bg-card-green hover:bg-card-green border-none">
+                <TableHead className="font-normal text-foreground">Data do repasse</TableHead>
+                <TableHead className="font-normal text-foreground">Valor</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -590,9 +665,9 @@ const MedicoDetalhes = () => {
                 </TableRow>
               ) : (
                 repasses.map((r) => (
-                  <TableRow key={r.id} className="bg-card border-b border-border/40 hover:bg-muted/30">
-                    <TableCell>{formatDate(r.data_repasse)}</TableCell>
-                    <TableCell className="font-semibold">{formatCurrency(Number(r.valor))}</TableCell>
+                  <TableRow key={r.id} className="bg-secondary border-b border-border/40 hover:bg-muted/30">
+                    <TableCell className="text-sm">{formatDate(r.data_repasse)}</TableCell>
+                    <TableCell className="text-sm font-semibold">{formatCurrency(Number(r.valor))}</TableCell>
                   </TableRow>
                 ))
               )}
@@ -834,17 +909,140 @@ function EditableField({
   type?: string;
 }) {
   return (
-    <div className="border-b border-border/40 pb-3">
-      <p className="text-xs text-muted-foreground mb-1">{label}</p>
+    <div className={editing ? "" : "border-b border-border/40 pb-3 last:border-b-0"}>
+      <p className={`text-xs mb-1 ${editing ? "text-foreground font-semibold" : "text-muted-foreground"}`}>{label}</p>
       {editing ? (
         <Input
           type={type}
           value={editValue}
           onChange={(e) => onChange(e.target.value)}
-          className="h-8 bg-background border-border"
+          className="h-9 bg-background border-border rounded-full px-4"
         />
       ) : (
         <p className="text-base font-bold text-foreground break-words">{value}</p>
+      )}
+    </div>
+  );
+}
+
+function DocSlot({
+  tipo, doc, editing, uploading, onUpload, onDelete,
+}: {
+  tipo: string;
+  doc?: { id: string; nome_arquivo: string; arquivo_url: string };
+  editing: boolean;
+  uploading: boolean;
+  onUpload: (f: File) => void;
+  onDelete?: () => void;
+}) {
+  const label = labelDocumento(tipo);
+  const optional = DOC_OPTIONAL[tipo];
+  const inputId = `upload-${tipo}`;
+
+  if (!editing) {
+    if (!doc) {
+      return (
+        <div className="rounded-[16px] bg-secondary px-4 py-8 flex flex-col gap-2">
+          <p className="text-xs text-muted-foreground">{label}{optional && " (opcional)"}</p>
+          <p className="text-sm text-muted-foreground italic">Não enviado</p>
+        </div>
+      );
+    }
+    return (
+      <div className="rounded-[16px] bg-secondary px-4 py-8 flex items-center justify-between gap-2">
+        <a
+          href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
+          className="text-primary font-medium hover:underline truncate flex-1 min-w-0"
+          title={doc.nome_arquivo}
+        >
+          {doc.nome_arquivo}
+        </a>
+        <a
+          href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
+          className="text-primary hover:text-primary-dark shrink-0"
+          aria-label="Baixar"
+        >
+          <Download className="h-4 w-4" />
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-[16px] bg-secondary px-4 py-6 flex flex-col gap-3">
+      <div>
+        <p className="font-semibold text-foreground">
+          {label}
+          {optional && <span className="text-sm text-muted-foreground ml-1">(opcional)</span>}
+        </p>
+        <p className="text-sm text-muted-foreground">Formatos aceitos: PDF, PNG, JPG</p>
+      </div>
+
+      <input
+        id={inputId}
+        type="file"
+        accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onUpload(f);
+          e.target.value = "";
+        }}
+        disabled={uploading}
+      />
+
+      {doc && !uploading ? (
+        <div className="rounded-[12px] border border-border bg-background px-3 py-2 flex items-center justify-between gap-2">
+          <a
+            href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
+            className="text-primary text-sm hover:underline truncate flex items-center gap-2 min-w-0"
+            title={doc.nome_arquivo}
+          >
+            <FileText className="h-4 w-4 shrink-0" />
+            <span className="truncate">{doc.nome_arquivo}</span>
+          </a>
+          <div className="flex items-center gap-1 shrink-0">
+            <label htmlFor={inputId} className="text-xs text-primary cursor-pointer hover:underline">
+              Substituir
+            </label>
+            {onDelete && (
+              <button
+                onClick={onDelete}
+                className="text-destructive hover:bg-destructive/10 rounded-full p-1"
+                aria-label="Remover"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <label
+          htmlFor={inputId}
+          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const f = e.dataTransfer.files?.[0];
+            if (f) onUpload(f);
+          }}
+          className={`bg-background border-[1.5px] border-dashed rounded-[18px] py-11 px-6 flex flex-col items-center justify-center gap-4 cursor-pointer transition ${
+            uploading ? "border-primary/50 opacity-60" : "border-primary hover:bg-primary/5"
+          }`}
+        >
+          <div className="bg-card-green/40 rounded-full p-4">
+            {uploading ? (
+              <Loader2 className="h-7 w-7 text-primary animate-spin" />
+            ) : (
+              <CloudUpload className="h-7 w-7 text-primary" />
+            )}
+          </div>
+          <p className="text-sm font-semibold text-primary text-center leading-snug">
+            {uploading ? "Enviando..." : (
+              <>Clique para adicionar o arquivo<br />ou arraste-o até aqui.</>
+            )}
+          </p>
+        </label>
       )}
     </div>
   );
