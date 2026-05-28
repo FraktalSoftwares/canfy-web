@@ -1348,10 +1348,19 @@ export type Database = {
         Returns: {
           ativo: boolean
           cpf: string
+          rg: string | null
           created_at: string
           data_nascimento: string
           email: string
           endereco_completo: string
+          endereco_logradouro: string | null
+          endereco_numero: string | null
+          endereco_complemento: string | null
+          bairro: string | null
+          cidade: string | null
+          estado: string | null
+          cep: string | null
+          sexo: string | null
           foto_perfil_url: string | null
           genero: string | null
           id: string
@@ -1384,6 +1393,94 @@ export type Database = {
           categoria: "usuario" | "produto"
           created_at: string
         }[]
+      }
+      admin_get_paciente_consultas: {
+        Args: { p_paciente_id: string; p_limit?: number }
+        Returns: {
+          id: string
+          data_consulta: string
+          status: string
+          queixa_principal: string | null
+          medico_nome: string | null
+          receita_id: string | null
+        }[]
+      }
+      admin_get_paciente_receitas: {
+        Args: { p_paciente_id: string; p_limit?: number }
+        Returns: {
+          id: string
+          numero_receita: string
+          data_emissao: string
+          validade: string | null
+          status: string
+          medico_nome: string
+          documento_url: string | null
+        }[]
+      }
+      admin_get_paciente_pedidos: {
+        Args: { p_paciente_id: string; p_limit?: number }
+        Returns: {
+          id: string
+          numero_pedido: string
+          data_pedido: string
+          valor_total: number
+          status: string
+          status_anvisa: string | null
+          canal_aquisicao: string | null
+        }[]
+      }
+      admin_get_paciente_prontuarios: {
+        Args: { p_paciente_id: string; p_limit?: number }
+        Returns: {
+          id: string
+          consulta_id: string | null
+          medico_nome: string | null
+          status: string
+          arquivo_url: string | null
+          created_at: string
+        }[]
+      }
+      admin_get_paciente_anamnese: {
+        Args: { p_paciente_id: string }
+        Returns: {
+          peso: number | null
+          altura: number | null
+          tem_alergias: boolean | null
+          alergias_detalhes: string | null
+          tem_tratamentos_anteriores: boolean | null
+          tratamentos_anteriores_detalhes: string | null
+          tem_comorbidades: boolean | null
+          comorbidades_detalhes: string | null
+          tem_medicacoes_atuais: boolean | null
+          medicacoes_atuais_detalhes: string | null
+          tem_exames_recentes: boolean | null
+          exames_recentes_detalhes: string | null
+          produtos_cannabis_utilizados: string | null
+          tem_reacoes_adversas: boolean | null
+          reacoes_adversas_detalhes: string | null
+          updated_at: string
+        }[]
+      }
+      admin_upsert_paciente_anamnese: {
+        Args: {
+          p_paciente_id: string
+          p_peso?: number | null
+          p_altura?: number | null
+          p_tem_alergias?: boolean | null
+          p_alergias_detalhes?: string | null
+          p_tem_tratamentos_anteriores?: boolean | null
+          p_tratamentos_anteriores_detalhes?: string | null
+          p_tem_comorbidades?: boolean | null
+          p_comorbidades_detalhes?: string | null
+          p_tem_medicacoes_atuais?: boolean | null
+          p_medicacoes_atuais_detalhes?: string | null
+          p_tem_exames_recentes?: boolean | null
+          p_exames_recentes_detalhes?: string | null
+          p_produtos_cannabis_utilizados?: string | null
+          p_tem_reacoes_adversas?: boolean | null
+          p_reacoes_adversas_detalhes?: string | null
+        }
+        Returns: undefined
       }
       admin_update_paciente_observacoes: {
         Args: { p_id: string; p_observacoes: string }
@@ -1536,11 +1633,21 @@ export type Database = {
       }
       admin_update_paciente: {
         Args: {
-          p_cpf?: string
-          p_data_nascimento?: string
-          p_endereco_completo?: string
           p_id: string
-          p_telefone?: string
+          p_telefone?: string | null
+          p_cpf?: string | null
+          p_data_nascimento?: string | null
+          p_endereco_completo?: string | null
+          p_rg?: string | null
+          p_endereco_logradouro?: string | null
+          p_endereco_numero?: string | null
+          p_endereco_complemento?: string | null
+          p_bairro?: string | null
+          p_cidade?: string | null
+          p_estado?: string | null
+          p_cep?: string | null
+          p_sexo?: string | null
+          p_genero?: string | null
         }
         Returns: undefined
       }

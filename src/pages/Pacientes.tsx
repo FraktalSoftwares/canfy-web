@@ -6,6 +6,7 @@ import { Search, Filter, Download, ChevronLeft, ChevronRight, ChevronsLeft, Chev
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import {
   Dialog,
@@ -46,11 +47,11 @@ const Pacientes = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [showExportModal, setShowExportModal] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
-  const [exportFormat, setExportFormat] = useState("pdf");
+  const [exportFormat, setExportFormat] = useState<"csv" | "pdf">("csv");
   const [filterPeriod, setFilterPeriod] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterConsultas, setFilterConsultas] = useState("");
-  const [filterPedidos, setFilterPedidos] = useState("0-5");
+  const [filterPedidos, setFilterPedidos] = useState("");
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -92,35 +93,102 @@ const Pacientes = () => {
     }
   };
 
+  const matchRange = (value: number, range: string) => {
+    if (!range) return true;
+    if (range === "0-5") return value >= 0 && value <= 5;
+    if (range === "6-10") return value >= 6 && value <= 10;
+    if (range === "11-20") return value >= 11 && value <= 20;
+    if (range === "+20") return value > 20;
+    return true;
+  };
+
+  const matchPeriod = (createdAt: string) => {
+    if (!filterPeriod) return true;
+    const created = new Date(createdAt).getTime();
+    const now = Date.now();
+    const dayMs = 86400000;
+    if (filterPeriod === "7dias") return now - created <= 7 * dayMs;
+    if (filterPeriod === "30dias") return now - created <= 30 * dayMs;
+    if (filterPeriod === "3meses") return now - created <= 90 * dayMs;
+    return true;
+  };
+
   const filteredPacientes = pacientes.filter((paciente) => {
-    const matchesSearch = paciente.nome_completo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         paciente.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         paciente.cpf.includes(searchQuery);
-    
-    const matchesStatus = !filterStatus || 
-                         (filterStatus === "ativo" && paciente.ativo) ||
-                         (filterStatus === "inativo" && !paciente.ativo);
+    const q = searchQuery.toLowerCase();
+    const matchesSearch = !q
+      || paciente.nome_completo.toLowerCase().includes(q)
+      || paciente.email.toLowerCase().includes(q)
+      || paciente.cpf.includes(searchQuery);
 
-    let matchesConsultas = true;
-    if (filterConsultas) {
-      const consultas = paciente.total_consultas;
-      if (filterConsultas === "0-5") matchesConsultas = consultas >= 0 && consultas <= 5;
-      else if (filterConsultas === "6-10") matchesConsultas = consultas >= 6 && consultas <= 10;
-      else if (filterConsultas === "11-20") matchesConsultas = consultas >= 11 && consultas <= 20;
-      else if (filterConsultas === "+20") matchesConsultas = consultas > 20;
-    }
+    const matchesStatus = !filterStatus
+      || (filterStatus === "ativo" && paciente.ativo)
+      || (filterStatus === "inativo" && !paciente.ativo);
 
-    let matchesPedidos = true;
-    if (filterPedidos) {
-      const pedidos = paciente.total_pedidos;
-      if (filterPedidos === "0-5") matchesPedidos = pedidos >= 0 && pedidos <= 5;
-      else if (filterPedidos === "6-10") matchesPedidos = pedidos >= 6 && pedidos <= 10;
-      else if (filterPedidos === "11-20") matchesPedidos = pedidos >= 11 && pedidos <= 20;
-      else if (filterPedidos === "+20") matchesPedidos = pedidos > 20;
-    }
-
-    return matchesSearch && matchesStatus && matchesConsultas && matchesPedidos;
+    return matchesSearch
+      && matchesStatus
+      && matchRange(paciente.total_consultas, filterConsultas)
+      && matchRange(paciente.total_pedidos, filterPedidos)
+      && matchPeriod(paciente.created_at);
   });
+
+  const downloadCSV = (filename: string, headers: string[], rows: (string | number | null)[][]) => {
+    const escape = (v: string | number | null) => {
+      const s = v == null ? "" : String(v);
+      return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv = [headers, ...rows].map((r) => r.map(escape).join(";")).join("\r\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const openPDFPrint = (title: string, headers: string[], rows: (string | number | null)[][]) => {
+    const w = window.open("", "_blank");
+    if (!w) return;
+    const thead = headers.map((h) => `<th>${h}</th>`).join("");
+    const tbody = rows
+      .map((r) => "<tr>" + r.map((c) => `<td>${c == null ? "" : String(c)}</td>`).join("") + "</tr>")
+      .join("");
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${title}</title>
+<style>body{font-family:system-ui,sans-serif;padding:24px}h1{font-size:18px;margin-bottom:16px}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}
+th{background:#eef}</style></head><body><h1>${title}</h1><table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>
+<script>window.onload=()=>setTimeout(()=>window.print(),200)</script></body></html>`);
+    w.document.close();
+  };
+
+  const handleExport = () => {
+    const headers = ["Nome", "E-mail", "Telefone", "CPF", "Consultas", "Pedidos", "Último acesso", "Status"];
+    const rows = filteredPacientes.map((p) => [
+      p.nome_completo,
+      p.email,
+      p.telefone || "",
+      p.cpf,
+      p.total_consultas,
+      p.total_pedidos,
+      formatDate(p.ultimo_acesso),
+      p.ativo ? "Ativo" : "Inativo",
+    ]);
+    const stamp = format(new Date(), "yyyy-MM-dd_HHmm");
+    if (exportFormat === "csv") {
+      downloadCSV(`pacientes_${stamp}.csv`, headers, rows);
+    } else {
+      openPDFPrint(`Pacientes — ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}`, headers, rows);
+    }
+    setShowExportModal(false);
+  };
+
+  const limparFiltros = () => {
+    setFilterPeriod("");
+    setFilterStatus("");
+    setFilterConsultas("");
+    setFilterPedidos("");
+    setCurrentPage(1);
+  };
 
   const totalPages = Math.ceil(filteredPacientes.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -241,7 +309,7 @@ const Pacientes = () => {
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <span className="text-sm text-muted-foreground font-normal">
-                  {startIndex + 1} to {Math.min(endIndex, filteredPacientes.length)} from {filteredPacientes.length}
+                  {filteredPacientes.length === 0 ? 0 : startIndex + 1} a {Math.min(endIndex, filteredPacientes.length)} de {filteredPacientes.length}
                 </span>
                 <Button 
                   variant="ghost" 
@@ -283,14 +351,14 @@ const Pacientes = () => {
               </div>
             </DialogHeader>
             
-            <RadioGroup value={exportFormat} onValueChange={setExportFormat} className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="pdf" id="pdf" />
-                <Label htmlFor="pdf" className="font-normal cursor-pointer">Exportar em PDF</Label>
-              </div>
+            <RadioGroup value={exportFormat} onValueChange={(v) => setExportFormat(v as "csv" | "pdf")} className="space-y-4">
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="csv" id="csv" />
                 <Label htmlFor="csv" className="font-normal cursor-pointer">Exportar em CSV</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="pdf" id="pdf" />
+                <Label htmlFor="pdf" className="font-normal cursor-pointer">Exportar em PDF</Label>
               </div>
             </RadioGroup>
 
@@ -304,10 +372,7 @@ const Pacientes = () => {
               </Button>
               <Button
                 className="flex-1 bg-primary text-white hover:bg-primary-dark rounded-full"
-                onClick={() => {
-                  // Handle export logic here
-                  setShowExportModal(false);
-                }}
+                onClick={handleExport}
               >
                 Exportar
               </Button>
@@ -460,7 +525,7 @@ const Pacientes = () => {
               <Button
                 className="w-full bg-primary text-white hover:bg-primary-dark rounded-full"
                 onClick={() => {
-                  // Handle apply filters logic here
+                  setCurrentPage(1);
                   setShowFilterModal(false);
                 }}
               >
@@ -469,12 +534,7 @@ const Pacientes = () => {
               <Button
                 variant="link"
                 className="w-full text-primary hover:text-primary-dark"
-                onClick={() => {
-                  setFilterPeriod("");
-                  setFilterStatus("");
-                  setFilterConsultas("");
-                  setFilterPedidos("0-5");
-                }}
+                onClick={limparFiltros}
               >
                 Limpar filtros
               </Button>
