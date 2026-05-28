@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, Check, X, Plus, Calendar } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { ChevronLeft, Check, X, Plus, Calendar, Truck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -24,6 +25,14 @@ const ConfigSistema = () => {
   const [feriados, setFeriados] = useState<string[]>([]);
   const [novoFeriado, setNovoFeriado] = useState("");
 
+  const [meCepOrigem, setMeCepOrigem] = useState("65901110");
+  const [meSandbox, setMeSandbox] = useState(true);
+  const [meRemetenteNome, setMeRemetenteNome] = useState("");
+  const [meRemetenteDoc, setMeRemetenteDoc] = useState("");
+  const [meRemetenteEmail, setMeRemetenteEmail] = useState("");
+  const [meRemetenteTel, setMeRemetenteTel] = useState("");
+  const [meRemetenteCnpj, setMeRemetenteCnpj] = useState("");
+
   useEffect(() => {
     fetchConfig();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -41,6 +50,14 @@ const ConfigSistema = () => {
         setFreteIntl(String(c.frete_internacional));
         setPrazoIntl(String(c.prazo_entrega_internacional_dias));
         setFeriados((c.feriados as string[]) || []);
+        setMeCepOrigem(c.melhor_envio_cep_origem ?? "65901110");
+        setMeSandbox(c.melhor_envio_sandbox ?? true);
+        const rem = (c.melhor_envio_remetente as Record<string, string> | null) ?? {};
+        setMeRemetenteNome(rem.nome ?? "");
+        setMeRemetenteDoc(rem.document ?? "");
+        setMeRemetenteEmail(rem.email ?? "");
+        setMeRemetenteTel(rem.phone ?? "");
+        setMeRemetenteCnpj(rem.company_document ?? "");
       }
     } catch (e: any) {
       toast({ title: "Erro ao carregar", description: e.message, variant: "destructive" });
@@ -52,6 +69,14 @@ const ConfigSistema = () => {
   const handleSave = async () => {
     try {
       setSaving(true);
+      const remetente: Record<string, string> = {
+        nome: meRemetenteNome.trim(),
+        document: meRemetenteDoc.trim(),
+        email: meRemetenteEmail.trim(),
+        phone: meRemetenteTel.trim(),
+      };
+      if (meRemetenteCnpj.trim()) remetente.company_document = meRemetenteCnpj.trim();
+
       const { error } = await supabase.rpc("admin_update_configuracoes_sistema", {
         p_percentual_comissao: Number(percentualComissao),
         p_valor_consulta: Number(valorConsulta),
@@ -59,6 +84,9 @@ const ConfigSistema = () => {
         p_frete_intl: Number(freteIntl),
         p_prazo_intl: Number(prazoIntl),
         p_feriados: feriados,
+        p_me_cep_origem: meCepOrigem.trim(),
+        p_me_sandbox: meSandbox,
+        p_me_remetente: remetente,
       });
       if (error) throw error;
       toast({ title: "Configurações salvas" });
@@ -122,6 +150,32 @@ const ConfigSistema = () => {
             <Field label="Taxa pedido" value={taxaPedido} onChange={setTaxaPedido} prefix="R$" />
             <Field label="Frete internacional" value={freteIntl} onChange={setFreteIntl} prefix="US$" />
             <Field label="Prazo entrega internacional (dias)" value={prazoIntl} onChange={setPrazoIntl} suffix="dias" />
+          </CardContent>
+        </Card>
+
+        <h2 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
+          <Truck className="h-5 w-5" />
+          Melhor Envio (frete nacional)
+        </h2>
+        <Card className="rounded-[10px] bg-secondary border-none mb-6">
+          <CardContent className="px-6 py-6 space-y-5">
+            <div className="grid grid-cols-2 gap-5">
+              <TextField label="CEP origem" value={meCepOrigem} onChange={setMeCepOrigem} placeholder="00000000" />
+              <div className="flex items-center justify-between bg-background border border-border rounded-md px-4 h-10">
+                <label className="text-sm text-foreground">Modo sandbox</label>
+                <Switch checked={meSandbox} onCheckedChange={setMeSandbox} />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-foreground mb-3">Remetente (exigido pela API ME)</h3>
+              <div className="grid grid-cols-2 gap-5">
+                <TextField label="Nome" value={meRemetenteNome} onChange={setMeRemetenteNome} />
+                <TextField label="CPF" value={meRemetenteDoc} onChange={setMeRemetenteDoc} />
+                <TextField label="Email" value={meRemetenteEmail} onChange={setMeRemetenteEmail} />
+                <TextField label="Telefone" value={meRemetenteTel} onChange={setMeRemetenteTel} />
+                <TextField label="CNPJ (opcional)" value={meRemetenteCnpj} onChange={setMeRemetenteCnpj} />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -203,6 +257,28 @@ function Field({
           </span>
         )}
       </div>
+    </div>
+  );
+}
+
+function TextField({
+  label, value, onChange, placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div>
+      <label className="text-xs text-muted-foreground mb-1 block">{label}</label>
+      <Input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="bg-background border-border h-10"
+      />
     </div>
   );
 }

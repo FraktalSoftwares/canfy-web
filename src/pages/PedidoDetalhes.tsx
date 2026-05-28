@@ -3,7 +3,8 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, Check, Copy, Download, X, ShieldCheck, ShieldX, Truck } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Copy, Download, X, ShieldCheck, ShieldX, Truck, Package } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -49,6 +50,13 @@ interface PedidoDetalhes {
   medico_nome: string | null;
   documentos: DocumentoRow[] | null;
   historico: HistoricoRow[] | null;
+}
+
+interface PedidoMeFields {
+  melhor_envio_servico_id: number | null;
+  melhor_envio_order_id: string | null;
+  melhor_envio_etiqueta_url: string | null;
+  frete_valor: number | null;
 }
 
 const STAGES = [
@@ -112,6 +120,21 @@ const PedidoDetalhes = () => {
   const [entregaObs, setEntregaObs] = useState("");
   const [acting, setActing] = useState(false);
 
+  const [meFields, setMeFields] = useState<PedidoMeFields | null>(null);
+  const [showEtiqueta, setShowEtiqueta] = useState(false);
+  const [etiquetaLoading, setEtiquetaLoading] = useState(false);
+  const [destNome, setDestNome] = useState("");
+  const [destDoc, setDestDoc] = useState("");
+  const [destEmail, setDestEmail] = useState("");
+  const [destPhone, setDestPhone] = useState("");
+  const [destAddress, setDestAddress] = useState("");
+  const [destNumber, setDestNumber] = useState("");
+  const [destComplement, setDestComplement] = useState("");
+  const [destDistrict, setDestDistrict] = useState("");
+  const [destCity, setDestCity] = useState("");
+  const [destState, setDestState] = useState("");
+  const [destCep, setDestCep] = useState("");
+
   useEffect(() => {
     if (!id) return;
     fetchPedido();
@@ -121,9 +144,17 @@ const PedidoDetalhes = () => {
   const fetchPedido = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.rpc("admin_get_pedido_detalhes", { p_id: id! });
+      const [{ data, error }, meRes] = await Promise.all([
+        supabase.rpc("admin_get_pedido_detalhes", { p_id: id! }),
+        supabase
+          .from("pedidos")
+          .select("melhor_envio_servico_id, melhor_envio_order_id, melhor_envio_etiqueta_url, frete_valor")
+          .eq("id", id!)
+          .maybeSingle(),
+      ]);
       if (error) throw error;
       if (data && data.length > 0) setPedido(data[0] as PedidoDetalhes);
+      if (meRes.data) setMeFields(meRes.data as PedidoMeFields);
     } catch (e: any) {
       toast({
         title: "Erro ao carregar pedido",
@@ -132,6 +163,86 @@ const PedidoDetalhes = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openEtiquetaDialog = async () => {
+    if (!pedido) return;
+    setDestNome(pedido.paciente_nome ?? "");
+    setDestDoc("");
+    setDestEmail("");
+    setDestPhone("");
+    setDestAddress("");
+    setDestNumber("");
+    setDestComplement("");
+    setDestDistrict("");
+    setDestCity("");
+    setDestState("");
+    setDestCep("");
+    try {
+      const { data } = await supabase
+        .from("pacientes")
+        .select("cpf, profiles(telefone)")
+        .eq("id", pedido.paciente_id)
+        .maybeSingle();
+      if (data) {
+        setDestDoc((data as any).cpf ?? "");
+        const profile = (data as any).profiles;
+        if (profile?.telefone) setDestPhone(profile.telefone);
+      }
+    } catch {
+      // admin preenche manual
+    }
+    setShowEtiqueta(true);
+  };
+
+  const handleGerarEtiqueta = async () => {
+    if (!pedido) return;
+    if (!destNome.trim() || !destDoc.trim() || !destAddress.trim() ||
+        !destNumber.trim() || !destDistrict.trim() || !destCity.trim() ||
+        !destState.trim() || !destCep.trim()) {
+      toast({
+        title: "Preencha todos os campos obrigatórios",
+        variant: "destructive",
+      });
+      return;
+    }
+    setEtiquetaLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("melhor-envio-checkout", {
+        body: {
+          pedido_id: pedido.id,
+          destinatario: {
+            nome: destNome.trim(),
+            document: destDoc.replace(/\D/g, ""),
+            email: destEmail.trim(),
+            phone: destPhone.replace(/\D/g, ""),
+            address: destAddress.trim(),
+            number: destNumber.trim(),
+            complement: destComplement.trim() || undefined,
+            district: destDistrict.trim(),
+            city: destCity.trim(),
+            state_abbr: destState.trim().toUpperCase(),
+            postal_code: destCep.replace(/\D/g, ""),
+          },
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) {
+        toast({
+          title: "Erro ao gerar etiqueta",
+          description: JSON.stringify((data as any).detail ?? (data as any).error),
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({ title: "Etiqueta gerada", description: `Order ID: ${(data as any).order_id}` });
+      setShowEtiqueta(false);
+      fetchPedido();
+    } catch (e: any) {
+      toast({ title: "Erro", description: e.message, variant: "destructive" });
+    } finally {
+      setEtiquetaLoading(false);
     }
   };
 
@@ -323,6 +434,28 @@ const PedidoDetalhes = () => {
               >
                 <Truck className="h-4 w-4" />
                 Atualizar entrega
+              </Button>
+            )}
+            {pedido.status === "aprovado" &&
+              meFields?.melhor_envio_servico_id != null &&
+              !meFields?.melhor_envio_order_id && (
+                <Button
+                  variant="outline"
+                  className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-full"
+                  onClick={openEtiquetaDialog}
+                >
+                  <Package className="h-4 w-4" />
+                  Gerar etiqueta ME
+                </Button>
+              )}
+            {meFields?.melhor_envio_etiqueta_url && (
+              <Button
+                variant="outline"
+                className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-full"
+                onClick={() => window.open(meFields.melhor_envio_etiqueta_url!, "_blank")}
+              >
+                <Download className="h-4 w-4" />
+                Etiqueta PDF
               </Button>
             )}
             <Button
@@ -625,6 +758,78 @@ const PedidoDetalhes = () => {
               </Button>
               <Button className="flex-1 bg-primary text-white hover:bg-primary-dark rounded-full" onClick={handleUpdateEntrega} disabled={acting}>
                 Atualizar
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showEtiqueta} onOpenChange={setShowEtiqueta}>
+          <DialogContent className="sm:max-w-[640px] p-6 [&>button]:hidden">
+            <DialogHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <DialogTitle className="text-xl font-semibold">Gerar etiqueta Melhor Envio</DialogTitle>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowEtiqueta(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Confirme/edite os dados do destinatário antes de gerar a etiqueta.
+              </p>
+            </DialogHeader>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="text-xs text-muted-foreground mb-1 block">Nome completo *</label>
+                <Input value={destNome} onChange={(e) => setDestNome(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">CPF *</label>
+                <Input value={destDoc} onChange={(e) => setDestDoc(e.target.value)} placeholder="000.000.000-00" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Telefone</label>
+                <Input value={destPhone} onChange={(e) => setDestPhone(e.target.value)} placeholder="(00) 00000-0000" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs text-muted-foreground mb-1 block">Email</label>
+                <Input value={destEmail} onChange={(e) => setDestEmail(e.target.value)} type="email" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs text-muted-foreground mb-1 block">Logradouro *</label>
+                <Input value={destAddress} onChange={(e) => setDestAddress(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Número *</label>
+                <Input value={destNumber} onChange={(e) => setDestNumber(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Complemento</label>
+                <Input value={destComplement} onChange={(e) => setDestComplement(e.target.value)} />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs text-muted-foreground mb-1 block">Bairro *</label>
+                <Input value={destDistrict} onChange={(e) => setDestDistrict(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Cidade *</label>
+                <Input value={destCity} onChange={(e) => setDestCity(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">UF *</label>
+                <Input value={destState} onChange={(e) => setDestState(e.target.value)} maxLength={2} />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs text-muted-foreground mb-1 block">CEP *</label>
+                <Input value={destCep} onChange={(e) => setDestCep(e.target.value)} placeholder="00000-000" />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-4">
+              <Button variant="outline" className="flex-1 rounded-full" onClick={() => setShowEtiqueta(false)} disabled={etiquetaLoading}>
+                Cancelar
+              </Button>
+              <Button className="flex-1 bg-primary text-white hover:bg-primary-dark rounded-full" onClick={handleGerarEtiqueta} disabled={etiquetaLoading}>
+                {etiquetaLoading ? "Gerando..." : "Gerar etiqueta"}
               </Button>
             </div>
           </DialogContent>

@@ -593,6 +593,11 @@ export type Database = {
           rastreio_atualizado_em: string | null
           prazo_entrega_inicio: string | null
           prazo_entrega_fim: string | null
+          melhor_envio_servico_id: number | null
+          melhor_envio_order_id: string | null
+          melhor_envio_etiqueta_url: string | null
+          frete_valor: number | null
+          prazo_entrega_dias: number | null
           updated_at: string
           valor_total: number | null
         }
@@ -612,6 +617,11 @@ export type Database = {
           rastreio_atualizado_em?: string | null
           prazo_entrega_inicio?: string | null
           prazo_entrega_fim?: string | null
+          melhor_envio_servico_id?: number | null
+          melhor_envio_order_id?: string | null
+          melhor_envio_etiqueta_url?: string | null
+          frete_valor?: number | null
+          prazo_entrega_dias?: number | null
           updated_at?: string
           valor_total?: number | null
         }
@@ -631,6 +641,11 @@ export type Database = {
           rastreio_atualizado_em?: string | null
           prazo_entrega_inicio?: string | null
           prazo_entrega_fim?: string | null
+          melhor_envio_servico_id?: number | null
+          melhor_envio_order_id?: string | null
+          melhor_envio_etiqueta_url?: string | null
+          frete_valor?: number | null
+          prazo_entrega_dias?: number | null
           updated_at?: string
           valor_total?: number | null
         }
@@ -759,6 +774,10 @@ export type Database = {
           preco_usd: number | null
           updated_at: string
           volume_quantidade: string | null
+          peso_g: number
+          largura_cm: number
+          altura_cm: number
+          comprimento_cm: number
         }
         Insert: {
           associacao_marca_id?: string | null
@@ -777,6 +796,10 @@ export type Database = {
           preco_usd?: number | null
           updated_at?: string
           volume_quantidade?: string | null
+          peso_g?: number
+          largura_cm?: number
+          altura_cm?: number
+          comprimento_cm?: number
         }
         Update: {
           associacao_marca_id?: string | null
@@ -795,6 +818,10 @@ export type Database = {
           preco_usd?: number | null
           updated_at?: string
           volume_quantidade?: string | null
+          peso_g?: number
+          largura_cm?: number
+          altura_cm?: number
+          comprimento_cm?: number
         }
         Relationships: [
           {
@@ -1167,6 +1194,9 @@ export type Database = {
           frete_internacional: number
           prazo_entrega_internacional_dias: number
           feriados: string[]
+          melhor_envio_cep_origem: string
+          melhor_envio_sandbox: boolean
+          melhor_envio_remetente: Json
           updated_at: string
         }[]
       }
@@ -1178,8 +1208,19 @@ export type Database = {
           p_frete_intl: number
           p_prazo_intl: number
           p_feriados: string[]
+          p_me_cep_origem?: string | null
+          p_me_sandbox?: boolean | null
+          p_me_remetente?: Json | null
         }
         Returns: undefined
+      }
+      get_melhor_envio_config: {
+        Args: { p_associacao_id?: string | null }
+        Returns: {
+          cep_origem: string
+          sandbox: boolean
+          remetente: Json
+        }[]
       }
       admin_list_blog_posts: {
         Args: never
@@ -1476,6 +1517,10 @@ export type Database = {
           p_principio_ativo: string
           p_status: string
           p_volume_quantidade: string
+          p_peso_g?: number
+          p_largura_cm?: number
+          p_altura_cm?: number
+          p_comprimento_cm?: number
         }
         Returns: string
       }

@@ -32,6 +32,10 @@ const ProdutoCadastro = () => {
   const [tipoOrigem, setTipoOrigem] = useState<"nacional" | "internacional">("nacional");
   const [precoBrl, setPrecoBrl] = useState("");
   const [precoUsd, setPrecoUsd] = useState("");
+  const [pesoG, setPesoG] = useState("100");
+  const [larguraCm, setLarguraCm] = useState("11");
+  const [alturaCm, setAlturaCm] = useState("2");
+  const [comprimentoCm, setComprimentoCm] = useState("16");
   const [orientacoes, setOrientacoes] = useState("");
   const [imagemProduto, setImagemProduto] = useState<File | null>(null);
   const [imagemPreview, setImagemPreview] = useState<string>("");
@@ -52,6 +56,10 @@ const ProdutoCadastro = () => {
         fabricante: fabricante || undefined,
         volume_quantidade: volumeQuantidade || undefined,
         status,
+        peso_g: Number(pesoG),
+        largura_cm: Number(larguraCm),
+        altura_cm: Number(alturaCm),
+        comprimento_cm: Number(comprimentoCm),
       });
 
       let imagemUrl = null;
@@ -88,6 +96,10 @@ const ProdutoCadastro = () => {
         p_volume_quantidade: validatedData.volume_quantidade || '',
         p_imagem_url: imagemUrl || '',
         p_status: validatedData.status,
+        p_peso_g: validatedData.peso_g,
+        p_largura_cm: validatedData.largura_cm,
+        p_altura_cm: validatedData.altura_cm,
+        p_comprimento_cm: validatedData.comprimento_cm,
       });
 
       if (insertError) {
@@ -424,6 +436,68 @@ const ProdutoCadastro = () => {
                   </p>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Dimensões e peso (cotação Melhor Envio) */}
+        <div className="mb-8">
+          <h2 className="text-xl font-bold mb-4">Dimensões e peso para envio</h2>
+          <Card className="rounded-[10px] bg-secondary border-none">
+            <CardContent className="pt-6">
+              <p className="text-xs text-muted-foreground mb-4">
+                Usado no cálculo do frete pelo Melhor Envio. Informe a embalagem fechada do produto.
+              </p>
+              <div className="grid grid-cols-4 gap-3">
+                <div>
+                  <label className="text-sm font-semibold mb-2 block">Peso (g) *</label>
+                  <Input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={pesoG}
+                    onChange={(e) => setPesoG(e.target.value)}
+                    placeholder="Ex.: 250"
+                    className="h-11 bg-background"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold mb-2 block">Largura (cm) *</label>
+                  <Input
+                    type="number"
+                    min="11"
+                    step="0.1"
+                    value={larguraCm}
+                    onChange={(e) => setLarguraCm(e.target.value)}
+                    placeholder="Mín. 11"
+                    className="h-11 bg-background"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold mb-2 block">Altura (cm) *</label>
+                  <Input
+                    type="number"
+                    min="2"
+                    step="0.1"
+                    value={alturaCm}
+                    onChange={(e) => setAlturaCm(e.target.value)}
+                    placeholder="Mín. 2"
+                    className="h-11 bg-background"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold mb-2 block">Comprimento (cm) *</label>
+                  <Input
+                    type="number"
+                    min="16"
+                    step="0.1"
+                    value={comprimentoCm}
+                    onChange={(e) => setComprimentoCm(e.target.value)}
+                    placeholder="Mín. 16"
+                    className="h-11 bg-background"
+                  />
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>

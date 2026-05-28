@@ -40,6 +40,19 @@ export const productSchema = z.object({
     .url('URL de imagem inválida')
     .optional(),
   status: z.enum(['ativo', 'inativo']).default('ativo'),
+  peso_g: z.number()
+    .int('Peso deve ser inteiro (em gramas)')
+    .positive('Peso deve ser maior que zero')
+    .max(30000, 'Peso máximo Melhor Envio é 30kg'),
+  largura_cm: z.number()
+    .min(11, 'Largura mínima Melhor Envio é 11cm')
+    .max(105, 'Largura máxima Melhor Envio é 105cm'),
+  altura_cm: z.number()
+    .min(2, 'Altura mínima Melhor Envio é 2cm')
+    .max(105, 'Altura máxima Melhor Envio é 105cm'),
+  comprimento_cm: z.number()
+    .min(16, 'Comprimento mínimo Melhor Envio é 16cm')
+    .max(105, 'Comprimento máximo Melhor Envio é 105cm'),
 });
 
 // User profile update validation schema
