@@ -28,11 +28,13 @@ interface Medico {
   nome: string;
   email: string;
   telefone: string;
+  cpf: string | null;
   crm: string;
   uf_crm: string;
   especialidade_nome: string;
   status: string;
   total_atendimentos: number;
+  total_ausencias: number;
   ultimo_acesso: string;
 }
 
@@ -41,6 +43,7 @@ interface MedicoSolicitacao {
   nome: string;
   email: string;
   telefone: string;
+  cpf: string | null;
   crm: string;
   uf_crm: string;
   especialidade_nome: string;
@@ -51,6 +54,47 @@ interface MedicoSolicitacao {
   etapa_validacao: number;
   created_at: string;
 }
+
+const ATENDIMENTOS_RANGES = ["0-5", "6-10", "11-20", "+20"] as const;
+const AUSENCIAS_RANGES = ["0", "1-5", "6-10", "+10"] as const;
+type Range = typeof ATENDIMENTOS_RANGES[number] | typeof AUSENCIAS_RANGES[number];
+
+const matchRange = (value: number, range: string) => {
+  if (range === "0") return value === 0;
+  if (range.startsWith("+")) return value > parseInt(range.slice(1), 10);
+  const [min, max] = range.split("-").map((n) => parseInt(n, 10));
+  return value >= min && value <= max;
+};
+
+const downloadCSV = (filename: string, headers: string[], rows: (string | number | null)[][]) => {
+  const escape = (v: string | number | null) => {
+    const s = v == null ? "" : String(v);
+    return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [headers, ...rows].map((r) => r.map(escape).join(";")).join("\r\n");
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+const openPDFPrint = (title: string, headers: string[], rows: (string | number | null)[][]) => {
+  const w = window.open("", "_blank");
+  if (!w) return;
+  const thead = headers.map((h) => `<th>${h}</th>`).join("");
+  const tbody = rows
+    .map((r) => "<tr>" + r.map((c) => `<td>${c == null ? "" : String(c)}</td>`).join("") + "</tr>")
+    .join("");
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${title}</title>
+<style>body{font-family:system-ui,sans-serif;padding:24px}h1{font-size:18px;margin-bottom:16px}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}
+th{background:#eef}</style></head><body><h1>${title}</h1><table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>
+<script>window.onload=()=>setTimeout(()=>window.print(),200)</script></body></html>`);
+  w.document.close();
+};
 
 const VALIDACAO_TAG: Record<ValidacaoStatus, { letter: string; label: string; bg: string; fg: string }> = {
   em_analise: { letter: "E", label: "Em análise",  bg: "hsl(var(--card-blue))",   fg: "hsl(207 89% 35%)" },
@@ -83,6 +127,9 @@ const Medicos = () => {
   const [status, setStatus] = useState("todos");
   const [crm, setCrm] = useState("");
   const [especialidade, setEspecialidade] = useState("");
+  const [filtroAtendimentos, setFiltroAtendimentos] = useState<string>("");
+  const [filtroAusencias, setFiltroAusencias] = useState<string>("");
+  const [exportFormat, setExportFormat] = useState<"csv" | "pdf">("csv");
 
   // Overlay aprovação/recusa solicitação
   const [selectedSolic, setSelectedSolic] = useState<MedicoSolicitacao | null>(null);
@@ -109,6 +156,8 @@ const Medicos = () => {
       if (status !== "todos") ativos = ativos.filter((m) => m.status === status);
       if (crm) ativos = ativos.filter((m) => m.crm.toLowerCase().includes(crm.toLowerCase()) || m.uf_crm.toLowerCase().includes(crm.toLowerCase()));
       if (especialidade) ativos = ativos.filter((m) => m.especialidade_nome.toLowerCase().includes(especialidade.toLowerCase()));
+      if (filtroAtendimentos) ativos = ativos.filter((m) => matchRange(m.total_atendimentos ?? 0, filtroAtendimentos));
+      if (filtroAusencias) ativos = ativos.filter((m) => matchRange(m.total_ausencias ?? 0, filtroAusencias));
 
       setMedicosTotal(ativos.length);
       const aFrom = (medicosPage - 1) * itemsPerPage;
@@ -132,7 +181,7 @@ const Medicos = () => {
   useEffect(() => {
     fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [medicosPage, solicitacoesPage, searchQuery, status, crm, especialidade]);
+  }, [medicosPage, solicitacoesPage, searchQuery, status, crm, especialidade, filtroAtendimentos, filtroAusencias]);
 
   useRealtimeSubscription({
     table: "medicos",
@@ -169,6 +218,46 @@ const Medicos = () => {
       toast({ title: "Erro ao aprovar", description: e.message, variant: "destructive" });
     } finally {
       setActing(false);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const { data, error } = await (supabase.rpc as any)("admin_list_medicos");
+      if (error) throw error;
+      let lista: Medico[] = ((data || []) as Medico[]).filter((m) => m.status !== "pendente_aprovacao");
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        lista = lista.filter((m) => m.nome.toLowerCase().includes(q) || m.email.toLowerCase().includes(q));
+      }
+      if (status !== "todos") lista = lista.filter((m) => m.status === status);
+      if (crm) lista = lista.filter((m) => m.crm.toLowerCase().includes(crm.toLowerCase()) || m.uf_crm.toLowerCase().includes(crm.toLowerCase()));
+      if (especialidade) lista = lista.filter((m) => m.especialidade_nome.toLowerCase().includes(especialidade.toLowerCase()));
+      if (filtroAtendimentos) lista = lista.filter((m) => matchRange(m.total_atendimentos ?? 0, filtroAtendimentos));
+      if (filtroAusencias) lista = lista.filter((m) => matchRange(m.total_ausencias ?? 0, filtroAusencias));
+
+      const headers = ["Nome", "E-mail", "Telefone", "CPF", "CRM+UF", "Especialidade", "Atendimentos", "Ausências", "Último acesso", "Status"];
+      const rows = lista.map((m) => [
+        m.nome,
+        m.email,
+        m.telefone || "",
+        m.cpf || "",
+        `${m.crm}-${m.uf_crm}`,
+        m.especialidade_nome,
+        m.total_atendimentos,
+        m.total_ausencias,
+        formatDate(m.ultimo_acesso),
+        m.status === "ativo" ? "Ativo" : "Inativo",
+      ]);
+      const stamp = format(new Date(), "yyyy-MM-dd_HHmm");
+      if (exportFormat === "csv") {
+        downloadCSV(`medicos_${stamp}.csv`, headers, rows);
+      } else {
+        openPDFPrint(`Médicos — ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}`, headers, rows);
+      }
+      setShowExportDialog(false);
+    } catch (e: any) {
+      toast({ title: "Erro ao exportar", description: e.message, variant: "destructive" });
     }
   };
 
@@ -262,6 +351,7 @@ const Medicos = () => {
                     <TableHead className="font-semibold text-foreground">CRM+UF</TableHead>
                     <TableHead className="font-semibold text-foreground">Especialidade</TableHead>
                     <TableHead className="font-semibold text-foreground">Atendimentos</TableHead>
+                    <TableHead className="font-semibold text-foreground">Ausências</TableHead>
                     <TableHead className="font-semibold text-foreground">Último acesso</TableHead>
                     <TableHead className="font-semibold text-foreground">Status</TableHead>
                   </TableRow>
@@ -269,11 +359,11 @@ const Medicos = () => {
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">Carregando médicos...</TableCell>
+                      <TableCell colSpan={9} className="text-center py-8">Carregando médicos...</TableCell>
                     </TableRow>
                   ) : medicos.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">Nenhum médico encontrado</TableCell>
+                      <TableCell colSpan={9} className="text-center py-8">Nenhum médico encontrado</TableCell>
                     </TableRow>
                   ) : (
                     medicos.map((m) => (
@@ -288,6 +378,9 @@ const Medicos = () => {
                         <TableCell>{m.crm}-{m.uf_crm}</TableCell>
                         <TableCell>{m.especialidade_nome}</TableCell>
                         <TableCell>{m.total_atendimentos}</TableCell>
+                        <TableCell className={m.total_ausencias > 15 ? "text-destructive font-semibold" : ""}>
+                          {m.total_ausencias}
+                        </TableCell>
                         <TableCell className="text-sm">{formatDate(m.ultimo_acesso)}</TableCell>
                         <TableCell>
                           <Badge
@@ -325,6 +418,7 @@ const Medicos = () => {
                     <TableHead className="font-semibold text-foreground">Nome</TableHead>
                     <TableHead className="font-semibold text-foreground">E-mail</TableHead>
                     <TableHead className="font-semibold text-foreground">Telefone</TableHead>
+                    <TableHead className="font-semibold text-foreground">CPF</TableHead>
                     <TableHead className="font-semibold text-foreground">CRM+UF</TableHead>
                     <TableHead className="font-semibold text-foreground">Especialidade</TableHead>
                     <TableHead className="font-semibold text-foreground">Etapa</TableHead>
@@ -335,11 +429,11 @@ const Medicos = () => {
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">Carregando solicitações...</TableCell>
+                      <TableCell colSpan={9} className="text-center py-8">Carregando solicitações...</TableCell>
                     </TableRow>
                   ) : solicitacoes.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">Nenhuma solicitação pendente</TableCell>
+                      <TableCell colSpan={9} className="text-center py-8">Nenhuma solicitação pendente</TableCell>
                     </TableRow>
                   ) : (
                     solicitacoes.map((s) => {
@@ -363,6 +457,7 @@ const Medicos = () => {
                           </TableCell>
                           <TableCell>{s.email}</TableCell>
                           <TableCell>{s.telefone || "—"}</TableCell>
+                          <TableCell>{s.cpf || "—"}</TableCell>
                           <TableCell>{s.crm}-{s.uf_crm}</TableCell>
                           <TableCell>{s.especialidade_nome}</TableCell>
                           <TableCell>{s.etapa_validacao}/3</TableCell>
@@ -535,6 +630,40 @@ const Medicos = () => {
               <Input value={especialidade} onChange={(e) => setEspecialidade(e.target.value)} placeholder="ex.: Clínico geral" className="h-11" />
             </div>
 
+            <div>
+              <label className="text-sm font-semibold mb-3 block">Nº de atendimentos</label>
+              <div className="flex gap-2">
+                {ATENDIMENTOS_RANGES.map((r) => (
+                  <Button
+                    key={r}
+                    variant={filtroAtendimentos === r ? "default" : "outline"}
+                    size="sm"
+                    className={`rounded-full flex-1 ${filtroAtendimentos === r ? "bg-primary text-white hover:bg-primary-dark" : "border-border hover:bg-muted"}`}
+                    onClick={() => setFiltroAtendimentos(filtroAtendimentos === r ? "" : r)}
+                  >
+                    {r}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-semibold mb-3 block">Nº de ausências em consultas (ano)</label>
+              <div className="flex gap-2">
+                {AUSENCIAS_RANGES.map((r) => (
+                  <Button
+                    key={r}
+                    variant={filtroAusencias === r ? "default" : "outline"}
+                    size="sm"
+                    className={`rounded-full flex-1 ${filtroAusencias === r ? "bg-primary text-white hover:bg-primary-dark" : "border-border hover:bg-muted"}`}
+                    onClick={() => setFiltroAusencias(filtroAusencias === r ? "" : r)}
+                  >
+                    {r}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
             <div className="space-y-3 pt-4">
               <Button
                 onClick={() => { setMedicosPage(1); setShowFilterDialog(false); }}
@@ -544,7 +673,11 @@ const Medicos = () => {
               </Button>
               <Button
                 variant="link"
-                onClick={() => { setStatus("todos"); setCrm(""); setEspecialidade(""); setMedicosPage(1); }}
+                onClick={() => {
+                  setStatus("todos"); setCrm(""); setEspecialidade("");
+                  setFiltroAtendimentos(""); setFiltroAusencias("");
+                  setMedicosPage(1);
+                }}
                 className="w-full text-primary hover:text-primary-dark"
               >
                 Limpar filtros
@@ -565,10 +698,24 @@ const Medicos = () => {
               </Button>
             </div>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">Funcionalidade em desenvolvimento.</p>
-          <Button className="w-full bg-primary text-white hover:bg-primary-dark rounded-full mt-4" onClick={() => setShowExportDialog(false)}>
-            Fechar
-          </Button>
+          <RadioGroup value={exportFormat} onValueChange={(v) => setExportFormat(v as "csv" | "pdf")} className="space-y-3">
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="csv" id="exp-csv" />
+              <Label htmlFor="exp-csv" className="font-normal cursor-pointer">Exportar em CSV</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="pdf" id="exp-pdf" />
+              <Label htmlFor="exp-pdf" className="font-normal cursor-pointer">Exportar em PDF</Label>
+            </div>
+          </RadioGroup>
+          <div className="flex gap-3 mt-6">
+            <Button variant="outline" className="flex-1 rounded-full" onClick={() => setShowExportDialog(false)}>
+              Cancelar
+            </Button>
+            <Button className="flex-1 bg-primary text-white hover:bg-primary-dark rounded-full" onClick={handleExport}>
+              Exportar
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
@@ -593,7 +740,7 @@ function Pagination({
       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onPage(Math.max(1, page - 1))} disabled={page === 1}>
         <ChevronLeft className="h-4 w-4" />
       </Button>
-      <span className="text-sm text-muted-foreground">{from} to {to} from {total}</span>
+      <span className="text-sm text-muted-foreground">{from} a {to} de {total}</span>
       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onPage(Math.min(totalPages, page + 1))} disabled={page >= totalPages}>
         <ChevronRight className="h-4 w-4" />
       </Button>

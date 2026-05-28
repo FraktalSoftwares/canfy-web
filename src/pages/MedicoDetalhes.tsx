@@ -26,12 +26,14 @@ interface MedicoData {
   nome: string;
   email: string;
   telefone: string;
+  cpf: string | null;
   crm: string;
   uf_crm: string;
   especialidade_nome: string;
   status: string;
   total_atendimentos: number;
   total_receitas: number;
+  total_ausencias: number;
   ultimo_acesso: string | null;
   created_at: string;
   user_id: string | null;
@@ -40,6 +42,8 @@ interface MedicoData {
   tempo_atuacao_anos: number | null;
   observacoes_admin: string | null;
 }
+
+const LIMITE_AUSENCIAS_ANO = 15;
 
 interface DocumentoRow {
   id: string;
@@ -98,6 +102,7 @@ const MedicoDetalhes = () => {
     crm: "",
     uf_crm: "",
     email: "",
+    cpf: "",
   });
 
   useEffect(() => {
@@ -123,6 +128,7 @@ const MedicoDetalhes = () => {
           crm: md.crm || "",
           uf_crm: md.uf_crm || "",
           email: md.email || "",
+          cpf: md.cpf || "",
         });
         setObservacoes(md.observacoes_admin || "");
       }
@@ -143,6 +149,7 @@ const MedicoDetalhes = () => {
         p_telefone: form.telefone,
         p_crm: form.crm,
         p_uf_crm: form.uf_crm,
+        p_cpf: form.cpf || null,
       });
       if (error) throw error;
       toast({ title: "Dados atualizados" });
@@ -293,6 +300,11 @@ const MedicoDetalhes = () => {
               value={form.telefone || "—"} editValue={form.telefone}
               onChange={(v) => setForm({ ...form, telefone: v })}
             />
+            <EditableField
+              label="CPF" editing={isEditing}
+              value={form.cpf || "—"} editValue={form.cpf}
+              onChange={(v) => setForm({ ...form, cpf: v })}
+            />
             <Field label="Nº de atendimento" value={String(medico.total_atendimentos)} />
             <div className="border-b border-border/40 pb-3">
               <p className="text-xs text-muted-foreground mb-1">CRM+UF</p>
@@ -320,10 +332,46 @@ const MedicoDetalhes = () => {
         </Card>
 
         <h2 className="text-xl font-bold text-foreground mb-4">Dados de uso</h2>
-        <div className="grid grid-cols-2 gap-4 mb-8">
+        <div className="grid grid-cols-2 gap-4 mb-4">
           <UsageCard label="Nº de atendimento realizadas" value={medico.total_atendimentos} />
           <UsageCard label="Nº de receitas emitidas" value={medico.total_receitas} />
         </div>
+        <Card className="rounded-[10px] bg-secondary border-none mb-8">
+          <CardContent className="px-6 py-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Ausências em consultas (no ano)</p>
+                <p
+                  className={`text-3xl font-bold ${
+                    medico.total_ausencias > LIMITE_AUSENCIAS_ANO
+                      ? "text-destructive"
+                      : "text-foreground"
+                  }`}
+                >
+                  {medico.total_ausencias} / {LIMITE_AUSENCIAS_ANO}
+                </p>
+              </div>
+              <div className="text-right">
+                {medico.total_ausencias === 0 ? (
+                  <Badge className="border-none rounded-full px-3 py-1 bg-card-green text-[hsl(var(--primary-dark))] hover:bg-card-green">
+                    Sem faltas no ano
+                  </Badge>
+                ) : medico.total_ausencias > LIMITE_AUSENCIAS_ANO ? (
+                  <Badge className="border-none rounded-full px-3 py-1 bg-card-red text-destructive hover:bg-card-red">
+                    Tolerância excedida
+                  </Badge>
+                ) : (
+                  <Badge className="border-none rounded-full px-3 py-1 bg-card-yellow text-[hsl(45_100%_35%)] hover:bg-card-yellow">
+                    Dentro da tolerância
+                  </Badge>
+                )}
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">
+              Tolerância: {LIMITE_AUSENCIAS_ANO} ausências por ano. Ultrapassado o limite, a conta poderá ser inativada.
+            </p>
+          </CardContent>
+        </Card>
 
         <h2 className="text-xl font-bold text-foreground mb-4">Dados de validação profissional</h2>
         <div className="grid grid-cols-2 gap-4 mb-4">

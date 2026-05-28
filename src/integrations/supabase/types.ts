@@ -1143,6 +1143,7 @@ export type Database = {
         Args: { p_id: string }
         Returns: {
           created_at: string
+          cpf: string | null
           crm: string
           email: string
           endereco_profissional: string | null
@@ -1155,6 +1156,7 @@ export type Database = {
           telefone: string
           tempo_atuacao_anos: number | null
           total_atendimentos: number
+          total_ausencias: number
           total_receitas: number
           uf_crm: string
           ultimo_acesso: string
@@ -1361,6 +1363,7 @@ export type Database = {
           nome: string
           email: string
           telefone: string
+          cpf: string | null
           crm: string
           uf_crm: string
           especialidade_nome: string
@@ -1428,6 +1431,7 @@ export type Database = {
       admin_list_medicos: {
         Args: never
         Returns: {
+          cpf: string | null
           created_at: string
           crm: string
           email: string
@@ -1437,6 +1441,7 @@ export type Database = {
           status: string
           telefone: string
           total_atendimentos: number
+          total_ausencias: number
           uf_crm: string
           ultimo_acesso: string
         }[]
@@ -1488,6 +1493,7 @@ export type Database = {
       admin_update_medico: {
         Args: {
           p_crm: string
+          p_cpf?: string | null
           p_email: string
           p_id: string
           p_telefone: string
