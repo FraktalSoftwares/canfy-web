@@ -465,9 +465,20 @@ const PacienteDetalhes = () => {
       if (error) throw error;
       toast({ title: "Paciente inativado" });
       setShowInactivateDialog(false);
-      navigate("/pacientes");
+      fetchAll();
     } catch (e: any) {
       toast({ title: "Erro ao inativar", description: e.message, variant: "destructive" });
+    }
+  };
+
+  const handleReativar = async () => {
+    try {
+      const { error } = await supabase.rpc("admin_ativar_paciente", { p_id: id! });
+      if (error) throw error;
+      toast({ title: "Paciente reativado" });
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: "Erro ao reativar", description: e.message, variant: "destructive" });
     }
   };
 
@@ -617,14 +628,24 @@ const PacienteDetalhes = () => {
                 <h3 className="text-xl font-bold text-foreground">{paciente.nome_completo}</h3>
               </div>
             </div>
-            {paciente.ativo && (
-              <button
+            {paciente.ativo ? (
+              <Button
+                variant="outline"
                 onClick={() => setShowInactivateDialog(true)}
-                className="text-muted-foreground hover:text-destructive flex items-center gap-2 text-sm"
+                className="gap-2 rounded-full border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
               >
                 <MinusCircle className="h-4 w-4" />
                 Inativar conta
-              </button>
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={handleReativar}
+                className="gap-2 rounded-full border-primary text-primary hover:bg-primary/10"
+              >
+                <Check className="h-4 w-4" />
+                Reativar conta
+              </Button>
             )}
           </CardContent>
         </Card>
@@ -1186,7 +1207,7 @@ const PacienteDetalhes = () => {
               </Button>
             </div>
             <AlertDialogDescription className="text-base text-foreground">
-              Deseja realmente inativar esta conta?<br />Essa ação não pode ser desfeita.
+              Deseja realmente inativar esta conta? O paciente perderá o acesso à plataforma. Você poderá reativá-lo posteriormente.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex gap-3 mt-4">

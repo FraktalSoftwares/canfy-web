@@ -1565,6 +1565,8 @@ export type Database = {
       admin_inativar_associacao: { Args: { p_id: string }; Returns: undefined }
       admin_inativar_medico: { Args: { p_id: string }; Returns: undefined }
       admin_inativar_paciente: { Args: { p_id: string }; Returns: undefined }
+      admin_ativar_medico: { Args: { p_id: string }; Returns: undefined }
+      admin_ativar_paciente: { Args: { p_id: string }; Returns: undefined }
       admin_list_associacoes: {
         Args: never
         Returns: {
