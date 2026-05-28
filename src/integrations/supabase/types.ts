@@ -1499,6 +1499,19 @@ export type Database = {
         Args: { p_id: string; p_observacoes: string }
         Returns: undefined
       }
+      admin_upsert_paciente_documento: {
+        Args: {
+          p_paciente_id: string
+          p_tipo: string
+          p_nome_arquivo: string
+          p_arquivo_url: string
+        }
+        Returns: string
+      }
+      admin_delete_paciente_documento: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
       admin_list_medicos_solicitacoes: {
         Args: never
         Returns: {

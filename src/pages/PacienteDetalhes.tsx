@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   ChevronLeft, ChevronRight, Check, Copy, Download, MinusCircle,
-  Pencil, X, FileText,
+  Pencil, X, FileText, CloudUpload, Loader2, Trash2,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
@@ -128,7 +128,7 @@ interface Anamnese {
 }
 
 const DOC_LABEL_PAC: Record<string, string> = {
-  identidade: "Identidade (RG/CNH)",
+  identidade: "Documento de identificação",
   comprovante_residencia: "Comprovante de residência",
   laudo_medico: "Laudo médico",
   autorizacao_anvisa: "Autorização Anvisa",
@@ -138,6 +138,15 @@ const DOC_LABEL_PAC: Record<string, string> = {
   outro: "Outros",
 };
 const labelDoc = (t: string) => DOC_LABEL_PAC[t] ?? t.replace(/_/g, " ");
+
+// Slots editáveis para Documentos do usuário (Figma 2727:15100)
+const USER_DOC_SLOTS: Array<{ tipo: string; label: string }> = [
+  { tipo: "identidade", label: "Documento de identificação" },
+  { tipo: "comprovante_residencia", label: "Comprovante de residência" },
+];
+
+const MAX_UPLOAD_MB = 10;
+const ACCEPTED_MIMES = ["application/pdf", "image/png", "image/jpeg", "image/jpg"];
 
 const STATUS_CONSULTA: Record<string, string> = {
   agendada: "Agendada",
@@ -230,6 +239,8 @@ const PacienteDetalhes = () => {
     tem_reacoes_adversas: null, reacoes_adversas_detalhes: null,
   });
   const [savingAnamnese, setSavingAnamnese] = useState(false);
+
+  const [uploadingTipo, setUploadingTipo] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) fetchAll();
@@ -326,6 +337,53 @@ const PacienteDetalhes = () => {
       } finally {
         setLoadingPedidos(false);
       }
+    }
+  };
+
+  const handleUploadDoc = async (tipo: string, file: File) => {
+    if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      toast({ title: "Arquivo muito grande", description: `Máximo ${MAX_UPLOAD_MB}MB`, variant: "destructive" });
+      return;
+    }
+    if (!ACCEPTED_MIMES.includes(file.type)) {
+      toast({ title: "Formato inválido", description: "Aceitos: PDF, PNG, JPG", variant: "destructive" });
+      return;
+    }
+    try {
+      setUploadingTipo(tipo);
+      const ext = file.name.split(".").pop() || "bin";
+      const path = `paciente_docs/${id}/${tipo}_${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("documents").upload(path, file, {
+        cacheControl: "3600",
+        upsert: true,
+        contentType: file.type,
+      });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from("documents").getPublicUrl(path);
+      const { error: rpcErr } = await supabase.rpc("admin_upsert_paciente_documento", {
+        p_paciente_id: id!,
+        p_tipo: tipo,
+        p_nome_arquivo: file.name,
+        p_arquivo_url: pub.publicUrl,
+      });
+      if (rpcErr) throw rpcErr;
+      toast({ title: "Documento enviado" });
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: "Erro no upload", description: e.message, variant: "destructive" });
+    } finally {
+      setUploadingTipo(null);
+    }
+  };
+
+  const handleDeleteDoc = async (docId: string) => {
+    try {
+      const { error } = await supabase.rpc("admin_delete_paciente_documento", { p_id: docId });
+      if (error) throw error;
+      toast({ title: "Documento removido" });
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: "Erro ao remover", description: e.message, variant: "destructive" });
     }
   };
 
@@ -489,7 +547,7 @@ const PacienteDetalhes = () => {
     <div className="min-h-screen bg-background">
 
 
-      <div className="px-6 py-8 max-w-[1080px] mx-auto">
+      <div className="px-6 py-12 max-w-[1280px] mx-auto">
         <Button
           variant="ghost"
           onClick={() => navigate(-1)}
@@ -571,47 +629,75 @@ const PacienteDetalhes = () => {
           </CardContent>
         </Card>
 
-        <Card className="rounded-[10px] bg-secondary border-none mb-8">
-          <CardContent className="grid grid-cols-2 gap-x-12 gap-y-5 px-6 py-6">
-            <Field label="E-mail" value={paciente.email} />
-            <EditableField
-              label="Sexo"
-              value={form.sexo || "—"}
-              editing={isEditing}
-              onChange={(v) => setForm({ ...form, sexo: v })}
-              editValue={form.sexo}
-            />
-            <EditableField
-              label="Telefone"
-              value={form.telefone || "—"}
-              editing={isEditing}
-              onChange={(v) => setForm({ ...form, telefone: v })}
-              editValue={form.telefone}
-            />
-            <EditableField
-              label="Data de nascimento"
-              value={formatDate(form.dataNascimento) || "—"}
-              editing={isEditing}
-              onChange={(v) => setForm({ ...form, dataNascimento: v })}
-              editValue={form.dataNascimento}
-              type="date"
-            />
-            <EditableField
-              label="CPF"
-              value={form.cpf || "—"}
-              editing={isEditing}
-              onChange={(v) => setForm({ ...form, cpf: v })}
-              editValue={form.cpf}
-            />
-            <EditableField
-              label="RG"
-              value={form.rg || "—"}
-              editing={isEditing}
-              onChange={(v) => setForm({ ...form, rg: v })}
-              editValue={form.rg}
-            />
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-2 gap-4 mb-8">
+          <Card className="rounded-[16px] bg-secondary border-none">
+            <CardContent className="px-6 py-6 space-y-4">
+              <Field label="E-mail" value={paciente.email} />
+              <EditableField
+                label="Telefone"
+                value={form.telefone || "—"}
+                editing={isEditing}
+                onChange={(v) => setForm({ ...form, telefone: v })}
+                editValue={form.telefone}
+              />
+              <EditableField
+                label="CPF"
+                value={form.cpf || "—"}
+                editing={isEditing}
+                onChange={(v) => setForm({ ...form, cpf: v })}
+                editValue={form.cpf}
+              />
+            </CardContent>
+          </Card>
+          <Card className="rounded-[16px] bg-secondary border-none">
+            <CardContent className="px-6 py-6 space-y-4">
+              <EditableField
+                label="Gênero"
+                value={form.sexo || "—"}
+                editing={isEditing}
+                onChange={(v) => setForm({ ...form, sexo: v })}
+                editValue={form.sexo}
+              />
+              <EditableField
+                label="Data de nascimento"
+                value={formatDate(form.dataNascimento) || "—"}
+                editing={isEditing}
+                onChange={(v) => setForm({ ...form, dataNascimento: v })}
+                editValue={form.dataNascimento}
+                type="date"
+              />
+              <div className="pb-1">
+                <p className={`text-xs mb-1 ${isEditing ? "text-foreground font-semibold" : "text-muted-foreground"}`}>Região</p>
+                {isEditing ? (
+                  <Input
+                    value={form.endereco_logradouro}
+                    onChange={(e) => setForm({ ...form, endereco_logradouro: e.target.value })}
+                    placeholder="Rua, número, cidade/UF — Bairro"
+                    className="h-9 bg-background border-border rounded-full px-4"
+                  />
+                ) : (
+                  <p className="text-base font-bold text-foreground break-words">
+                    {[
+                      form.endereco_logradouro || paciente.endereco_completo,
+                      form.endereco_numero && `nº ${form.endereco_numero}`,
+                      form.cidade && form.estado ? `${form.cidade}/${form.estado}` : form.cidade,
+                      form.bairro,
+                    ].filter(Boolean).join(", ") || "—"}
+                  </p>
+                )}
+              </div>
+              {isEditing && (
+                <EditableField
+                  label="RG"
+                  value={form.rg || "—"}
+                  editing={isEditing}
+                  onChange={(v) => setForm({ ...form, rg: v })}
+                  editValue={form.rg}
+                />
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         <h2 className="text-xl font-bold text-foreground mb-4">Endereço</h2>
         <Card className="rounded-[10px] bg-secondary border-none mb-8">
@@ -638,13 +724,13 @@ const PacienteDetalhes = () => {
         </div>
 
         <h2 className="text-xl font-bold text-foreground mb-4">Histórico de pagamentos</h2>
-        <Card className="rounded-[10px] bg-secondary border-none mb-8 overflow-hidden">
+        <Card className="rounded-[16px] bg-white border-none mb-8 overflow-hidden">
           <Table>
             <TableHeader>
-              <TableRow className="bg-primary hover:bg-primary border-none">
-                <TableHead className="font-semibold text-white">Data do pagamento</TableHead>
-                <TableHead className="font-semibold text-white">Tipo</TableHead>
-                <TableHead className="font-semibold text-white">Valor</TableHead>
+              <TableRow className="bg-card-green hover:bg-card-green border-none">
+                <TableHead className="font-normal text-foreground">Data do pagamento</TableHead>
+                <TableHead className="font-normal text-foreground">Tipo</TableHead>
+                <TableHead className="font-normal text-foreground">Valor</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -656,10 +742,10 @@ const PacienteDetalhes = () => {
                 </TableRow>
               ) : (
                 pagamentos.map((p, i) => (
-                  <TableRow key={i} className="bg-card border-b border-border/40 hover:bg-muted/30">
-                    <TableCell>{formatDate(p.data_pagamento)}</TableCell>
-                    <TableCell>{p.tipo}</TableCell>
-                    <TableCell className="font-semibold">{formatCurrency(Number(p.valor))}</TableCell>
+                  <TableRow key={i} className="bg-secondary border-b border-border/40 hover:bg-muted/30">
+                    <TableCell className="text-sm">{formatDate(p.data_pagamento)}</TableCell>
+                    <TableCell className="text-sm">{p.tipo}</TableCell>
+                    <TableCell className="text-sm font-semibold">{formatCurrency(Number(p.valor))}</TableCell>
                   </TableRow>
                 ))
               )}
@@ -668,40 +754,72 @@ const PacienteDetalhes = () => {
         </Card>
 
         <h2 className="text-xl font-bold text-foreground mb-4">Documentos do usuário</h2>
-        <div className="grid grid-cols-1 gap-3 mb-8">
-          {docsUsuario.length === 0 ? (
-            <p className="text-muted-foreground italic">Nenhum documento enviado.</p>
-          ) : (
-            groupDocs(docsUsuario).map(([tipo, items]) => (
-              <Card key={tipo} className="rounded-[10px] bg-secondary border-none">
-                <CardContent className="px-6 py-4">
-                  <p className="text-xs text-muted-foreground mb-2">{labelDoc(tipo)}</p>
-                  <div className="space-y-2">
-                    {items.map((d) => <DocLink key={d.id} doc={d} />)}
+        <div className="grid grid-cols-2 gap-4 mb-8">
+          {USER_DOC_SLOTS.map((slot) => {
+            const doc = docsUsuario.find((d) => d.tipo === slot.tipo);
+            return (
+              <DocSlot
+                key={slot.tipo}
+                tipo={slot.tipo}
+                label={slot.label}
+                doc={doc}
+                editing={isEditing}
+                uploading={uploadingTipo === slot.tipo}
+                onUpload={(f) => handleUploadDoc(slot.tipo, f)}
+                onDelete={doc ? () => handleDeleteDoc(doc.id) : undefined}
+              />
+            );
+          })}
+          {/* Docs extras de usuário fora dos slots canônicos */}
+          {docsUsuario
+            .filter((d) => !USER_DOC_SLOTS.some((s) => s.tipo === d.tipo))
+            .map((doc) => (
+              <Card key={doc.id} className="rounded-[16px] bg-secondary border-none">
+                <CardContent className="px-6 py-6 flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <FileText className="h-4 w-4 shrink-0 text-primary" />
+                    <a href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
+                       className="text-primary font-medium hover:underline truncate">
+                      {doc.nome_arquivo}
+                    </a>
                   </div>
+                  <a href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
+                     className="text-primary hover:text-primary-dark shrink-0 ml-3" aria-label="Baixar">
+                    <Download className="h-4 w-4" />
+                  </a>
                 </CardContent>
               </Card>
-            ))
-          )}
+            ))}
         </div>
 
-        <h2 className="text-xl font-bold text-foreground mb-4">Documentos por pedido</h2>
-        <div className="grid grid-cols-1 gap-3 mb-8">
-          {docsProduto.length === 0 ? (
-            <p className="text-muted-foreground italic">Nenhum documento de pedido.</p>
-          ) : (
-            groupDocs(docsProduto).map(([tipo, items]) => (
-              <Card key={tipo} className="rounded-[10px] bg-secondary border-none">
-                <CardContent className="px-6 py-4">
-                  <p className="text-xs text-muted-foreground mb-2">{labelDoc(tipo)}</p>
-                  <div className="space-y-2">
-                    {items.map((d) => <DocLink key={d.id} doc={d} />)}
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
+        {!isEditing && (
+          <>
+            <h2 className="text-xl font-bold text-foreground mb-4">Documentos por pedido</h2>
+            <div className="grid grid-cols-2 gap-4 mb-8">
+              {docsProduto.length === 0 ? (
+                <p className="text-muted-foreground italic col-span-2">Nenhum documento de pedido.</p>
+              ) : (
+                docsProduto.map((doc) => (
+                  <Card key={doc.id} className="rounded-[16px] bg-secondary border-none">
+                    <CardContent className="px-6 py-6 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <FileText className="h-4 w-4 shrink-0 text-primary" />
+                        <a href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
+                           className="text-primary font-medium hover:underline truncate" title={doc.nome_arquivo}>
+                          {doc.nome_arquivo}
+                        </a>
+                      </div>
+                      <a href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
+                         className="text-primary hover:text-primary-dark shrink-0" aria-label="Baixar">
+                        <Download className="h-4 w-4" />
+                      </a>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </>
+        )}
 
         <h2 className="text-xl font-bold text-foreground mb-4">Prontuários</h2>
         <Card className="rounded-[10px] bg-secondary border-none mb-8 overflow-hidden">
@@ -1105,17 +1223,135 @@ function EditableField({
   type?: string;
 }) {
   return (
-    <div className="border-b border-border/40 pb-3">
-      <p className="text-xs text-muted-foreground mb-1">{label}</p>
+    <div className={editing ? "" : "border-b border-border/40 pb-3 last:border-b-0"}>
+      <p className={`text-xs mb-1 ${editing ? "text-foreground font-semibold" : "text-muted-foreground"}`}>{label}</p>
       {editing ? (
         <Input
           type={type}
           value={editValue}
           onChange={(e) => onChange(e.target.value)}
-          className="h-8 bg-background border-border"
+          className="h-9 bg-background border-border rounded-full px-4"
         />
       ) : (
         <p className="text-base font-bold text-foreground break-words">{value}</p>
+      )}
+    </div>
+  );
+}
+
+function DocSlot({
+  tipo, label, doc, editing, uploading, onUpload, onDelete,
+}: {
+  tipo: string;
+  label: string;
+  doc?: DocumentoRow;
+  editing: boolean;
+  uploading: boolean;
+  onUpload: (f: File) => void;
+  onDelete?: () => void;
+}) {
+  const inputId = `pac-upload-${tipo}`;
+
+  if (!editing) {
+    if (!doc) {
+      return (
+        <div className="rounded-[16px] bg-secondary px-6 py-6 flex flex-col gap-2">
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="text-sm text-muted-foreground italic">Não enviado</p>
+        </div>
+      );
+    }
+    return (
+      <Card className="rounded-[16px] bg-secondary border-none">
+        <CardContent className="px-6 py-6 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <FileText className="h-4 w-4 shrink-0 text-primary" />
+            <a href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
+               className="text-primary font-medium hover:underline truncate" title={doc.nome_arquivo}>
+              {doc.nome_arquivo}
+            </a>
+          </div>
+          <a href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
+             className="text-primary hover:text-primary-dark shrink-0" aria-label="Baixar">
+            <Download className="h-4 w-4" />
+          </a>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="rounded-[16px] bg-secondary px-4 py-6 flex flex-col gap-3">
+      <div>
+        <p className="font-semibold text-foreground">{label}</p>
+        <p className="text-sm text-muted-foreground">Formatos aceitos: PDF, PNG, JPG</p>
+      </div>
+
+      <input
+        id={inputId}
+        type="file"
+        accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onUpload(f);
+          e.target.value = "";
+        }}
+        disabled={uploading}
+      />
+
+      {doc && !uploading ? (
+        <div className="rounded-[12px] border border-border bg-background px-3 py-2 flex items-center justify-between gap-2">
+          <a
+            href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
+            className="text-primary text-sm hover:underline truncate flex items-center gap-2 min-w-0"
+            title={doc.nome_arquivo}
+          >
+            <FileText className="h-4 w-4 shrink-0" />
+            <span className="truncate">{doc.nome_arquivo}</span>
+          </a>
+          <div className="flex items-center gap-1 shrink-0">
+            <label htmlFor={inputId} className="text-xs text-primary cursor-pointer hover:underline">
+              Substituir
+            </label>
+            {onDelete && (
+              <button
+                onClick={onDelete}
+                className="text-destructive hover:bg-destructive/10 rounded-full p-1"
+                aria-label="Remover"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <label
+          htmlFor={inputId}
+          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const f = e.dataTransfer.files?.[0];
+            if (f) onUpload(f);
+          }}
+          className={`bg-background border-[1.5px] border-dashed rounded-[18px] py-11 px-6 flex flex-col items-center justify-center gap-4 cursor-pointer transition ${
+            uploading ? "border-primary/50 opacity-60" : "border-primary hover:bg-primary/5"
+          }`}
+        >
+          <div className="bg-card-green/40 rounded-full p-4">
+            {uploading ? (
+              <Loader2 className="h-7 w-7 text-primary animate-spin" />
+            ) : (
+              <CloudUpload className="h-7 w-7 text-primary" />
+            )}
+          </div>
+          <p className="text-sm font-semibold text-primary text-center leading-snug">
+            {uploading ? "Enviando..." : (
+              <>Clique para adicionar o arquivo<br />ou arraste-o até aqui.</>
+            )}
+          </p>
+        </label>
       )}
     </div>
   );
