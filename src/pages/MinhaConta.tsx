@@ -10,7 +10,17 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Pencil, LogOut, ArrowLeft, Check, User, Mail, Phone, Lock, Eye, EyeOff, Plus, RotateCw, ChevronRight, Trash2, X, Upload } from "lucide-react";
+import { Pencil, LogOut, ArrowLeft, Check, User, Mail, Phone, Lock, Eye, EyeOff, Plus, RotateCw, ChevronRight, Trash2, X, Upload, History } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -20,7 +30,39 @@ interface Usuario {
   nome_completo: string;
   email: string;
   foto_perfil_url: string | null;
+  ativo?: boolean;
 }
+
+type PermissoesMap = {
+  acessos: { acessar: boolean; editar: boolean };
+  usuarios: { acessar: boolean; editar: boolean };
+  receitas: { acessar: boolean; editar: boolean };
+  produtos: { acessar: boolean; editar: boolean };
+  associacoes: { acessar: boolean; editar: boolean };
+};
+
+const permissoesVazias = (): PermissoesMap => ({
+  acessos: { acessar: false, editar: false },
+  usuarios: { acessar: false, editar: false },
+  receitas: { acessar: false, editar: false },
+  produtos: { acessar: false, editar: false },
+  associacoes: { acessar: false, editar: false },
+});
+
+type ModuloDef = {
+  key: keyof PermissoesMap;
+  label: string;
+  acessarLabel: string;
+  editarLabel: string;
+};
+
+const MODULOS: ModuloDef[] = [
+  { key: 'acessos', label: 'Acessos', acessarLabel: 'Acessar módulo de acessos', editarLabel: 'Editar permissões' },
+  { key: 'usuarios', label: 'Usuários', acessarLabel: 'Acessar módulo de usuários', editarLabel: 'Editar dados dos usuários' },
+  { key: 'receitas', label: 'Receitas e pedidos', acessarLabel: 'Acessar receitas e pedidos', editarLabel: 'Editar receitas e pedidos' },
+  { key: 'produtos', label: 'Catálogo de produtos', acessarLabel: 'Acessar catálogo de produtos', editarLabel: 'Editar catálogo de produtos' },
+  { key: 'associacoes', label: 'Associações/marcas', acessarLabel: 'Acessar associações/marcas', editarLabel: 'Editar associações/marcas' },
+];
 
 const MinhaConta = () => {
   const [searchParams] = useSearchParams();
@@ -50,23 +92,15 @@ const MinhaConta = () => {
   const [isLoadingUsuarios, setIsLoadingUsuarios] = useState(false);
   const { toast } = useToast();
   
-  // Permissões do usuário
-  const [permissoes, setPermissoes] = useState({
-    acessos: { acessar: false, editar: false },
-    usuarios: { acessar: false, editar: false },
-    receitas: { acessar: false, editar: false },
-    produtos: { acessar: false, editar: false },
-    associacoes: { acessar: false, editar: false },
-  });
+  // Permissões do usuário atualmente selecionado para edição
+  const [permissoes, setPermissoes] = useState<PermissoesMap>(permissoesVazias());
+  const [isLoadingPermissoes, setIsLoadingPermissoes] = useState(false);
+  const [isSavingPermissoes, setIsSavingPermissoes] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
 
   // Permissões para novo usuário
-  const [novoUsuarioPermissoes, setNovoUsuarioPermissoes] = useState({
-    acessos: { acessar: false, editar: false },
-    usuarios: { acessar: false, editar: false },
-    receitas: { acessar: false, editar: false },
-    produtos: { acessar: false, editar: false },
-    associacoes: { acessar: false, editar: false },
-  });
+  const [novoUsuarioPermissoes, setNovoUsuarioPermissoes] = useState<PermissoesMap>(permissoesVazias());
   
   // Configurações de notificação
   const [notifPrefs, setNotifPrefs] = useState({
@@ -80,41 +114,68 @@ const MinhaConta = () => {
   });
   const [isSavingPrefs, setIsSavingPrefs] = useState(false);
 
-  // Buscar usuários do sistema
+  // Buscar usuários do sistema via edge function (resolve email real de auth.users)
   const fetchUsuarios = async () => {
     setIsLoadingUsuarios(true);
     try {
       const { data: authData } = await supabase.auth.getUser();
-      
-      // Buscar todos os profiles exceto o usuário logado
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, nome_completo, foto_perfil_url')
-        .eq('ativo', true)
-        .neq('id', authData.user?.id || '');
+      const callerId = authData.user?.id ?? null;
 
+      const { data, error } = await supabase.functions.invoke('admin-list-users');
       if (error) throw error;
 
-      // Como não temos acesso aos emails via auth.users no client,
-      // vamos precisar criar uma edge function ou adicionar email ao profile
-      // Por enquanto, vamos usar um placeholder
-      const usuariosComEmail: Usuario[] = (data || []).map(profile => ({
-        id: profile.id,
-        nome_completo: profile.nome_completo,
-        email: 'Email não disponível', // Temporário - será resolvido com edge function
-        foto_perfil_url: profile.foto_perfil_url,
-      }));
+      const lista: Usuario[] = (data?.usuarios ?? [])
+        .filter((u: Usuario) => u.id !== callerId)
+        .map((u: Usuario) => ({
+          id: u.id,
+          nome_completo: u.nome_completo,
+          email: u.email || 'Email não disponível',
+          foto_perfil_url: u.foto_perfil_url,
+          ativo: u.ativo,
+        }));
 
-      setUsuarios(usuariosComEmail);
+      setUsuarios(lista);
     } catch (error: any) {
       console.error('Erro ao buscar usuários:', error);
       toast({
         title: "Erro ao carregar usuários",
-        description: "Não foi possível carregar a lista de usuários.",
+        description: error?.message || "Não foi possível carregar a lista de usuários.",
         variant: "destructive",
       });
     } finally {
       setIsLoadingUsuarios(false);
+    }
+  };
+
+  // Carrega permissões do usuário selecionado para edição
+  const loadPermissoesUsuario = async (targetUserId: string) => {
+    setIsLoadingPermissoes(true);
+    setPermissoes(permissoesVazias());
+    try {
+      const { data, error } = await supabase
+        .from('user_permissions')
+        .select('modulo, pode_acessar, pode_editar')
+        .eq('user_id', targetUserId);
+
+      if (error) throw error;
+
+      const novas = permissoesVazias();
+      (data ?? []).forEach((p) => {
+        const mod = p.modulo as keyof PermissoesMap;
+        if (mod in novas) {
+          novas[mod] = { acessar: !!p.pode_acessar, editar: !!p.pode_editar };
+        }
+      });
+      setPermissoes(novas);
+    } catch (error: any) {
+      console.error('Erro ao carregar permissões:', error);
+      toast({
+        title: "Erro ao carregar permissões",
+        description: error?.message || "Não foi possível carregar as permissões do usuário.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingPermissoes(false);
     }
   };
 
@@ -146,38 +207,6 @@ const MinhaConta = () => {
             setNomeCompleto(profile.nome_completo || "");
             setTelefone(profile.telefone || "");
             setFotoPerfilUrl(profile.foto_perfil_url || "");
-          }
-
-          // Buscar permissões do usuário
-          const { data: permissoesData } = await supabase
-            .from('user_permissions')
-            .select('*')
-            .eq('user_id', user.id);
-
-          if (permissoesData) {
-            const novasPermissoes = {
-              acessos: { acessar: false, editar: false },
-              usuarios: { acessar: false, editar: false },
-              receitas: { acessar: false, editar: false },
-              produtos: { acessar: false, editar: false },
-              associacoes: { acessar: false, editar: false },
-            };
-
-            permissoesData.forEach((perm) => {
-              if (perm.modulo === 'acessos') {
-                novasPermissoes.acessos = { acessar: perm.pode_acessar, editar: perm.pode_editar };
-              } else if (perm.modulo === 'usuarios') {
-                novasPermissoes.usuarios = { acessar: perm.pode_acessar, editar: perm.pode_editar };
-              } else if (perm.modulo === 'receitas') {
-                novasPermissoes.receitas = { acessar: perm.pode_acessar, editar: perm.pode_editar };
-              } else if (perm.modulo === 'produtos') {
-                novasPermissoes.produtos = { acessar: perm.pode_acessar, editar: perm.pode_editar };
-              } else if (perm.modulo === 'associacoes') {
-                novasPermissoes.associacoes = { acessar: perm.pode_acessar, editar: perm.pode_editar };
-              }
-            });
-
-            setPermissoes(novasPermissoes);
           }
 
           // Buscar preferências de notificação
@@ -224,49 +253,69 @@ const MinhaConta = () => {
   }, [searchParams]);
 
   const handleSavePermissions = async () => {
-    if (!userId) return;
+    if (!selectedUser) return;
 
+    setIsSavingPermissoes(true);
     try {
-      // Deletar permissões antigas
-      await supabase
-        .from('user_permissions')
-        .delete()
-        .eq('user_id', userId);
+      const payloadPerms: Record<string, { pode_acessar: boolean; pode_editar: boolean }> = {};
+      (Object.entries(permissoes) as [keyof PermissoesMap, PermissoesMap[keyof PermissoesMap]][]).forEach(
+        ([modulo, perms]) => {
+          payloadPerms[modulo] = { pode_acessar: perms.acessar, pode_editar: perms.editar };
+        },
+      );
 
-      // Inserir novas permissões
-      const permissoesArray = [];
-      
-      Object.entries(permissoes).forEach(([modulo, perms]) => {
-        permissoesArray.push({
-          user_id: userId,
-          modulo,
-          pode_acessar: perms.acessar,
-          pode_editar: perms.editar,
-        });
+      const { data, error } = await supabase.functions.invoke('admin-update-user-permissions', {
+        body: { user_id: selectedUser, permissoes: payloadPerms },
       });
 
-      const { error } = await supabase
-        .from('user_permissions')
-        .insert(permissoesArray);
-
-      if (error) {
-        toast({
-          title: "Erro ao salvar permissões",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Permissões atualizadas!",
-          description: "As permissões foram salvas com sucesso.",
-        });
+      if (error || (data && (data as any).error)) {
+        throw new Error(error?.message || (data as any)?.detail || (data as any)?.error || 'Erro desconhecido');
       }
+
+      toast({
+        title: "Permissões atualizadas!",
+        description: "As permissões foram salvas com sucesso.",
+      });
     } catch (error: any) {
       toast({
         title: "Erro ao salvar permissões",
-        description: error.message || "Ocorreu um erro inesperado.",
+        description: error?.message || "Ocorreu um erro inesperado.",
         variant: "destructive",
       });
+    } finally {
+      setIsSavingPermissoes(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return;
+    setIsDeletingUser(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-delete-user', {
+        body: { user_id: selectedUser },
+      });
+      if (error || (data && (data as any).error)) {
+        throw new Error(error?.message || (data as any)?.detail || (data as any)?.error || 'Erro desconhecido');
+      }
+
+      toast({
+        title: "Usuário removido",
+        description: `${selectedUserData?.nome_completo ?? 'Usuário'} foi desativado.`,
+      });
+
+      setUsuarios((prev) => prev.filter((u) => u.id !== selectedUser));
+      setSelectedUser(null);
+      setSelectedUserData(null);
+      setPermissoes(permissoesVazias());
+      setConfirmDeleteOpen(false);
+    } catch (error: any) {
+      toast({
+        title: "Erro ao excluir usuário",
+        description: error?.message || "Não foi possível excluir o usuário.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingUser(false);
     }
   };
 
@@ -654,18 +703,25 @@ const MinhaConta = () => {
       <div className="px-6 py-8 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          {isEditing && (
-            <Button
-              variant="ghost"
-              onClick={() => setIsEditing(false)}
-              className="gap-2 text-foreground hover:bg-transparent p-0"
-            >
-              <ArrowLeft className="h-5 w-5" />
-              Voltar
-            </Button>
-          )}
-          {!isEditing && <div />}
-          
+          <Button
+            variant="ghost"
+            onClick={() => {
+              if (isEditing) {
+                setIsEditing(false);
+              } else if (selectedUser) {
+                setSelectedUser(null);
+                setSelectedUserData(null);
+                setPermissoes(permissoesVazias());
+              } else {
+                navigate(-1);
+              }
+            }}
+            className="gap-2 text-green-700 hover:text-green-800 hover:bg-transparent p-0"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            Voltar
+          </Button>
+
           {activeTab === "dados-basicos" && (
             <Button
               variant="outline"
@@ -677,8 +733,8 @@ const MinhaConta = () => {
                 }
               }}
               className={`gap-2 rounded-full ${
-                isEditing 
-                  ? 'bg-green-600 text-white hover:bg-green-700 border-green-600' 
+                isEditing
+                  ? 'bg-green-600 text-white hover:bg-green-700 border-green-600'
                   : 'border-green-600 text-green-600 hover:bg-green-50'
               }`}
             >
@@ -693,6 +749,17 @@ const MinhaConta = () => {
                   Editar conta
                 </>
               )}
+            </Button>
+          )}
+
+          {activeTab === "acessos" && (
+            <Button
+              variant="outline"
+              onClick={() => setAdicionarUsuarioOpen(true)}
+              className="gap-2 rounded-full border-green-600 text-green-600 hover:bg-green-50"
+            >
+              <Plus className="h-4 w-4" />
+              Adicionar usuário
             </Button>
           )}
         </div>
@@ -974,23 +1041,16 @@ const MinhaConta = () => {
           </TabsContent>
 
           <TabsContent value="acessos">
-            <div className="mb-6 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <h2 className="text-2xl font-bold">Acessos</h2>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <RotateCw className="h-5 w-5 text-muted-foreground" />
-                </Button>
-              </div>
-              {!isEditing && (
-                <Button
-                  variant="outline"
-                  onClick={() => setAdicionarUsuarioOpen(true)}
-                  className="gap-2 border-green-600 text-green-600 hover:bg-green-50 rounded-full"
-                >
-                  <Plus className="h-4 w-4" />
-                  Adicionar usuário
-                </Button>
-              )}
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-2xl font-semibold text-foreground">Acessos</h2>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 rounded-lg bg-[#f7f7f5] hover:bg-[#ececea]"
+                aria-label="Histórico"
+              >
+                <History className="h-5 w-5 text-muted-foreground" />
+              </Button>
             </div>
 
             {/* Modal Adicionar Usuário */}
@@ -1169,9 +1229,9 @@ const MinhaConta = () => {
               </DialogContent>
             </Dialog>
 
-            <div className="grid grid-cols-12 gap-6">
+            <div className={`grid gap-6 ${selectedUser && selectedUserData ? 'grid-cols-12' : 'grid-cols-1'}`}>
               {/* Lista de usuários */}
-              <div className={selectedUser ? "col-span-4" : "col-span-12"}>
+              <div className={selectedUser && selectedUserData ? "col-span-5" : ""}>
                 {isLoadingUsuarios ? (
                   <div className="text-center py-8 text-muted-foreground">
                     Carregando usuários...
@@ -1181,47 +1241,49 @@ const MinhaConta = () => {
                     Nenhum usuário encontrado
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {usuarios.map((usuario) => (
-                      <Card 
-                        key={usuario.id} 
-                        className={`rounded-[10px] border-none hover:bg-secondary/80 transition-colors cursor-pointer ${
-                          selectedUser === usuario.id ? 'bg-secondary' : 'bg-secondary/50'
-                        }`}
-                      >
-                        <CardContent className="p-4">
-                          <button 
-                            className="w-full flex items-center justify-between"
-                            onClick={() => {
-                              setSelectedUser(usuario.id);
-                              setSelectedUserData(usuario);
-                            }}
-                          >
-                            <span className="text-sm font-medium">{usuario.nome_completo}</span>
-                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                          </button>
-                        </CardContent>
-                      </Card>
-                    ))}
+                  <div className="flex flex-col gap-4">
+                    {usuarios.map((usuario) => {
+                      const isSelected = selectedUser === usuario.id;
+                      return (
+                        <button
+                          key={usuario.id}
+                          onClick={() => {
+                            setSelectedUser(usuario.id);
+                            setSelectedUserData(usuario);
+                            loadPermissoesUsuario(usuario.id);
+                          }}
+                          className={`flex h-20 w-full items-center justify-between rounded-2xl px-8 py-7 text-left transition-colors ${
+                            isSelected ? 'bg-[#ececea] ring-1 ring-green-600/40' : 'bg-[#f7f7f5] hover:bg-[#ececea]'
+                          }`}
+                        >
+                          <span className="text-base font-semibold text-[#3f3f3d]">
+                            {usuario.nome_completo}
+                          </span>
+                          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
 
               {/* Detalhes e permissões do usuário */}
               {selectedUser && selectedUserData && (
-                <div className="col-span-8">
-                  <Card className="rounded-[10px] bg-secondary border-none">
-                    <CardContent className="pt-6">
+                <div className="col-span-7">
+                  <div className="rounded-xl bg-[#f7f7f5] p-8">
+                    <div className="flex flex-col gap-6">
                       {/* Info do usuário */}
-                      <div className="flex items-center gap-4 mb-6 pb-6 border-b border-border">
-                        <Avatar className="h-16 w-16">
+                      <div className="flex items-center gap-4">
+                        <Avatar className="h-[52px] w-[52px]">
                           <AvatarImage src={selectedUserData.foto_perfil_url || ""} />
                           <AvatarFallback className="bg-primary text-white font-medium text-lg">
                             {selectedUserData.nome_completo.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <h3 className="text-lg font-bold">{selectedUserData.nome_completo}</h3>
+                          <h3 className="text-xl font-semibold text-foreground leading-tight">
+                            {selectedUserData.nome_completo}
+                          </h3>
                           <p className="text-sm text-green-600">
                             {selectedUserData.email}
                           </p>
@@ -1229,144 +1291,150 @@ const MinhaConta = () => {
                       </div>
 
                       {/* Permissões */}
-                      <div className="mb-6">
-                        <h4 className="text-sm font-semibold mb-4">Permissões</h4>
-                        
-                        <Accordion type="multiple" className="space-y-2">
-                          {/* Acessos */}
-                          <AccordionItem value="acessos" className="border-none">
-                            <AccordionTrigger className="bg-gray-700 text-white hover:bg-gray-600 px-4 py-3 rounded-lg hover:no-underline">
-                              Acessos
-                            </AccordionTrigger>
-                            <AccordionContent className="px-4 pt-4 space-y-3">
-                              <div className="flex items-center space-x-2">
-                                <Checkbox 
-                                  id="acessos-selecionar-tudo"
-                                  checked={permissoes.acessos.acessar && permissoes.acessos.editar}
-                                  onCheckedChange={(checked) => {
-                                    setPermissoes({...permissoes, acessos: { acessar: checked as boolean, editar: checked as boolean }});
-                                  }}
-                                />
-                                <label
-                                  htmlFor="acessos-selecionar-tudo"
-                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                >
-                                  Selecionar tudo
-                                </label>
-                              </div>
+                      <div className="border-t border-[#d6d6d3] pt-6">
+                        <div className="flex items-center justify-between mb-6">
+                          <h4 className="text-base font-semibold text-[#3f3f3d]">Permissões</h4>
+                          {(isLoadingPermissoes || isSavingPermissoes) && (
+                            <span className="text-xs text-muted-foreground">
+                              {isSavingPermissoes ? 'Salvando...' : 'Carregando...'}
+                            </span>
+                          )}
+                        </div>
 
-                              <div className="flex items-center space-x-2">
-                                <Checkbox 
-                                  id="acessos-acessar-modulo"
-                                  checked={permissoes.acessos.acessar}
-                                  onCheckedChange={(checked) => 
-                                    setPermissoes({...permissoes, acessos: {...permissoes.acessos, acessar: checked as boolean}})
-                                  }
-                                />
-                                <label
-                                  htmlFor="acessos-acessar-modulo"
-                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                >
-                                  Acessar módulo de usuários
-                                </label>
-                              </div>
-
-                              <div className="flex items-center space-x-2">
-                                <Checkbox 
-                                  id="acessos-editar-dados"
-                                  checked={permissoes.acessos.editar}
-                                  onCheckedChange={(checked) => 
-                                    setPermissoes({...permissoes, acessos: {...permissoes.acessos, editar: checked as boolean}})
-                                  }
-                                />
-                                <label
-                                  htmlFor="acessos-editar-dados"
-                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                >
-                                  Editar dados dos usuários
-                                </label>
-                              </div>
-                            </AccordionContent>
-                          </AccordionItem>
-
-                          {/* Usuários */}
-                          <AccordionItem value="usuarios" className="border-none">
-                            <AccordionTrigger className="bg-gray-700 text-white hover:bg-gray-600 px-4 py-3 rounded-lg hover:no-underline">
-                              Usuários
-                            </AccordionTrigger>
-                            <AccordionContent className="px-4 pt-4 space-y-3">
-                              <div className="flex items-center space-x-2">
-                                <Checkbox 
-                                  id="usuarios-selecionar-tudo"
-                                  checked={permissoes.usuarios.acessar && permissoes.usuarios.editar}
-                                  onCheckedChange={(checked) => {
-                                    setPermissoes({...permissoes, usuarios: { acessar: checked as boolean, editar: checked as boolean }});
-                                  }}
-                                />
-                                <label
-                                  htmlFor="usuarios-selecionar-tudo"
-                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                >
-                                  Selecionar tudo
-                                </label>
-                              </div>
-
-                              <div className="flex items-center space-x-2">
-                                <Checkbox 
-                                  id="usuarios-acessar-modulo"
-                                  checked={permissoes.usuarios.acessar}
-                                  onCheckedChange={(checked) => 
-                                    setPermissoes({...permissoes, usuarios: {...permissoes.usuarios, acessar: checked as boolean}})
-                                  }
-                                />
-                                <label
-                                  htmlFor="usuarios-acessar-modulo"
-                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                >
-                                  Acessar módulo de usuários
-                                </label>
-                              </div>
-
-                              <div className="flex items-center space-x-2">
-                                <Checkbox 
-                                  id="usuarios-editar-dados"
-                                  checked={permissoes.usuarios.editar}
-                                  onCheckedChange={(checked) => 
-                                    setPermissoes({...permissoes, usuarios: {...permissoes.usuarios, editar: checked as boolean}})
-                                  }
-                                />
-                                <label
-                                  htmlFor="usuarios-editar-dados"
-                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                >
-                                  Editar dados dos usuários
-                                </label>
-                              </div>
-                            </AccordionContent>
-                          </AccordionItem>
+                        <Accordion type="multiple" className="space-y-0">
+                          {MODULOS.map((mod) => {
+                            const perm = permissoes[mod.key];
+                            const todosMarcados = perm.acessar && perm.editar;
+                            const setMod = (next: { acessar: boolean; editar: boolean }) =>
+                              setPermissoes({ ...permissoes, [mod.key]: next });
+                            return (
+                              <AccordionItem
+                                key={mod.key}
+                                value={mod.key}
+                                className="border border-[#d6d6d3] data-[state=open]:bg-white bg-white overflow-hidden first:rounded-t-xl last:rounded-b-xl -mt-px first:mt-0"
+                              >
+                                <AccordionTrigger className="bg-[#3f3f3d] text-white hover:bg-[#2f2f2d] px-5 py-4 rounded-none hover:no-underline data-[state=open]:bg-[#3f3f3d] [&>svg]:text-white">
+                                  <span className="text-base font-semibold">{mod.label}</span>
+                                </AccordionTrigger>
+                                <AccordionContent className="px-5 py-4 bg-white">
+                                  <div className="flex items-center gap-3 pr-3">
+                                    <Checkbox
+                                      id={`${mod.key}-selecionar-tudo`}
+                                      checked={todosMarcados}
+                                      onCheckedChange={(checked) =>
+                                        setMod({ acessar: checked as boolean, editar: checked as boolean })
+                                      }
+                                    />
+                                    <label
+                                      htmlFor={`${mod.key}-selecionar-tudo`}
+                                      className="text-sm font-semibold leading-none text-[#7c7c79] cursor-pointer"
+                                    >
+                                      Selecionar tudo
+                                    </label>
+                                  </div>
+                                  <div className="my-3 h-px bg-[#d6d6d3]" />
+                                  <div className="flex flex-col gap-2">
+                                    <div className="flex items-center gap-3 pr-3">
+                                      <Checkbox
+                                        id={`${mod.key}-acessar`}
+                                        checked={perm.acessar}
+                                        onCheckedChange={(checked) =>
+                                          setMod({ ...perm, acessar: checked as boolean })
+                                        }
+                                      />
+                                      <label
+                                        htmlFor={`${mod.key}-acessar`}
+                                        className="text-sm font-semibold leading-none text-[#7c7c79] cursor-pointer"
+                                      >
+                                        {mod.acessarLabel}
+                                      </label>
+                                    </div>
+                                    <div className="flex items-center gap-3 pr-3">
+                                      <Checkbox
+                                        id={`${mod.key}-editar`}
+                                        checked={perm.editar}
+                                        onCheckedChange={(checked) =>
+                                          setMod({ ...perm, editar: checked as boolean })
+                                        }
+                                      />
+                                      <label
+                                        htmlFor={`${mod.key}-editar`}
+                                        className="text-sm font-semibold leading-none text-[#7c7c79] cursor-pointer"
+                                      >
+                                        {mod.editarLabel}
+                                      </label>
+                                    </div>
+                                  </div>
+                                </AccordionContent>
+                              </AccordionItem>
+                            );
+                          })}
                         </Accordion>
                       </div>
 
-                      <div className="flex gap-3">
+                      {/* Footer: salvar + excluir */}
+                      <div className="flex items-center justify-between gap-3">
                         <Button
-                          variant="outline"
-                          className="flex-1 rounded-full"
-                          onClick={() => setSelectedUser(null)}
+                          variant="ghost"
+                          onClick={() => setConfirmDeleteOpen(true)}
+                          disabled={isSavingPermissoes || isDeletingUser}
+                          className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-full px-4"
                         >
-                          Cancelar
+                          <Trash2 className="h-4 w-4" />
+                          Excluir usuário
                         </Button>
-                        <Button
-                          className="flex-1 rounded-full bg-green-600 hover:bg-green-700 text-white"
-                          onClick={handleSavePermissions}
-                        >
-                          Salvar alterações
-                        </Button>
+
+                        <div className="flex gap-3">
+                          <Button
+                            variant="outline"
+                            className="rounded-full"
+                            onClick={() => {
+                              setSelectedUser(null);
+                              setSelectedUserData(null);
+                              setPermissoes(permissoesVazias());
+                            }}
+                            disabled={isSavingPermissoes}
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            className="rounded-full bg-green-600 hover:bg-green-700 text-white"
+                            onClick={handleSavePermissions}
+                            disabled={isSavingPermissoes || isLoadingPermissoes}
+                          >
+                            {isSavingPermissoes ? "Salvando..." : "Salvar alterações"}
+                          </Button>
+                        </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
+
+            {/* Confirmar exclusão */}
+            <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {selectedUserData
+                      ? `Essa ação desativa ${selectedUserData.nome_completo} no sistema. Você poderá reativar depois pelo banco de dados.`
+                      : 'Essa ação desativa o usuário no sistema.'}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isDeletingUser}>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDeleteUser}
+                    disabled={isDeletingUser}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    {isDeletingUser ? "Excluindo..." : "Excluir"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </TabsContent>
 
           <TabsContent value="configuracoes">
