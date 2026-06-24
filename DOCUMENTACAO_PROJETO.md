@@ -156,10 +156,22 @@ Estende `auth.users` do Supabase Auth.
 | `data_pedido` | TIMESTAMP | Data do pedido | Sim (default: now()) |
 | `valor_total` | DECIMAL(10,2) | Valor total do pedido | Não |
 | `forma_pagamento` | TEXT | Forma de pagamento | Não |
-| `status` | ENUM | Status do pedido | Sim (default: 'pendente') |
-| `canal_aquisicao` | ENUM | 'associacao', 'marca', 'outro' | Sim (default: 'associacao') |
+| `status` | ENUM (`status_pedido`) | Status do pedido | Sim (default: 'pendente') |
+| `canal_aquisicao` | ENUM (`canal_aquisicao`) | 'associacao', 'marca', 'outro' | Sim (default: 'associacao') |
+| `status_anvisa` | TEXT | 'nao_solicitado' / 'em_analise' / 'aprovado' / 'recusado' | Sim (default: 'nao_solicitado') |
+| `codigo_rastreio` | TEXT | Código de rastreio da transportadora | Não |
+| `rastreio_atualizado_em` | TIMESTAMP | Última atualização do rastreio | Não |
+| `prazo_entrega_inicio` | DATE | Início da janela de entrega | Não |
+| `prazo_entrega_fim` | DATE | Fim da janela de entrega | Não |
+| `prazo_entrega_dias` | INTEGER | Prazo de entrega em dias | Não |
+| `frete_valor` | DECIMAL(10,2) | Valor do frete | Não |
+| `melhor_envio_servico_id` | INTEGER | Serviço de frete (Melhor Envio) | Não |
+| `melhor_envio_order_id` | TEXT | ID do pedido no Melhor Envio | Não |
+| `melhor_envio_etiqueta_url` | TEXT | URL da etiqueta gerada | Não |
 | `created_at` | TIMESTAMP | Data de criação | Sim (auto) |
 | `updated_at` | TIMESTAMP | Data de atualização | Sim (auto) |
+
+> **Nota (Módulo 20):** o bloco de logística/Anvisa acima (`status_anvisa`, `codigo_rastreio`, `prazo_*`, `melhor_envio_*`, `frete_valor`) faz parte da tabela real e é usado nas telas de pedidos (lista `/pedidos` e detalhe `/pedidos/:id`).
 
 #### 6. `pedido_itens` (Itens do Pedido)
 | Campo | Tipo | Descrição | Obrigatório |
@@ -350,6 +362,17 @@ Estende `auth.users` do Supabase Auth.
 2. **Histórico**: Toda mudança de status deve ser registrada na tabela `pedido_historico`.
 3. **Número Único**: Cada pedido possui um `numero_pedido` único.
 4. **Canal de Aquisição**: O pedido pode ser feito através de `'associacao'`, `'marca'` ou `'outro'`.
+
+### Módulo 20 — Receitas e pedidos (admin web)
+Lista (`/pedidos`) + detalhe (`/pedidos/:id`) do pedido. Regras (Discovery "Envio e pedido"):
+1. **Pedido ocorre ANTES da autorização Anvisa.** Se a Anvisa não autorizar → paciente é notificado, **pedido cancelado e valor reembolsado**.
+2. **Semântica dos status**: `em_analise` = análise interna dos documentos pela equipe Canfy; `aprovado` = documentos aprovados; `recusado`/`cancelado` = documentos não aprovados (incl. autorização Anvisa) → notifica + reembolsa; depois `enviado` → `entregue`.
+3. **Admin anexa a autorização Anvisa** ao registrar o resultado (fluxo "Autorização Anvisa": aprovada exige anexo de arquivo; negada cancela + reembolsa).
+4. **Rótulos exibidos** (agrupam o enum de 8 valores): Aprovação pendente (`pendente`), Em andamento (`aprovado`/`em_analise`/`em_separacao`), Enviado (`enviado`), Finalizado (`entregue`), Reprovado (`recusado`), Cancelado (`cancelado`). Fonte única em `src/lib/pedidoStatus.ts`.
+5. **Linha do tempo** (detalhe) tem 5 etapas com data/hora de `pedido_historico`: Pendente de aprovação → Aprovado/Reprovado → Em andamento → Enviado → Finalizado.
+6. **Canal de aquisição** pode exigir documentos extras (ex. laudo) que o admin confere antes de aprovar/reprovar.
+
+**RPCs do módulo**: `admin_list_pedidos` (lista com filtros + paginação server-side), `admin_get_pedido_detalhes`, `admin_get_pedido_produtos` (cards "Produtos do pedido"), `admin_aprovar_pedido`, `admin_recusar_pedido`, `admin_update_pedido_entrega`, `admin_registrar_anvisa` (aprovada com anexo / negada → cancela + reembolso).
 
 ### Produtos
 1. **Status**: Produtos podem estar `'ativo'` ou `'inativo'`.

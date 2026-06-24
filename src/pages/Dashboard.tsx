@@ -120,7 +120,7 @@ const Dashboard = () => {
         { p_limit: 5 }
       );
       if (anvisaError && !anvisaError.message.includes("not authorized")) throw anvisaError;
-      setRecentAnvisa(anvisa || []);
+      setRecentAnvisa((anvisa || []) as RecentAnvisa[]);
 
       const { data: medicos, error: medicosError } = await supabase.rpc(
         "admin_get_recent_medicos",

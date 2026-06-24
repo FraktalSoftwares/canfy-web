@@ -14,45 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
-      blog_posts: {
+      asaas_customers: {
         Row: {
+          asaas_customer_id: string
+          created_at: string | null
           id: string
-          titulo: string
-          slug: string
-          resumo: string | null
-          conteudo: string
-          capa_url: string | null
-          status: "rascunho" | "publicado" | "agendado" | "arquivado"
-          data_publicacao: string | null
-          autor_id: string | null
-          created_at: string
-          updated_at: string
+          updated_at: string | null
+          user_id: string
         }
         Insert: {
+          asaas_customer_id: string
+          created_at?: string | null
           id?: string
-          titulo: string
-          slug: string
-          resumo?: string | null
-          conteudo: string
-          capa_url?: string | null
-          status?: "rascunho" | "publicado" | "agendado" | "arquivado"
-          data_publicacao?: string | null
-          autor_id?: string | null
-          created_at?: string
-          updated_at?: string
+          updated_at?: string | null
+          user_id: string
         }
         Update: {
+          asaas_customer_id?: string
+          created_at?: string | null
           id?: string
-          titulo?: string
-          slug?: string
-          resumo?: string | null
-          conteudo?: string
-          capa_url?: string | null
-          status?: "rascunho" | "publicado" | "agendado" | "arquivado"
-          data_publicacao?: string | null
-          autor_id?: string | null
-          created_at?: string
-          updated_at?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      asaas_payments: {
+        Row: {
+          asaas_customer_id: string
+          asaas_payment_id: string
+          bank_slip_url: string | null
+          billing_type: string
+          created_at: string | null
+          due_date: string | null
+          id: string
+          invoice_url: string | null
+          reference_id: string | null
+          reference_type: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string
+          value: number
+        }
+        Insert: {
+          asaas_customer_id: string
+          asaas_payment_id: string
+          bank_slip_url?: string | null
+          billing_type: string
+          created_at?: string | null
+          due_date?: string | null
+          id?: string
+          invoice_url?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+          value: number
+        }
+        Update: {
+          asaas_customer_id?: string
+          asaas_payment_id?: string
+          bank_slip_url?: string | null
+          billing_type?: string
+          created_at?: string | null
+          due_date?: string | null
+          id?: string
+          invoice_url?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+          value?: number
         }
         Relationships: []
       }
@@ -61,57 +94,268 @@ export type Database = {
           cidade: string | null
           cnpj: string | null
           created_at: string
+          documentos_obrigatorios: string[]
           email: string | null
           endereco: string | null
           estado: string | null
           id: string
           nome: string
           observacoes: string | null
+          produtos_ids: string[]
           regiao: string | null
           status: Database["public"]["Enums"]["status_generico"]
           telefone: string | null
           tipo: Database["public"]["Enums"]["tipo_fornecedor"]
-          documentos_obrigatorios: string[]
-          produtos_ids: string[]
           updated_at: string
         }
         Insert: {
           cidade?: string | null
           cnpj?: string | null
           created_at?: string
+          documentos_obrigatorios?: string[]
           email?: string | null
           endereco?: string | null
           estado?: string | null
           id?: string
           nome: string
           observacoes?: string | null
+          produtos_ids?: string[]
           regiao?: string | null
           status?: Database["public"]["Enums"]["status_generico"]
           telefone?: string | null
           tipo: Database["public"]["Enums"]["tipo_fornecedor"]
-          documentos_obrigatorios?: string[]
-          produtos_ids?: string[]
           updated_at?: string
         }
         Update: {
           cidade?: string | null
           cnpj?: string | null
           created_at?: string
+          documentos_obrigatorios?: string[]
           email?: string | null
           endereco?: string | null
           estado?: string | null
           id?: string
           nome?: string
           observacoes?: string | null
+          produtos_ids?: string[]
           regiao?: string | null
           status?: Database["public"]["Enums"]["status_generico"]
           telefone?: string | null
           tipo?: Database["public"]["Enums"]["tipo_fornecedor"]
-          documentos_obrigatorios?: string[]
-          produtos_ids?: string[]
           updated_at?: string
         }
         Relationships: []
+      }
+      blog_posts: {
+        Row: {
+          autor_id: string | null
+          capa_url: string | null
+          conteudo: string
+          created_at: string
+          data_publicacao: string | null
+          id: string
+          resumo: string | null
+          slug: string
+          status: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          autor_id?: string | null
+          capa_url?: string | null
+          conteudo: string
+          created_at?: string
+          data_publicacao?: string | null
+          id?: string
+          resumo?: string | null
+          slug: string
+          status?: string
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          autor_id?: string | null
+          capa_url?: string | null
+          conteudo?: string
+          created_at?: string
+          data_publicacao?: string | null
+          id?: string
+          resumo?: string | null
+          slug?: string
+          status?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blog_posts_autor_id_fkey"
+            columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_mensagens: {
+        Row: {
+          consulta_id: string
+          created_at: string | null
+          id: string
+          lida: boolean | null
+          mensagem: string
+          remetente_id: string
+          remetente_tipo: string
+        }
+        Insert: {
+          consulta_id: string
+          created_at?: string | null
+          id?: string
+          lida?: boolean | null
+          mensagem: string
+          remetente_id: string
+          remetente_tipo: string
+        }
+        Update: {
+          consulta_id?: string
+          created_at?: string | null
+          id?: string
+          lida?: boolean | null
+          mensagem?: string
+          remetente_id?: string
+          remetente_tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_mensagens_consulta_id_fkey"
+            columns: ["consulta_id"]
+            isOneToOne: false
+            referencedRelation: "consultas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      configuracoes_sistema: {
+        Row: {
+          feriados: string[]
+          frete_internacional: number
+          id: number
+          melhor_envio_cep_origem: string
+          melhor_envio_remetente: Json
+          melhor_envio_sandbox: boolean
+          percentual_comissao_medico: number
+          prazo_entrega_internacional_dias: number
+          taxa_pedido: number
+          updated_at: string
+          updated_by: string | null
+          valor_consulta_padrao: number
+        }
+        Insert: {
+          feriados?: string[]
+          frete_internacional?: number
+          id?: number
+          melhor_envio_cep_origem?: string
+          melhor_envio_remetente?: Json
+          melhor_envio_sandbox?: boolean
+          percentual_comissao_medico?: number
+          prazo_entrega_internacional_dias?: number
+          taxa_pedido?: number
+          updated_at?: string
+          updated_by?: string | null
+          valor_consulta_padrao?: number
+        }
+        Update: {
+          feriados?: string[]
+          frete_internacional?: number
+          id?: number
+          melhor_envio_cep_origem?: string
+          melhor_envio_remetente?: Json
+          melhor_envio_sandbox?: boolean
+          percentual_comissao_medico?: number
+          prazo_entrega_internacional_dias?: number
+          taxa_pedido?: number
+          updated_at?: string
+          updated_by?: string | null
+          valor_consulta_padrao?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "configuracoes_sistema_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      consultas: {
+        Row: {
+          cancelada_em: string | null
+          cancelada_por: string | null
+          created_at: string | null
+          data_consulta: string
+          eh_retorno: boolean | null
+          id: string
+          medico_id: string | null
+          motivo_cancelamento: string | null
+          paciente_id: string
+          queixa_principal: string | null
+          receita_id: string | null
+          status: Database["public"]["Enums"]["status_consulta"]
+          updated_at: string | null
+        }
+        Insert: {
+          cancelada_em?: string | null
+          cancelada_por?: string | null
+          created_at?: string | null
+          data_consulta: string
+          eh_retorno?: boolean | null
+          id?: string
+          medico_id?: string | null
+          motivo_cancelamento?: string | null
+          paciente_id: string
+          queixa_principal?: string | null
+          receita_id?: string | null
+          status?: Database["public"]["Enums"]["status_consulta"]
+          updated_at?: string | null
+        }
+        Update: {
+          cancelada_em?: string | null
+          cancelada_por?: string | null
+          created_at?: string | null
+          data_consulta?: string
+          eh_retorno?: boolean | null
+          id?: string
+          medico_id?: string | null
+          motivo_cancelamento?: string | null
+          paciente_id?: string
+          queixa_principal?: string | null
+          receita_id?: string | null
+          status?: Database["public"]["Enums"]["status_consulta"]
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultas_medico_id_fkey"
+            columns: ["medico_id"]
+            isOneToOne: false
+            referencedRelation: "medicos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultas_paciente_id_fkey"
+            columns: ["paciente_id"]
+            isOneToOne: false
+            referencedRelation: "pacientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultas_receita_id_fkey"
+            columns: ["receita_id"]
+            isOneToOne: false
+            referencedRelation: "receitas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       documentos: {
         Row: {
@@ -122,6 +366,7 @@ export type Database = {
           medico_id: string | null
           nome_arquivo: string
           paciente_id: string | null
+          pedido_id: string | null
           tamanho_bytes: number | null
           tipo: Database["public"]["Enums"]["tipo_documento"]
         }
@@ -133,6 +378,7 @@ export type Database = {
           medico_id?: string | null
           nome_arquivo: string
           paciente_id?: string | null
+          pedido_id?: string | null
           tamanho_bytes?: number | null
           tipo: Database["public"]["Enums"]["tipo_documento"]
         }
@@ -144,6 +390,7 @@ export type Database = {
           medico_id?: string | null
           nome_arquivo?: string
           paciente_id?: string | null
+          pedido_id?: string | null
           tamanho_bytes?: number | null
           tipo?: Database["public"]["Enums"]["tipo_documento"]
         }
@@ -169,7 +416,41 @@ export type Database = {
             referencedRelation: "pacientes"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "documentos_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      docusign_envelopes: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          envelope_id: string
+          id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          envelope_id: string
+          id?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          envelope_id?: string
+          id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       especialidades: {
         Row: {
@@ -194,6 +475,51 @@ export type Database = {
           nome?: string
         }
         Relationships: []
+      }
+      feedbacks_consultas: {
+        Row: {
+          comentario: string | null
+          created_at: string
+          data_consulta: string | null
+          id: string
+          medico_id: string | null
+          nota: number
+          paciente_id: string
+        }
+        Insert: {
+          comentario?: string | null
+          created_at?: string
+          data_consulta?: string | null
+          id?: string
+          medico_id?: string | null
+          nota: number
+          paciente_id: string
+        }
+        Update: {
+          comentario?: string | null
+          created_at?: string
+          data_consulta?: string | null
+          id?: string
+          medico_id?: string | null
+          nota?: number
+          paciente_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedbacks_consultas_medico_id_fkey"
+            columns: ["medico_id"]
+            isOneToOne: false
+            referencedRelation: "medicos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedbacks_consultas_paciente_id_fkey"
+            columns: ["paciente_id"]
+            isOneToOne: false
+            referencedRelation: "pacientes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       indicacoes_clinicas: {
         Row: {
@@ -260,11 +586,54 @@ export type Database = {
           },
         ]
       }
+      medico_documentos: {
+        Row: {
+          arquivo_url: string
+          created_at: string | null
+          id: string
+          medico_id: string
+          nome_arquivo: string | null
+          tipo: string
+        }
+        Insert: {
+          arquivo_url: string
+          created_at?: string | null
+          id?: string
+          medico_id: string
+          nome_arquivo?: string | null
+          tipo: string
+        }
+        Update: {
+          arquivo_url?: string
+          created_at?: string | null
+          id?: string
+          medico_id?: string
+          nome_arquivo?: string | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medico_documentos_medico_id_fkey"
+            columns: ["medico_id"]
+            isOneToOne: false
+            referencedRelation: "medicos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medicos: {
         Row: {
+          autoriza_compartilhamento_dados: boolean | null
+          cpf: string | null
           created_at: string
           crm: string
+          data_nascimento: string | null
+          disponibilidade_dias: string | null
+          disponibilidade_horarios: string | null
+          disponibilidade_intervalo: string | null
+          disponibilidade_recorrencia: string | null
           email: string
+          endereco_completo: string | null
           endereco_profissional: string | null
           especialidade_id: string | null
           etapa_validacao: number | null
@@ -273,10 +642,12 @@ export type Database = {
           nome: string
           observacoes_admin: string | null
           status: Database["public"]["Enums"]["status_medico"]
-          status_validacao: "em_analise" | "incompleto" | "aprovado" | "recusado" | null
+          status_validacao: string | null
           telefone: string | null
+          tempo_atuacao: string | null
           tempo_atuacao_anos: number | null
           total_atendimentos: number
+          total_ausencias: number
           total_receitas: number
           uf_crm: string
           ultimo_acesso: string | null
@@ -284,9 +655,17 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          autoriza_compartilhamento_dados?: boolean | null
+          cpf?: string | null
           created_at?: string
           crm: string
+          data_nascimento?: string | null
+          disponibilidade_dias?: string | null
+          disponibilidade_horarios?: string | null
+          disponibilidade_intervalo?: string | null
+          disponibilidade_recorrencia?: string | null
           email: string
+          endereco_completo?: string | null
           endereco_profissional?: string | null
           especialidade_id?: string | null
           etapa_validacao?: number | null
@@ -295,10 +674,12 @@ export type Database = {
           nome: string
           observacoes_admin?: string | null
           status?: Database["public"]["Enums"]["status_medico"]
-          status_validacao?: "em_analise" | "incompleto" | "aprovado" | "recusado" | null
+          status_validacao?: string | null
           telefone?: string | null
+          tempo_atuacao?: string | null
           tempo_atuacao_anos?: number | null
           total_atendimentos?: number
+          total_ausencias?: number
           total_receitas?: number
           uf_crm: string
           ultimo_acesso?: string | null
@@ -306,9 +687,17 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          autoriza_compartilhamento_dados?: boolean | null
+          cpf?: string | null
           created_at?: string
           crm?: string
+          data_nascimento?: string | null
+          disponibilidade_dias?: string | null
+          disponibilidade_horarios?: string | null
+          disponibilidade_intervalo?: string | null
+          disponibilidade_recorrencia?: string | null
           email?: string
+          endereco_completo?: string | null
           endereco_profissional?: string | null
           especialidade_id?: string | null
           etapa_validacao?: number | null
@@ -317,10 +706,12 @@ export type Database = {
           nome?: string
           observacoes_admin?: string | null
           status?: Database["public"]["Enums"]["status_medico"]
-          status_validacao?: "em_analise" | "incompleto" | "aprovado" | "recusado" | null
+          status_validacao?: string | null
           telefone?: string | null
+          tempo_atuacao?: string | null
           tempo_atuacao_anos?: number | null
           total_atendimentos?: number
+          total_ausencias?: number
           total_receitas?: number
           uf_crm?: string
           ultimo_acesso?: string | null
@@ -430,15 +821,107 @@ export type Database = {
           },
         ]
       }
+      paciente_anamnese: {
+        Row: {
+          alergias_detalhes: string | null
+          altura: number | null
+          comorbidades_detalhes: string | null
+          exames_recentes_detalhes: string | null
+          id: string
+          medicacoes_atuais_detalhes: string | null
+          paciente_id: string
+          peso: number | null
+          produtos_cannabis_utilizados: string | null
+          reacoes_adversas_detalhes: string | null
+          tem_alergias: boolean | null
+          tem_comorbidades: boolean | null
+          tem_exames_recentes: boolean | null
+          tem_medicacoes_atuais: boolean | null
+          tem_reacoes_adversas: boolean | null
+          tem_tratamentos_anteriores: boolean | null
+          tratamentos_anteriores_detalhes: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          alergias_detalhes?: string | null
+          altura?: number | null
+          comorbidades_detalhes?: string | null
+          exames_recentes_detalhes?: string | null
+          id?: string
+          medicacoes_atuais_detalhes?: string | null
+          paciente_id: string
+          peso?: number | null
+          produtos_cannabis_utilizados?: string | null
+          reacoes_adversas_detalhes?: string | null
+          tem_alergias?: boolean | null
+          tem_comorbidades?: boolean | null
+          tem_exames_recentes?: boolean | null
+          tem_medicacoes_atuais?: boolean | null
+          tem_reacoes_adversas?: boolean | null
+          tem_tratamentos_anteriores?: boolean | null
+          tratamentos_anteriores_detalhes?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          alergias_detalhes?: string | null
+          altura?: number | null
+          comorbidades_detalhes?: string | null
+          exames_recentes_detalhes?: string | null
+          id?: string
+          medicacoes_atuais_detalhes?: string | null
+          paciente_id?: string
+          peso?: number | null
+          produtos_cannabis_utilizados?: string | null
+          reacoes_adversas_detalhes?: string | null
+          tem_alergias?: boolean | null
+          tem_comorbidades?: boolean | null
+          tem_exames_recentes?: boolean | null
+          tem_medicacoes_atuais?: boolean | null
+          tem_reacoes_adversas?: boolean | null
+          tem_tratamentos_anteriores?: boolean | null
+          tratamentos_anteriores_detalhes?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paciente_anamnese_paciente_id_fkey"
+            columns: ["paciente_id"]
+            isOneToOne: true
+            referencedRelation: "pacientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paciente_anamnese_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pacientes: {
         Row: {
+          bairro: string | null
+          cartao_sus: string | null
+          cep: string | null
+          cidade: string | null
           cpf: string
           created_at: string
           data_nascimento: string
+          endereco_complemento: string | null
           endereco_completo: string | null
+          endereco_logradouro: string | null
+          endereco_numero: string | null
+          estado: string | null
           genero: string | null
           id: string
+          nome_mae: string | null
           observacoes_admin: string | null
+          rg: string | null
+          sexo: string | null
           total_consultas: number
           total_pedidos: number
           total_receitas: number
@@ -447,13 +930,24 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          bairro?: string | null
+          cartao_sus?: string | null
+          cep?: string | null
+          cidade?: string | null
           cpf: string
           created_at?: string
           data_nascimento: string
+          endereco_complemento?: string | null
           endereco_completo?: string | null
+          endereco_logradouro?: string | null
+          endereco_numero?: string | null
+          estado?: string | null
           genero?: string | null
           id?: string
+          nome_mae?: string | null
           observacoes_admin?: string | null
+          rg?: string | null
+          sexo?: string | null
           total_consultas?: number
           total_pedidos?: number
           total_receitas?: number
@@ -462,13 +956,24 @@ export type Database = {
           user_id: string
         }
         Update: {
+          bairro?: string | null
+          cartao_sus?: string | null
+          cep?: string | null
+          cidade?: string | null
           cpf?: string
           created_at?: string
           data_nascimento?: string
+          endereco_complemento?: string | null
           endereco_completo?: string | null
+          endereco_logradouro?: string | null
+          endereco_numero?: string | null
+          estado?: string | null
           genero?: string | null
           id?: string
+          nome_mae?: string | null
           observacoes_admin?: string | null
+          rg?: string | null
+          sexo?: string | null
           total_consultas?: number
           total_pedidos?: number
           total_receitas?: number
@@ -480,7 +985,7 @@ export type Database = {
           {
             foreignKeyName: "pacientes_user_id_fkey"
             columns: ["user_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -580,72 +1085,72 @@ export type Database = {
         Row: {
           associacao_marca_id: string | null
           canal_aquisicao: Database["public"]["Enums"]["canal_aquisicao"]
+          codigo_rastreio: string | null
           created_at: string
           data_pedido: string
           forma_pagamento: string | null
+          frete_valor: number | null
           id: string
+          melhor_envio_etiqueta_url: string | null
+          melhor_envio_order_id: string | null
+          melhor_envio_servico_id: number | null
           numero_pedido: string
           paciente_id: string
+          prazo_entrega_dias: number | null
+          prazo_entrega_fim: string | null
+          prazo_entrega_inicio: string | null
+          rastreio_atualizado_em: string | null
           receita_id: string | null
           status: Database["public"]["Enums"]["status_pedido"]
-          status_anvisa: "nao_solicitado" | "em_analise" | "aprovado" | "recusado"
-          codigo_rastreio: string | null
-          rastreio_atualizado_em: string | null
-          prazo_entrega_inicio: string | null
-          prazo_entrega_fim: string | null
-          melhor_envio_servico_id: number | null
-          melhor_envio_order_id: string | null
-          melhor_envio_etiqueta_url: string | null
-          frete_valor: number | null
-          prazo_entrega_dias: number | null
+          status_anvisa: string
           updated_at: string
           valor_total: number | null
         }
         Insert: {
           associacao_marca_id?: string | null
           canal_aquisicao?: Database["public"]["Enums"]["canal_aquisicao"]
+          codigo_rastreio?: string | null
           created_at?: string
           data_pedido?: string
           forma_pagamento?: string | null
+          frete_valor?: number | null
           id?: string
+          melhor_envio_etiqueta_url?: string | null
+          melhor_envio_order_id?: string | null
+          melhor_envio_servico_id?: number | null
           numero_pedido: string
           paciente_id: string
+          prazo_entrega_dias?: number | null
+          prazo_entrega_fim?: string | null
+          prazo_entrega_inicio?: string | null
+          rastreio_atualizado_em?: string | null
           receita_id?: string | null
           status?: Database["public"]["Enums"]["status_pedido"]
-          status_anvisa?: "nao_solicitado" | "em_analise" | "aprovado" | "recusado"
-          codigo_rastreio?: string | null
-          rastreio_atualizado_em?: string | null
-          prazo_entrega_inicio?: string | null
-          prazo_entrega_fim?: string | null
-          melhor_envio_servico_id?: number | null
-          melhor_envio_order_id?: string | null
-          melhor_envio_etiqueta_url?: string | null
-          frete_valor?: number | null
-          prazo_entrega_dias?: number | null
+          status_anvisa?: string
           updated_at?: string
           valor_total?: number | null
         }
         Update: {
           associacao_marca_id?: string | null
           canal_aquisicao?: Database["public"]["Enums"]["canal_aquisicao"]
+          codigo_rastreio?: string | null
           created_at?: string
           data_pedido?: string
           forma_pagamento?: string | null
+          frete_valor?: number | null
           id?: string
+          melhor_envio_etiqueta_url?: string | null
+          melhor_envio_order_id?: string | null
+          melhor_envio_servico_id?: number | null
           numero_pedido?: string
           paciente_id?: string
+          prazo_entrega_dias?: number | null
+          prazo_entrega_fim?: string | null
+          prazo_entrega_inicio?: string | null
+          rastreio_atualizado_em?: string | null
           receita_id?: string | null
           status?: Database["public"]["Enums"]["status_pedido"]
-          status_anvisa?: "nao_solicitado" | "em_analise" | "aprovado" | "recusado"
-          codigo_rastreio?: string | null
-          rastreio_atualizado_em?: string | null
-          prazo_entrega_inicio?: string | null
-          prazo_entrega_fim?: string | null
-          melhor_envio_servico_id?: number | null
-          melhor_envio_order_id?: string | null
-          melhor_envio_etiqueta_url?: string | null
-          frete_valor?: number | null
-          prazo_entrega_dias?: number | null
+          status_anvisa?: string
           updated_at?: string
           valor_total?: number | null
         }
@@ -758,7 +1263,9 @@ export type Database = {
       }
       produtos: {
         Row: {
+          altura_cm: number
           associacao_marca_id: string | null
+          comprimento_cm: number
           concentracao_cbd: string | null
           concentracao_thc: string | null
           created_at: string
@@ -766,21 +1273,22 @@ export type Database = {
           forma_farmaceutica: Database["public"]["Enums"]["forma_farmaceutica"]
           id: string
           imagem_url: string | null
+          largura_cm: number
           nome_comercial: string
-          principio_ativo: string
-          status: Database["public"]["Enums"]["status_generico"]
-          tipo_origem: "nacional" | "internacional"
+          peso_g: number
+          preco: number | null
           preco_brl: number | null
           preco_usd: number | null
+          principio_ativo: string
+          status: Database["public"]["Enums"]["status_generico"]
+          tipo_origem: string
           updated_at: string
           volume_quantidade: string | null
-          peso_g: number
-          largura_cm: number
-          altura_cm: number
-          comprimento_cm: number
         }
         Insert: {
+          altura_cm?: number
           associacao_marca_id?: string | null
+          comprimento_cm?: number
           concentracao_cbd?: string | null
           concentracao_thc?: string | null
           created_at?: string
@@ -788,21 +1296,22 @@ export type Database = {
           forma_farmaceutica: Database["public"]["Enums"]["forma_farmaceutica"]
           id?: string
           imagem_url?: string | null
+          largura_cm?: number
           nome_comercial: string
-          principio_ativo: string
-          status?: Database["public"]["Enums"]["status_generico"]
-          tipo_origem?: "nacional" | "internacional"
+          peso_g?: number
+          preco?: number | null
           preco_brl?: number | null
           preco_usd?: number | null
+          principio_ativo: string
+          status?: Database["public"]["Enums"]["status_generico"]
+          tipo_origem?: string
           updated_at?: string
           volume_quantidade?: string | null
-          peso_g?: number
-          largura_cm?: number
-          altura_cm?: number
-          comprimento_cm?: number
         }
         Update: {
+          altura_cm?: number
           associacao_marca_id?: string | null
+          comprimento_cm?: number
           concentracao_cbd?: string | null
           concentracao_thc?: string | null
           created_at?: string
@@ -810,18 +1319,17 @@ export type Database = {
           forma_farmaceutica?: Database["public"]["Enums"]["forma_farmaceutica"]
           id?: string
           imagem_url?: string | null
+          largura_cm?: number
           nome_comercial?: string
-          principio_ativo?: string
-          status?: Database["public"]["Enums"]["status_generico"]
-          tipo_origem?: "nacional" | "internacional"
+          peso_g?: number
+          preco?: number | null
           preco_brl?: number | null
           preco_usd?: number | null
+          principio_ativo?: string
+          status?: Database["public"]["Enums"]["status_generico"]
+          tipo_origem?: string
           updated_at?: string
           volume_quantidade?: string | null
-          peso_g?: number
-          largura_cm?: number
-          altura_cm?: number
-          comprimento_cm?: number
         }
         Relationships: [
           {
@@ -835,6 +1343,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          asaas_customer_id: string | null
           ativo: boolean
           created_at: string
           foto_perfil_url: string | null
@@ -845,6 +1354,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          asaas_customer_id?: string | null
           ativo?: boolean
           created_at?: string
           foto_perfil_url?: string | null
@@ -855,6 +1365,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          asaas_customer_id?: string | null
           ativo?: boolean
           created_at?: string
           foto_perfil_url?: string | null
@@ -865,6 +1376,64 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      prontuarios: {
+        Row: {
+          arquivo_url: string | null
+          consulta_id: string | null
+          conteudo: Json | null
+          created_at: string
+          id: string
+          medico_id: string | null
+          paciente_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          arquivo_url?: string | null
+          consulta_id?: string | null
+          conteudo?: Json | null
+          created_at?: string
+          id?: string
+          medico_id?: string | null
+          paciente_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          arquivo_url?: string | null
+          consulta_id?: string | null
+          conteudo?: Json | null
+          created_at?: string
+          id?: string
+          medico_id?: string | null
+          paciente_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prontuarios_consulta_id_fkey"
+            columns: ["consulta_id"]
+            isOneToOne: false
+            referencedRelation: "consultas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prontuarios_medico_id_fkey"
+            columns: ["medico_id"]
+            isOneToOne: false
+            referencedRelation: "medicos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prontuarios_paciente_id_fkey"
+            columns: ["paciente_id"]
+            isOneToOne: false
+            referencedRelation: "pacientes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       receita_itens: {
         Row: {
@@ -968,6 +1537,54 @@ export type Database = {
           },
         ]
       }
+      repasses_medicos: {
+        Row: {
+          created_at: string
+          data_repasse: string
+          id: string
+          medico_id: string
+          observacao: string | null
+          pedido_id: string | null
+          status: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          data_repasse?: string
+          id?: string
+          medico_id: string
+          observacao?: string | null
+          pedido_id?: string | null
+          status?: string
+          valor?: number
+        }
+        Update: {
+          created_at?: string
+          data_repasse?: string
+          id?: string
+          medico_id?: string
+          observacao?: string | null
+          pedido_id?: string | null
+          status?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repasses_medicos_medico_id_fkey"
+            columns: ["medico_id"]
+            isOneToOne: false
+            referencedRelation: "medicos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "repasses_medicos_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_permissions: {
         Row: {
           created_at: string
@@ -1037,6 +1654,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_aprovar_medico: { Args: { p_id: string }; Returns: undefined }
+      admin_aprovar_pedido: {
+        Args: { p_id: string; p_observacao?: string }
+        Returns: undefined
+      }
+      admin_ativar_medico: { Args: { p_id: string }; Returns: undefined }
+      admin_ativar_paciente: { Args: { p_id: string }; Returns: undefined }
       admin_create_associacao: {
         Args: {
           p_cidade?: string
@@ -1051,6 +1675,15 @@ export type Database = {
           p_tipo: string
         }
         Returns: string
+      }
+      admin_delete_blog_post: { Args: { p_id: string }; Returns: undefined }
+      admin_delete_medico_documento: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
+      admin_delete_paciente_documento: {
+        Args: { p_id: string }
+        Returns: undefined
       }
       admin_fix_missing_pacientes: {
         Args: never
@@ -1079,266 +1712,109 @@ export type Database = {
           updated_at: string
         }[]
       }
-      admin_get_dashboard_stats: {
-        Args: { p_year?: number; p_month?: number }
-        Returns: {
-          receitas_emitidas: number
-          pedidos_realizados: number
-          aprovacoes_anvisa: number
-          produtos_catalogo: number
-          medicos_ativos: number
-          pacientes_ativos: number
-          associacoes_ativas: number
-        }[]
-      }
-      admin_get_pedido_detalhes: {
-        Args: { p_id: string }
-        Returns: {
-          id: string
-          numero_pedido: string
-          status: string
-          status_anvisa: "nao_solicitado" | "em_analise" | "aprovado" | "recusado"
-          valor_total: number | null
-          canal_aquisicao: string
-          data_pedido: string
-          codigo_rastreio: string | null
-          rastreio_atualizado_em: string | null
-          prazo_entrega_inicio: string | null
-          prazo_entrega_fim: string | null
-          receita_id: string | null
-          numero_receita: string | null
-          data_emissao: string | null
-          paciente_id: string
-          paciente_nome: string
-          medico_nome: string | null
-          documentos: Array<{
-            id: string
-            tipo: string
-            nome_arquivo: string
-            arquivo_url: string
-          }> | null
-          historico: Array<{
-            status_anterior: string | null
-            status_novo: string
-            observacao: string | null
-            created_at: string
-          }> | null
-        }[]
-      }
-      admin_update_pedido_anvisa: {
-        Args: { p_id: string; p_status_anvisa: string; p_observacao?: string | null }
-        Returns: undefined
-      }
-      admin_get_recent_anvisa: {
-        Args: { p_limit?: number }
-        Returns: {
-          id: string
-          numero_pedido: string
-          paciente_nome: string
-          status_anvisa: "nao_solicitado" | "em_analise" | "aprovado" | "recusado"
-          data_pedido: string
-        }[]
-      }
-      admin_get_medico: {
-        Args: { p_id: string }
-        Returns: {
-          created_at: string
-          cpf: string | null
-          crm: string
-          email: string
-          endereco_profissional: string | null
-          especialidade_nome: string
-          foto_perfil_url: string | null
-          id: string
-          nome: string
-          observacoes_admin: string | null
-          status: string
-          telefone: string
-          tempo_atuacao_anos: number | null
-          total_atendimentos: number
-          total_ausencias: number
-          total_receitas: number
-          uf_crm: string
-          ultimo_acesso: string
-          user_id: string | null
-        }[]
-      }
-      admin_get_medico_documentos: {
-        Args: { p_medico_id: string }
-        Returns: {
-          id: string
-          tipo: string
-          nome_arquivo: string
-          arquivo_url: string
-          created_at: string
-        }[]
-      }
-      admin_upsert_medico_documento: {
-        Args: {
-          p_medico_id: string
-          p_tipo: string
-          p_nome_arquivo: string
-          p_arquivo_url: string
-        }
-        Returns: string
-      }
-      admin_delete_medico_documento: {
-        Args: { p_id: string }
-        Returns: undefined
-      }
-      admin_get_medico_atendimentos: {
-        Args: { p_medico_id: string; p_limit?: number }
-        Returns: {
-          id: string
-          data_consulta: string
-          status: string
-          queixa_principal: string | null
-          paciente_nome: string
-          receita_id: string | null
-          cancelada_por: string | null
-          motivo_cancelamento: string | null
-        }[]
-      }
-      admin_get_medico_receitas: {
-        Args: { p_medico_id: string; p_limit?: number }
-        Returns: {
-          id: string
-          numero_receita: string
-          data_emissao: string
-          validade: string | null
-          status: string
-          paciente_nome: string
-          documento_url: string | null
-        }[]
-      }
-      admin_register_medico_ausencia: {
-        Args: { p_medico_id: string; p_consulta_id?: string | null; p_motivo?: string | null }
-        Returns: undefined
-      }
-      admin_reset_medico_ausencias: {
-        Args: { p_medico_id?: string | null }
-        Returns: number
-      }
-      admin_get_medico_repasses: {
-        Args: { p_medico_id: string }
-        Returns: {
-          id: string
-          data_repasse: string
-          valor: number
-          status: string
-          observacao: string | null
-        }[]
-      }
-      admin_update_medico_observacoes: {
-        Args: { p_id: string; p_observacoes: string }
-        Returns: undefined
-      }
       admin_get_configuracoes_sistema: {
         Args: never
         Returns: {
-          percentual_comissao_medico: number
-          valor_consulta_padrao: number
-          taxa_pedido: number
-          frete_internacional: number
-          prazo_entrega_internacional_dias: number
           feriados: string[]
+          frete_internacional: number
           melhor_envio_cep_origem: string
-          melhor_envio_sandbox: boolean
           melhor_envio_remetente: Json
+          melhor_envio_sandbox: boolean
+          percentual_comissao_medico: number
+          prazo_entrega_internacional_dias: number
+          taxa_pedido: number
           updated_at: string
+          valor_consulta_padrao: number
         }[]
       }
-      admin_update_configuracoes_sistema: {
-        Args: {
-          p_percentual_comissao: number
-          p_valor_consulta: number
-          p_taxa_pedido: number
-          p_frete_intl: number
-          p_prazo_intl: number
-          p_feriados: string[]
-          p_me_cep_origem?: string | null
-          p_me_sandbox?: boolean | null
-          p_me_remetente?: Json | null
-        }
-        Returns: undefined
-      }
-      get_melhor_envio_config: {
-        Args: { p_associacao_id?: string | null }
+      admin_get_dashboard_stats: {
+        Args: { p_month?: number; p_year?: number }
         Returns: {
-          cep_origem: string
-          sandbox: boolean
-          remetente: Json
-        }[]
-      }
-      admin_list_blog_posts: {
-        Args: never
-        Returns: {
-          id: string
-          titulo: string
-          slug: string
-          resumo: string | null
-          status: "rascunho" | "publicado" | "agendado" | "arquivado"
-          data_publicacao: string | null
-          autor_nome: string | null
-          created_at: string
-          capa_url: string | null
-        }[]
-      }
-      admin_upsert_blog_post: {
-        Args: {
-          p_id: string | null
-          p_titulo: string
-          p_slug: string
-          p_resumo: string | null
-          p_conteudo: string
-          p_capa_url: string | null
-          p_status: string
-          p_data_publicacao: string | null
-        }
-        Returns: string
-      }
-      admin_delete_blog_post: {
-        Args: { p_id: string }
-        Returns: undefined
-      }
-      admin_list_feedbacks: {
-        Args: { p_nota_min?: number }
-        Returns: {
-          id: string
-          nota: number
-          comentario: string | null
-          paciente_nome: string
-          medico_nome: string | null
-          data_consulta: string | null
-          created_at: string
+          aprovacoes_anvisa: number
+          associacoes_ativas: number
+          medicos_ativos: number
+          pacientes_ativos: number
+          pedidos_realizados: number
+          produtos_catalogo: number
+          receitas_emitidas: number
         }[]
       }
       admin_get_feedbacks_resumo: {
         Args: never
         Returns: {
-          total: number
           media_geral: number
           notas_baixas: number
+          total: number
         }[]
       }
-      admin_aprovar_pedido: {
-        Args: { p_id: string; p_observacao?: string | null }
-        Returns: undefined
+      admin_get_medico: {
+        Args: { p_id: string }
+        Returns: {
+          cpf: string
+          created_at: string
+          crm: string
+          email: string
+          endereco_profissional: string
+          especialidade_nome: string
+          foto_perfil_url: string
+          id: string
+          nome: string
+          observacoes_admin: string
+          status: string
+          telefone: string
+          tempo_atuacao_anos: number
+          total_atendimentos: number
+          total_ausencias: number
+          total_receitas: number
+          uf_crm: string
+          ultimo_acesso: string
+          user_id: string
+        }[]
       }
-      admin_recusar_pedido: {
-        Args: { p_id: string; p_motivo: string }
-        Returns: undefined
+      admin_get_medico_atendimentos: {
+        Args: { p_limit?: number; p_medico_id: string }
+        Returns: {
+          cancelada_por: string
+          data_consulta: string
+          id: string
+          motivo_cancelamento: string
+          paciente_nome: string
+          queixa_principal: string
+          receita_id: string
+          status: string
+        }[]
       }
-      admin_update_pedido_entrega: {
-        Args: {
-          p_id: string
-          p_status?: string | null
-          p_codigo_rastreio?: string | null
-          p_prazo_entrega_inicio?: string | null
-          p_prazo_entrega_fim?: string | null
-          p_observacao?: string | null
-        }
-        Returns: undefined
+      admin_get_medico_documentos: {
+        Args: { p_medico_id: string }
+        Returns: {
+          arquivo_url: string
+          created_at: string
+          id: string
+          nome_arquivo: string
+          tipo: string
+        }[]
+      }
+      admin_get_medico_receitas: {
+        Args: { p_limit?: number; p_medico_id: string }
+        Returns: {
+          data_emissao: string
+          documento_url: string
+          id: string
+          numero_receita: string
+          paciente_nome: string
+          status: string
+          validade: string
+        }[]
+      }
+      admin_get_medico_repasses: {
+        Args: { p_medico_id: string }
+        Returns: {
+          data_repasse: string
+          id: string
+          observacao: string
+          status: string
+          valor: number
+        }[]
       }
       admin_get_monthly_pedidos: {
         Args: { p_year: number }
@@ -1360,25 +1836,25 @@ export type Database = {
         Args: { p_id: string }
         Returns: {
           ativo: boolean
+          bairro: string
+          cep: string
+          cidade: string
           cpf: string
-          rg: string | null
           created_at: string
           data_nascimento: string
           email: string
+          endereco_complemento: string
           endereco_completo: string
-          endereco_logradouro: string | null
-          endereco_numero: string | null
-          endereco_complemento: string | null
-          bairro: string | null
-          cidade: string | null
-          estado: string | null
-          cep: string | null
-          sexo: string | null
-          foto_perfil_url: string | null
-          genero: string | null
+          endereco_logradouro: string
+          endereco_numero: string
+          estado: string
+          foto_perfil_url: string
+          genero: string
           id: string
           nome_completo: string
-          observacoes_admin: string | null
+          observacoes_admin: string
+          rg: string
+          sexo: string
           telefone: string
           total_consultas: number
           total_pedidos: number
@@ -1387,157 +1863,143 @@ export type Database = {
           user_id: string
         }[]
       }
-      admin_get_paciente_pagamentos: {
+      admin_get_paciente_anamnese: {
         Args: { p_paciente_id: string }
         Returns: {
-          data_pagamento: string
-          tipo: string
-          valor: number
-          referencia: string
+          alergias_detalhes: string
+          altura: number
+          comorbidades_detalhes: string
+          exames_recentes_detalhes: string
+          medicacoes_atuais_detalhes: string
+          peso: number
+          produtos_cannabis_utilizados: string
+          reacoes_adversas_detalhes: string
+          tem_alergias: boolean
+          tem_comorbidades: boolean
+          tem_exames_recentes: boolean
+          tem_medicacoes_atuais: boolean
+          tem_reacoes_adversas: boolean
+          tem_tratamentos_anteriores: boolean
+          tratamentos_anteriores_detalhes: string
+          updated_at: string
+        }[]
+      }
+      admin_get_paciente_consultas: {
+        Args: { p_limit?: number; p_paciente_id: string }
+        Returns: {
+          data_consulta: string
+          id: string
+          medico_nome: string
+          queixa_principal: string
+          receita_id: string
+          status: string
         }[]
       }
       admin_get_paciente_documentos: {
         Args: { p_paciente_id: string }
         Returns: {
-          id: string
-          tipo: string
-          nome_arquivo: string
           arquivo_url: string
-          categoria: "usuario" | "produto"
+          categoria: string
           created_at: string
+          id: string
+          nome_arquivo: string
+          tipo: string
         }[]
       }
-      admin_get_paciente_consultas: {
-        Args: { p_paciente_id: string; p_limit?: number }
+      admin_get_paciente_pagamentos: {
+        Args: { p_paciente_id: string }
         Returns: {
-          id: string
-          data_consulta: string
-          status: string
-          queixa_principal: string | null
-          medico_nome: string | null
-          receita_id: string | null
-        }[]
-      }
-      admin_get_paciente_receitas: {
-        Args: { p_paciente_id: string; p_limit?: number }
-        Returns: {
-          id: string
-          numero_receita: string
-          data_emissao: string
-          validade: string | null
-          status: string
-          medico_nome: string
-          documento_url: string | null
+          data_pagamento: string
+          referencia: string
+          tipo: string
+          valor: number
         }[]
       }
       admin_get_paciente_pedidos: {
-        Args: { p_paciente_id: string; p_limit?: number }
+        Args: { p_limit?: number; p_paciente_id: string }
         Returns: {
+          canal_aquisicao: string
+          data_pedido: string
           id: string
           numero_pedido: string
-          data_pedido: string
-          valor_total: number
           status: string
-          status_anvisa: string | null
-          canal_aquisicao: string | null
+          status_anvisa: string
+          valor_total: number
         }[]
       }
       admin_get_paciente_prontuarios: {
-        Args: { p_paciente_id: string; p_limit?: number }
+        Args: { p_limit?: number; p_paciente_id: string }
         Returns: {
+          arquivo_url: string
+          consulta_id: string
+          created_at: string
           id: string
-          consulta_id: string | null
-          medico_nome: string | null
+          medico_nome: string
           status: string
-          arquivo_url: string | null
-          created_at: string
         }[]
       }
-      admin_get_paciente_anamnese: {
-        Args: { p_paciente_id: string }
+      admin_get_paciente_receitas: {
+        Args: { p_limit?: number; p_paciente_id: string }
         Returns: {
-          peso: number | null
-          altura: number | null
-          tem_alergias: boolean | null
-          alergias_detalhes: string | null
-          tem_tratamentos_anteriores: boolean | null
-          tratamentos_anteriores_detalhes: string | null
-          tem_comorbidades: boolean | null
-          comorbidades_detalhes: string | null
-          tem_medicacoes_atuais: boolean | null
-          medicacoes_atuais_detalhes: string | null
-          tem_exames_recentes: boolean | null
-          exames_recentes_detalhes: string | null
-          produtos_cannabis_utilizados: string | null
-          tem_reacoes_adversas: boolean | null
-          reacoes_adversas_detalhes: string | null
-          updated_at: string
-        }[]
-      }
-      admin_upsert_paciente_anamnese: {
-        Args: {
-          p_paciente_id: string
-          p_peso?: number | null
-          p_altura?: number | null
-          p_tem_alergias?: boolean | null
-          p_alergias_detalhes?: string | null
-          p_tem_tratamentos_anteriores?: boolean | null
-          p_tratamentos_anteriores_detalhes?: string | null
-          p_tem_comorbidades?: boolean | null
-          p_comorbidades_detalhes?: string | null
-          p_tem_medicacoes_atuais?: boolean | null
-          p_medicacoes_atuais_detalhes?: string | null
-          p_tem_exames_recentes?: boolean | null
-          p_exames_recentes_detalhes?: string | null
-          p_produtos_cannabis_utilizados?: string | null
-          p_tem_reacoes_adversas?: boolean | null
-          p_reacoes_adversas_detalhes?: string | null
-        }
-        Returns: undefined
-      }
-      admin_update_paciente_observacoes: {
-        Args: { p_id: string; p_observacoes: string }
-        Returns: undefined
-      }
-      admin_upsert_paciente_documento: {
-        Args: {
-          p_paciente_id: string
-          p_tipo: string
-          p_nome_arquivo: string
-          p_arquivo_url: string
-        }
-        Returns: string
-      }
-      admin_delete_paciente_documento: {
-        Args: { p_id: string }
-        Returns: undefined
-      }
-      admin_list_medicos_solicitacoes: {
-        Args: never
-        Returns: {
+          data_emissao: string
+          documento_url: string
           id: string
-          nome: string
-          email: string
-          telefone: string
-          cpf: string | null
-          crm: string
-          uf_crm: string
-          especialidade_nome: string
-          total_atendimentos: number
-          ultimo_acesso: string | null
-          foto_perfil_url: string | null
-          status_validacao: "em_analise" | "incompleto" | "aprovado" | "recusado"
-          etapa_validacao: number
-          created_at: string
+          medico_nome: string
+          numero_receita: string
+          status: string
+          validade: string
         }[]
       }
-      admin_aprovar_medico: {
+      admin_get_pedido_detalhes: {
         Args: { p_id: string }
-        Returns: undefined
+        Returns: {
+          canal_aquisicao: string
+          codigo_rastreio: string
+          data_emissao: string
+          data_pedido: string
+          documentos: Json
+          historico: Json
+          id: string
+          medico_nome: string
+          numero_pedido: string
+          numero_receita: string
+          paciente_id: string
+          paciente_nome: string
+          prazo_entrega_fim: string
+          prazo_entrega_inicio: string
+          rastreio_atualizado_em: string
+          receita_id: string
+          status: string
+          status_anvisa: string
+          valor_total: number
+        }[]
       }
-      admin_recusar_medico: {
-        Args: { p_id: string; p_motivo: string }
-        Returns: undefined
+      admin_get_pedido_produtos: {
+        Args: { p_pedido_id: string }
+        Returns: {
+          concentracao_cbd: string
+          concentracao_thc: string
+          forma_farmaceutica: string
+          fornecedor_nome: string
+          fornecedor_tipo: string
+          imagem_url: string
+          item_id: string
+          posologia: string
+          produto_id: string
+          produto_nome: string
+          quantidade: number
+          tipo_origem: string
+        }[]
+      }
+      admin_get_recent_anvisa: {
+        Args: { p_limit?: number }
+        Returns: {
+          data_pedido: string
+          id: string
+          numero_pedido: string
+          paciente_nome: string
+          status_anvisa: string
+        }[]
       }
       admin_get_recent_medicos: {
         Args: { p_limit?: number }
@@ -1545,7 +2007,7 @@ export type Database = {
           created_at: string
           crm: string
           email: string
-          foto_perfil_url: string | null
+          foto_perfil_url: string
           id: string
           nome: string
           status: string
@@ -1565,8 +2027,6 @@ export type Database = {
       admin_inativar_associacao: { Args: { p_id: string }; Returns: undefined }
       admin_inativar_medico: { Args: { p_id: string }; Returns: undefined }
       admin_inativar_paciente: { Args: { p_id: string }; Returns: undefined }
-      admin_ativar_medico: { Args: { p_id: string }; Returns: undefined }
-      admin_ativar_paciente: { Args: { p_id: string }; Returns: undefined }
       admin_list_associacoes: {
         Args: never
         Returns: {
@@ -1586,10 +2046,36 @@ export type Database = {
           updated_at: string
         }[]
       }
+      admin_list_blog_posts: {
+        Args: never
+        Returns: {
+          autor_nome: string
+          capa_url: string
+          created_at: string
+          data_publicacao: string
+          id: string
+          resumo: string
+          slug: string
+          status: string
+          titulo: string
+        }[]
+      }
+      admin_list_feedbacks: {
+        Args: { p_nota_min?: number }
+        Returns: {
+          comentario: string
+          created_at: string
+          data_consulta: string
+          id: string
+          medico_nome: string
+          nota: number
+          paciente_nome: string
+        }[]
+      }
       admin_list_medicos: {
         Args: never
         Returns: {
-          cpf: string | null
+          cpf: string
           created_at: string
           crm: string
           email: string
@@ -1600,6 +2086,25 @@ export type Database = {
           telefone: string
           total_atendimentos: number
           total_ausencias: number
+          uf_crm: string
+          ultimo_acesso: string
+        }[]
+      }
+      admin_list_medicos_solicitacoes: {
+        Args: never
+        Returns: {
+          cpf: string
+          created_at: string
+          crm: string
+          email: string
+          especialidade_nome: string
+          etapa_validacao: number
+          foto_perfil_url: string
+          id: string
+          nome: string
+          status_validacao: string
+          telefone: string
+          total_atendimentos: number
           uf_crm: string
           ultimo_acesso: string
         }[]
@@ -1622,6 +2127,28 @@ export type Database = {
           user_id: string
         }[]
       }
+      admin_list_pedidos: {
+        Args: {
+          p_data_fim?: string
+          p_data_ini?: string
+          p_limit?: number
+          p_medico?: string
+          p_offset?: number
+          p_paciente?: string
+          p_search?: string
+          p_status?: string[]
+        }
+        Returns: {
+          data_pedido: string
+          id: string
+          numero_pedido: string
+          paciente_nome: string
+          prescritor_nome: string
+          status: string
+          total_count: number
+          valor_total: number
+        }[]
+      }
       admin_list_receitas: {
         Args: never
         Returns: {
@@ -1636,6 +2163,31 @@ export type Database = {
           validade: string
         }[]
       }
+      admin_recusar_medico: {
+        Args: { p_id: string; p_motivo: string }
+        Returns: undefined
+      }
+      admin_recusar_pedido: {
+        Args: { p_id: string; p_motivo: string }
+        Returns: undefined
+      }
+      admin_register_medico_ausencia: {
+        Args: { p_consulta_id?: string; p_medico_id: string; p_motivo?: string }
+        Returns: undefined
+      }
+      admin_registrar_anvisa: {
+        Args: {
+          p_aprovado: boolean
+          p_arquivo_url?: string
+          p_id: string
+          p_nome_arquivo?: string
+        }
+        Returns: undefined
+      }
+      admin_reset_medico_ausencias: {
+        Args: { p_medico_id?: string }
+        Returns: number
+      }
       admin_update_associacao: {
         Args: {
           p_cnpj?: string
@@ -1648,10 +2200,24 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_update_configuracoes_sistema: {
+        Args: {
+          p_feriados: string[]
+          p_frete_intl: number
+          p_me_cep_origem?: string
+          p_me_remetente?: Json
+          p_me_sandbox?: boolean
+          p_percentual_comissao: number
+          p_prazo_intl: number
+          p_taxa_pedido: number
+          p_valor_consulta: number
+        }
+        Returns: undefined
+      }
       admin_update_medico: {
         Args: {
+          p_cpf?: string
           p_crm: string
-          p_cpf?: string | null
           p_email: string
           p_id: string
           p_telefone: string
@@ -1659,47 +2225,131 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_update_medico_observacoes: {
+        Args: { p_id: string; p_observacoes: string }
+        Returns: undefined
+      }
       admin_update_paciente: {
         Args: {
+          p_bairro?: string
+          p_cep?: string
+          p_cidade?: string
+          p_cpf?: string
+          p_data_nascimento?: string
+          p_endereco_complemento?: string
+          p_endereco_completo?: string
+          p_endereco_logradouro?: string
+          p_endereco_numero?: string
+          p_estado?: string
+          p_genero?: string
           p_id: string
-          p_telefone?: string | null
-          p_cpf?: string | null
-          p_data_nascimento?: string | null
-          p_endereco_completo?: string | null
-          p_rg?: string | null
-          p_endereco_logradouro?: string | null
-          p_endereco_numero?: string | null
-          p_endereco_complemento?: string | null
-          p_bairro?: string | null
-          p_cidade?: string | null
-          p_estado?: string | null
-          p_cep?: string | null
-          p_sexo?: string | null
-          p_genero?: string | null
+          p_rg?: string
+          p_sexo?: string
+          p_telefone?: string
         }
         Returns: undefined
+      }
+      admin_update_paciente_observacoes: {
+        Args: { p_id: string; p_observacoes: string }
+        Returns: undefined
+      }
+      admin_update_pedido_anvisa: {
+        Args: { p_id: string; p_observacao?: string; p_status_anvisa: string }
+        Returns: undefined
+      }
+      admin_update_pedido_entrega: {
+        Args: {
+          p_codigo_rastreio?: string
+          p_id: string
+          p_observacao?: string
+          p_prazo_entrega_fim?: string
+          p_prazo_entrega_inicio?: string
+          p_status?: string
+        }
+        Returns: undefined
+      }
+      admin_upsert_blog_post: {
+        Args: {
+          p_capa_url: string
+          p_conteudo: string
+          p_data_publicacao: string
+          p_id: string
+          p_resumo: string
+          p_slug: string
+          p_status: string
+          p_titulo: string
+        }
+        Returns: string
+      }
+      admin_upsert_medico_documento: {
+        Args: {
+          p_arquivo_url: string
+          p_medico_id: string
+          p_nome_arquivo: string
+          p_tipo: string
+        }
+        Returns: string
+      }
+      admin_upsert_paciente_anamnese: {
+        Args: {
+          p_alergias_detalhes?: string
+          p_altura?: number
+          p_comorbidades_detalhes?: string
+          p_exames_recentes_detalhes?: string
+          p_medicacoes_atuais_detalhes?: string
+          p_paciente_id: string
+          p_peso?: number
+          p_produtos_cannabis_utilizados?: string
+          p_reacoes_adversas_detalhes?: string
+          p_tem_alergias?: boolean
+          p_tem_comorbidades?: boolean
+          p_tem_exames_recentes?: boolean
+          p_tem_medicacoes_atuais?: boolean
+          p_tem_reacoes_adversas?: boolean
+          p_tem_tratamentos_anteriores?: boolean
+          p_tratamentos_anteriores_detalhes?: string
+        }
+        Returns: undefined
+      }
+      admin_upsert_paciente_documento: {
+        Args: {
+          p_arquivo_url: string
+          p_nome_arquivo: string
+          p_paciente_id: string
+          p_tipo: string
+        }
+        Returns: string
       }
       assign_admin_role: { Args: { user_email: string }; Returns: undefined }
       create_produto: {
         Args: {
+          p_altura_cm?: number
+          p_comprimento_cm?: number
           p_concentracao_cbd: string
           p_concentracao_thc: string
           p_fabricante: string
           p_forma_farmaceutica: string
           p_imagem_url: string
+          p_largura_cm?: number
           p_nome_comercial: string
+          p_peso_g?: number
           p_principio_ativo: string
           p_status: string
           p_volume_quantidade: string
-          p_peso_g?: number
-          p_largura_cm?: number
-          p_altura_cm?: number
-          p_comprimento_cm?: number
         }
         Returns: string
       }
       gerar_numero_pedido: { Args: never; Returns: string }
       gerar_numero_receita: { Args: never; Returns: string }
+      get_melhor_envio_config: {
+        Args: { p_associacao_id?: string }
+        Returns: {
+          cep_origem: string
+          remetente: Json
+          sandbox: boolean
+        }[]
+      }
+      get_paciente_ids_for_current_user: { Args: never; Returns: string[] }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1708,6 +2358,10 @@ export type Database = {
         Returns: boolean
       }
       inativar_produto: { Args: { p_produto_id: string }; Returns: undefined }
+      is_consulta_participant: {
+        Args: { consulta_uuid: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "super_admin" | "admin" | "gestor" | "visualizador"
@@ -1733,6 +2387,7 @@ export type Database = {
         | "gel"
         | "creme"
         | "outro"
+      status_consulta: "agendada" | "em_andamento" | "finalizada" | "cancelada"
       status_generico: "ativo" | "inativo"
       status_medico: "ativo" | "inativo" | "pendente_aprovacao"
       status_pedido:
@@ -1752,6 +2407,8 @@ export type Database = {
         | "comprovante_residencia"
         | "autorizacao_anvisa"
         | "outro"
+        | "procuracao"
+        | "prontuario"
       tipo_envio: "imediato" | "agendado"
       tipo_fornecedor: "associacao" | "marca"
       tipo_notificacao: "sistema" | "personalizada"
@@ -1902,6 +2559,7 @@ export const Constants = {
         "especifico",
       ],
       forma_farmaceutica: ["oleo", "capsula", "spray", "gel", "creme", "outro"],
+      status_consulta: ["agendada", "em_andamento", "finalizada", "cancelada"],
       status_generico: ["ativo", "inativo"],
       status_medico: ["ativo", "inativo", "pendente_aprovacao"],
       status_pedido: [
@@ -1922,6 +2580,8 @@ export const Constants = {
         "comprovante_residencia",
         "autorizacao_anvisa",
         "outro",
+        "procuracao",
+        "prontuario",
       ],
       tipo_envio: ["imediato", "agendado"],
       tipo_fornecedor: ["associacao", "marca"],

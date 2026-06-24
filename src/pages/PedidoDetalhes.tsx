@@ -1,20 +1,27 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, Check, Copy, Download, X, ShieldCheck, ShieldX, Truck, Package } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
+  ChevronLeft, ChevronRight, Check, Copy, Download, X, ShieldCheck, ShieldX,
+  Truck, Package, AlertCircle, UploadCloud, FileText, RefreshCw, Trash2, Pill,
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import {
+  getStatusBadge, timelineStageIndex, TIMELINE_STAGES, isPedidoReprovado,
+} from "@/lib/pedidoStatus";
 
 type AnvisaStatus = "nao_solicitado" | "em_analise" | "aprovado" | "recusado";
+
+const MAX_UPLOAD_MB = 10;
+const ACCEPTED_MIMES = ["application/pdf", "image/png", "image/jpeg", "image/jpg"];
 
 interface DocumentoRow {
   id: string;
@@ -28,6 +35,21 @@ interface HistoricoRow {
   status_novo: string;
   observacao: string | null;
   created_at: string;
+}
+
+interface ProdutoPedido {
+  item_id: string;
+  produto_id: string;
+  produto_nome: string;
+  imagem_url: string | null;
+  fornecedor_tipo: string | null;
+  fornecedor_nome: string | null;
+  forma_farmaceutica: string | null;
+  concentracao_thc: string | null;
+  concentracao_cbd: string | null;
+  posologia: string | null;
+  tipo_origem: string | null;
+  quantidade: number;
 }
 
 interface PedidoDetalhes {
@@ -59,25 +81,6 @@ interface PedidoMeFields {
   frete_valor: number | null;
 }
 
-const STAGES = [
-  { key: "validando_documentos", label: "Validando documentos" },
-  { key: "liberando_importacao", label: "Liberando importação" },
-  { key: "importacao_liberada", label: "Importação liberada" },
-  { key: "pedido_na_anvisa", label: "Pedido na Anvisa" },
-  { key: "pedido_liberado_anvisa", label: "Pedido liberado pela Anvisa" },
-  { key: "pedido_entregue", label: "Pedido entregue" },
-] as const;
-
-const stageIndexFor = (status: string, statusAnvisa: AnvisaStatus): number => {
-  if (status === "entregue") return STAGES.length - 1;
-  if (statusAnvisa === "aprovado") return 4;
-  if (statusAnvisa === "em_analise") return 3;
-  if (statusAnvisa === "recusado") return 3;
-  if (status === "em_separacao" || status === "enviado") return 2;
-  if (status === "aprovado") return 1;
-  return 0;
-};
-
 const formatCurrency = (v: number | null) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v ?? 0);
 
@@ -99,26 +102,46 @@ const formatDateTime = (d: string | null) => {
   }
 };
 
+const formatTimeline = (d: string | null) => {
+  if (!d) return "00/00/0000, às 00h00";
+  try {
+    return format(new Date(d), "dd/MM/yyyy', às' HH'h'mm", { locale: ptBR });
+  } catch {
+    return "00/00/0000, às 00h00";
+  }
+};
+
+const FORMA_LABEL: Record<string, string> = {
+  oleo: "Óleo", capsula: "Cápsula", spray: "Spray", gel: "Gel", creme: "Creme", outro: "Outro",
+};
+
 const PedidoDetalhes = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [pedido, setPedido] = useState<PedidoDetalhes | null>(null);
+  const [produtos, setProdutos] = useState<ProdutoPedido[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [showAprovar, setShowAprovar] = useState(false);
   const [showRecusar, setShowRecusar] = useState(false);
-  const [showAnvisa, setShowAnvisa] = useState(false);
   const [showEntrega, setShowEntrega] = useState(false);
   const [obsAprovar, setObsAprovar] = useState("");
   const [motivoRecusa, setMotivoRecusa] = useState("");
-  const [novoStatusAnvisa, setNovoStatusAnvisa] = useState<AnvisaStatus>("em_analise");
-  const [obsAnvisa, setObsAnvisa] = useState("");
   const [entregaStatus, setEntregaStatus] = useState<"em_separacao" | "enviado" | "entregue">("em_separacao");
   const [entregaRastreio, setEntregaRastreio] = useState("");
   const [entregaInicio, setEntregaInicio] = useState("");
   const [entregaFim, setEntregaFim] = useState("");
   const [entregaObs, setEntregaObs] = useState("");
   const [acting, setActing] = useState(false);
+
+  // Fluxo Autorização Anvisa
+  const [showAnvisa, setShowAnvisa] = useState(false);
+  const [anvisaDecisao, setAnvisaDecisao] = useState<"aprovada" | "negada" | null>(null);
+  const [anvisaFile, setAnvisaFile] = useState<File | null>(null);
+  const [anvisaSaving, setAnvisaSaving] = useState(false);
+  const [showAnvisaFeedback, setShowAnvisaFeedback] = useState(false);
+  const anvisaInputRef = useRef<HTMLInputElement>(null);
 
   const [meFields, setMeFields] = useState<PedidoMeFields | null>(null);
   const [showEtiqueta, setShowEtiqueta] = useState(false);
@@ -144,23 +167,21 @@ const PedidoDetalhes = () => {
   const fetchPedido = async () => {
     try {
       setLoading(true);
-      const [{ data, error }, meRes] = await Promise.all([
+      const [{ data, error }, meRes, prodRes] = await Promise.all([
         supabase.rpc("admin_get_pedido_detalhes", { p_id: id! }),
         supabase
           .from("pedidos")
           .select("melhor_envio_servico_id, melhor_envio_order_id, melhor_envio_etiqueta_url, frete_valor")
           .eq("id", id!)
           .maybeSingle(),
+        supabase.rpc("admin_get_pedido_produtos", { p_pedido_id: id! }),
       ]);
       if (error) throw error;
-      if (data && data.length > 0) setPedido(data[0] as PedidoDetalhes);
+      if (data && data.length > 0) setPedido(data[0] as unknown as PedidoDetalhes);
       if (meRes.data) setMeFields(meRes.data as PedidoMeFields);
+      if (prodRes.data) setProdutos(prodRes.data as ProdutoPedido[]);
     } catch (e: any) {
-      toast({
-        title: "Erro ao carregar pedido",
-        description: e.message,
-        variant: "destructive",
-      });
+      toast({ title: "Erro ao carregar pedido", description: e.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -169,16 +190,9 @@ const PedidoDetalhes = () => {
   const openEtiquetaDialog = async () => {
     if (!pedido) return;
     setDestNome(pedido.paciente_nome ?? "");
-    setDestDoc("");
-    setDestEmail("");
-    setDestPhone("");
-    setDestAddress("");
-    setDestNumber("");
-    setDestComplement("");
-    setDestDistrict("");
-    setDestCity("");
-    setDestState("");
-    setDestCep("");
+    setDestDoc(""); setDestEmail(""); setDestPhone("");
+    setDestAddress(""); setDestNumber(""); setDestComplement("");
+    setDestDistrict(""); setDestCity(""); setDestState(""); setDestCep("");
     try {
       const { data } = await supabase
         .from("pacientes")
@@ -201,10 +215,7 @@ const PedidoDetalhes = () => {
     if (!destNome.trim() || !destDoc.trim() || !destAddress.trim() ||
         !destNumber.trim() || !destDistrict.trim() || !destCity.trim() ||
         !destState.trim() || !destCep.trim()) {
-      toast({
-        title: "Preencha todos os campos obrigatórios",
-        variant: "destructive",
-      });
+      toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
       return;
     }
     setEtiquetaLoading(true);
@@ -247,9 +258,28 @@ const PedidoDetalhes = () => {
   };
 
   const currentStage = useMemo(
-    () => (pedido ? stageIndexFor(pedido.status, pedido.status_anvisa) : -1),
+    () => (pedido ? timelineStageIndex(pedido.status) : -1),
     [pedido]
   );
+
+  // Mapeia, para cada etapa da timeline, a data do histórico correspondente.
+  const stageDate = useMemo(() => {
+    const h = pedido?.historico ?? [];
+    const find = (statuses: string[]) =>
+      h.find((x) => statuses.includes(x.status_novo))?.created_at ?? null;
+    return [
+      pedido?.data_pedido ?? null,
+      find(["aprovado", "recusado", "cancelado"]),
+      find(["em_analise", "em_separacao"]),
+      find(["enviado"]),
+      find(["entregue"]),
+    ];
+  }, [pedido]);
+
+  const reprovado = pedido ? isPedidoReprovado(pedido.status) : false;
+
+  const stageLabel = (i: number) =>
+    i === 1 && reprovado ? "Pedido reprovado pela equipe Canfy" : TIMELINE_STAGES[i];
 
   const prazoLabel = useMemo(() => {
     if (!pedido?.prazo_entrega_inicio || !pedido?.prazo_entrega_fim) {
@@ -285,7 +315,7 @@ const PedidoDetalhes = () => {
 
   const handleRecusar = async () => {
     if (!motivoRecusa.trim()) {
-      toast({ title: "Informe o motivo da recusa", variant: "destructive" });
+      toast({ title: "Informe a justificativa da recusa", variant: "destructive" });
       return;
     }
     try {
@@ -295,34 +325,78 @@ const PedidoDetalhes = () => {
         p_motivo: motivoRecusa.trim(),
       });
       if (error) throw error;
-      toast({ title: "Pedido recusado" });
+      toast({ title: "Pedido reprovado" });
       setShowRecusar(false);
       setMotivoRecusa("");
       fetchPedido();
     } catch (e: any) {
-      toast({ title: "Erro ao recusar", description: e.message, variant: "destructive" });
+      toast({ title: "Erro ao reprovar", description: e.message, variant: "destructive" });
     } finally {
       setActing(false);
     }
   };
 
-  const handleUpdateAnvisa = async () => {
+  const openAnvisaDialog = () => {
+    setAnvisaDecisao(null);
+    setAnvisaFile(null);
+    setShowAnvisa(true);
+  };
+
+  const handleAnvisaFile = (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      toast({ title: "Arquivo muito grande", description: `Máximo ${MAX_UPLOAD_MB}MB`, variant: "destructive" });
+      return;
+    }
+    if (!ACCEPTED_MIMES.includes(file.type)) {
+      toast({ title: "Formato inválido", description: "Aceitos: PDF, PNG, JPG", variant: "destructive" });
+      return;
+    }
+    setAnvisaFile(file);
+  };
+
+  const handleFinalizarAnvisa = async () => {
+    if (!pedido || !anvisaDecisao) return;
     try {
-      setActing(true);
-      const { error } = await supabase.rpc("admin_update_pedido_anvisa", {
-        p_id: pedido!.id,
-        p_status_anvisa: novoStatusAnvisa,
-        p_observacao: obsAnvisa || null,
-      });
-      if (error) throw error;
-      toast({ title: "Status Anvisa atualizado" });
-      setShowAnvisa(false);
-      setObsAnvisa("");
-      fetchPedido();
+      setAnvisaSaving(true);
+      if (anvisaDecisao === "aprovada") {
+        if (!anvisaFile) {
+          toast({ title: "Anexe o arquivo da autorização", variant: "destructive" });
+          return;
+        }
+        const ext = anvisaFile.name.split(".").pop() || "pdf";
+        const path = `pedido_anvisa/${pedido.id}/autorizacao_${Date.now()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from("documents").upload(path, anvisaFile, {
+          cacheControl: "3600", upsert: true, contentType: anvisaFile.type,
+        });
+        if (upErr) throw upErr;
+        const { data: pub } = supabase.storage.from("documents").getPublicUrl(path);
+        const { error } = await supabase.rpc("admin_registrar_anvisa", {
+          p_id: pedido.id,
+          p_aprovado: true,
+          p_arquivo_url: pub.publicUrl,
+          p_nome_arquivo: anvisaFile.name,
+        });
+        if (error) throw error;
+        toast({ title: "Autorização Anvisa registrada" });
+        setShowAnvisa(false);
+        fetchPedido();
+      } else {
+        const { error } = await supabase.rpc("admin_registrar_anvisa", {
+          p_id: pedido.id,
+          p_aprovado: false,
+          p_arquivo_url: null,
+          p_nome_arquivo: null,
+        });
+        if (error) throw error;
+        setShowAnvisa(false);
+        setShowAnvisaFeedback(true);
+        fetchPedido();
+      }
     } catch (e: any) {
-      toast({ title: "Erro ao atualizar", description: e.message, variant: "destructive" });
+      toast({ title: "Erro ao registrar Anvisa", description: e.message, variant: "destructive" });
     } finally {
-      setActing(false);
+      setAnvisaSaving(false);
     }
   };
 
@@ -379,7 +453,6 @@ const PedidoDetalhes = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-
         <div className="flex items-center justify-center py-12">
           <div className="animate-pulse text-muted-foreground">Carregando...</div>
         </div>
@@ -390,23 +463,17 @@ const PedidoDetalhes = () => {
   if (!pedido) {
     return (
       <div className="min-h-screen bg-background">
-
-        <div className="px-6 py-8 max-w-[1400px] mx-auto">
+        <div className="px-6 py-8 max-w-[1080px] mx-auto">
           <p className="text-muted-foreground">Pedido não encontrado.</p>
         </div>
       </div>
     );
   }
 
-  const anvisaBadge =
-    pedido.status_anvisa !== "nao_solicitado"
-      ? { label: "Pedido na Anvisa", bg: "hsl(var(--card-purple))", fg: "hsl(291 47% 35%)" }
-      : null;
+  const badge = getStatusBadge(pedido.status);
 
   return (
     <div className="min-h-screen bg-background">
-
-
       <div className="px-6 py-8 max-w-[1080px] mx-auto">
         <Button
           variant="ghost"
@@ -418,14 +485,30 @@ const PedidoDetalhes = () => {
         </Button>
 
         <nav className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-          <Link to="/receitas" className="hover:text-primary">Receitas e pedidos</Link>
+          <Link to="/pedidos" className="hover:text-primary">Receitas e pedidos</Link>
           <ChevronRight className="h-3 w-3" />
           <span className="text-foreground font-medium">Pedido #{pedido.numero_pedido}</span>
         </nav>
 
+        {/* Banners por estado */}
+        {pedido.status === "pendente" && (
+          <div className="flex items-start gap-3 bg-card-yellow rounded-[10px] px-5 py-4 mb-6">
+            <AlertCircle className="h-5 w-5 text-[hsl(36_80%_42%)] shrink-0 mt-0.5" />
+            <p className="text-sm text-foreground">
+              Pedido pendente de aprovação. Por favor, revise os documentos anexados ao pedido antes de aprovar ou reprovar.
+            </p>
+          </div>
+        )}
+        {reprovado && (
+          <div className="flex items-start gap-3 bg-card-red rounded-[10px] px-5 py-4 mb-6">
+            <ShieldX className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+            <p className="text-sm text-foreground">Pedido reprovado pela equipe Canfy.</p>
+          </div>
+        )}
+
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-foreground">Dados do pedido</h2>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 justify-end">
             {["aprovado", "em_separacao", "enviado", "entregue"].includes(pedido.status) && (
               <Button
                 variant="outline"
@@ -458,17 +541,16 @@ const PedidoDetalhes = () => {
                 Etiqueta PDF
               </Button>
             )}
-            <Button
-              variant="outline"
-              className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-full"
-              onClick={() => {
-                setNovoStatusAnvisa(pedido.status_anvisa);
-                setShowAnvisa(true);
-              }}
-            >
-              <ShieldCheck className="h-4 w-4" />
-              Atualizar status Anvisa
-            </Button>
+            {!reprovado && pedido.status !== "cancelado" && (
+              <Button
+                variant="outline"
+                className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-full"
+                onClick={openAnvisaDialog}
+              >
+                <ShieldCheck className="h-4 w-4" />
+                Autorização Anvisa
+              </Button>
+            )}
             {pedido.status === "pendente" && (
               <>
                 <Button
@@ -477,7 +559,7 @@ const PedidoDetalhes = () => {
                   onClick={() => setShowRecusar(true)}
                 >
                   <ShieldX className="h-4 w-4" />
-                  Recusar pedido
+                  Reprovar pedido
                 </Button>
                 <Button
                   className="gap-2 bg-primary text-white hover:bg-primary-dark rounded-full"
@@ -491,43 +573,104 @@ const PedidoDetalhes = () => {
           </div>
         </div>
 
+        {/* Card identificação + status */}
         <Card className="rounded-[10px] bg-secondary border-none mb-3">
-          <CardContent className="py-5 px-6 flex items-center justify-between">
-            <h3 className="text-lg font-bold text-foreground">Pedido #{pedido.numero_pedido}</h3>
-            {anvisaBadge && (
-              <Badge
-                style={{ backgroundColor: anvisaBadge.bg, color: anvisaBadge.fg }}
-                className="border-none rounded-full px-4 py-1 font-medium"
-              >
-                {anvisaBadge.label}
-              </Badge>
-            )}
+          <CardContent className="py-5 px-6 flex items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-bold text-foreground">Pedido #{pedido.numero_pedido}</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Última atualização do pedido em {formatDate(pedido.rastreio_atualizado_em ?? pedido.data_pedido)}.
+              </p>
+            </div>
+            <Badge
+              style={{ backgroundColor: badge.bg, color: badge.fg }}
+              className="border-none rounded-full px-4 py-1 font-medium shrink-0"
+            >
+              {badge.label}
+            </Badge>
           </CardContent>
         </Card>
 
+        {/* Card dados */}
         <Card className="rounded-[10px] bg-secondary border-none mb-8">
           <CardContent className="grid grid-cols-2 gap-x-12 gap-y-5 px-6 py-6">
-            <Field label="Id da receita" value={pedido.numero_receita ?? "—"} />
-            <Field label="Emissão da receita" value={formatDate(pedido.data_emissao)} />
             <Field label="Paciente" value={pedido.paciente_nome} />
-            <Field label="Canal de associação" value={pedido.canal_aquisicao} capitalize />
+            <Field label="Data do pedido" value={formatDate(pedido.data_pedido)} />
             <Field label="Prescritor" value={pedido.medico_nome ?? "—"} />
             <Field label="Total pago" value={formatCurrency(pedido.valor_total)} />
+            <Field label="Id da receita" value={pedido.numero_receita ?? "—"} />
+            <Field label="Emissão da receita" value={formatDate(pedido.data_emissao)} />
           </CardContent>
         </Card>
+
+        {/* Produtos do pedido */}
+        {produtos.length > 0 && (
+          <>
+            <h2 className="text-xl font-bold text-foreground mb-4">Produtos do pedido</h2>
+            <Card className="rounded-[10px] bg-secondary border-none mb-8">
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 px-6 py-6">
+                {produtos.map((prod) => (
+                  <div key={prod.item_id} className="bg-card rounded-[10px] p-4 flex gap-4">
+                    <div className="h-14 w-14 rounded-full bg-card-green flex items-center justify-center shrink-0 overflow-hidden">
+                      {prod.imagem_url ? (
+                        <img src={prod.imagem_url} alt={prod.produto_nome} className="h-full w-full object-cover" />
+                      ) : (
+                        <Pill className="h-6 w-6 text-primary" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <p className="font-bold text-foreground truncate">{prod.produto_nome}</p>
+                        {prod.fornecedor_tipo && (
+                          <Badge
+                            className="border-none rounded-full px-3 py-0.5 text-xs font-medium"
+                            style={{ backgroundColor: "hsl(var(--card-purple))", color: "hsl(291 47% 35%)" }}
+                          >
+                            {prod.fornecedor_tipo === "marca" ? "Marca" : "Associação"}
+                          </Badge>
+                        )}
+                      </div>
+                      <dl className="text-xs text-muted-foreground space-y-1">
+                        {prod.fornecedor_nome && (
+                          <ItemRow label="Canal de aquisição" value={prod.fornecedor_nome} />
+                        )}
+                        {prod.forma_farmaceutica && (
+                          <ItemRow label="Formas de uso" value={FORMA_LABEL[prod.forma_farmaceutica] ?? prod.forma_farmaceutica} />
+                        )}
+                        {prod.posologia && <ItemRow label="Dosagem" value={prod.posologia} />}
+                        {(prod.concentracao_thc || prod.concentracao_cbd) && (
+                          <ItemRow
+                            label="Concentração"
+                            value={[prod.concentracao_thc && `${prod.concentracao_thc} de THC`, prod.concentracao_cbd && `${prod.concentracao_cbd} de CBD`]
+                              .filter(Boolean)
+                              .join(" • ")}
+                          />
+                        )}
+                        <ItemRow label="Quantidade" value={String(prod.quantidade)} />
+                      </dl>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </>
+        )}
 
         <h2 className="text-xl font-bold text-foreground mb-4">Linha do tempo do pedido</h2>
 
         <Card className="rounded-[10px] bg-secondary border-none mb-8">
           <CardContent className="px-6 py-6">
-            <p className="text-base text-foreground mb-6">{prazoLabel}</p>
+            {["aprovado", "em_separacao", "enviado", "entregue"].includes(pedido.status) && (
+              <p className="text-base text-foreground mb-6">{prazoLabel}</p>
+            )}
 
             <ol className="space-y-0">
-              {STAGES.map((stage, i) => {
+              {TIMELINE_STAGES.map((_, i) => {
                 const done = i <= currentStage;
-                const isLast = i === STAGES.length - 1;
+                const isLast = i === TIMELINE_STAGES.length - 1;
+                const isReprovadoStep = i === 1 && reprovado;
                 return (
-                  <li key={stage.key} className="flex items-start gap-3">
+                  <li key={i} className="flex items-start gap-3">
                     <div className="flex flex-col items-center">
                       <div
                         className={
@@ -539,24 +682,21 @@ const PedidoDetalhes = () => {
                         {done && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
                       </div>
                       {!isLast && (
-                        <div
-                          className={
-                            i < currentStage
-                              ? "w-0.5 h-7 bg-primary my-1"
-                              : "w-0.5 h-7 bg-muted-foreground/30 my-1"
-                          }
-                        />
+                        <div className={i < currentStage ? "w-0.5 h-8 bg-primary my-1" : "w-0.5 h-8 bg-muted-foreground/30 my-1"} />
                       )}
                     </div>
-                    <span
-                      className={
-                        done
-                          ? "text-sm font-bold text-primary pt-0.5 pb-7"
-                          : "text-sm font-bold text-muted-foreground/60 pt-0.5 pb-7"
-                      }
-                    >
-                      {stage.label}
-                    </span>
+                    <div className="pb-6">
+                      <span className={done ? "text-sm font-bold text-primary" : "text-sm font-bold text-muted-foreground/60"}>
+                        {stageLabel(i)}
+                      </span>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {done && !isReprovadoStep
+                          ? formatTimeline(stageDate[i])
+                          : isReprovadoStep
+                            ? formatTimeline(stageDate[1])
+                            : "00/00/0000, às 00h00"}
+                      </p>
+                    </div>
                   </li>
                 );
               })}
@@ -564,41 +704,76 @@ const PedidoDetalhes = () => {
           </CardContent>
         </Card>
 
-        <h2 className="text-xl font-bold text-foreground mb-4">Rastreio</h2>
+        {/* Rastreio — só quando há código */}
+        {(pedido.codigo_rastreio || ["enviado", "entregue"].includes(pedido.status)) && (
+          <>
+            <h2 className="text-xl font-bold text-foreground mb-4">Rastreio</h2>
+            <div className="grid grid-cols-2 gap-4 mb-8">
+              <Card className="rounded-[10px] bg-secondary border-none">
+                <CardContent className="px-6 py-5">
+                  <p className="text-sm font-semibold text-foreground mb-3">Código de rastreio</p>
+                  {pedido.codigo_rastreio ? (
+                    <button
+                      onClick={handleCopyRastreio}
+                      className="bg-card-green/60 hover:bg-card-green text-primary rounded-full px-4 py-2 text-sm w-full flex items-center justify-between gap-2"
+                    >
+                      <span className="truncate font-mono">{pedido.codigo_rastreio}</span>
+                      <Copy className="h-4 w-4 shrink-0" />
+                    </button>
+                  ) : (
+                    <p className="text-muted-foreground italic text-sm">Não disponível</p>
+                  )}
+                </CardContent>
+              </Card>
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <Card className="rounded-[10px] bg-secondary border-none">
-            <CardContent className="px-6 py-5">
-              <p className="text-sm font-semibold text-foreground mb-3">Código de rastreio</p>
-              {pedido.codigo_rastreio ? (
-                <button
-                  onClick={handleCopyRastreio}
-                  className="bg-card-green/60 hover:bg-card-green text-primary rounded-full px-4 py-2 text-sm w-full flex items-center justify-between gap-2"
-                >
-                  <span className="truncate font-mono">{pedido.codigo_rastreio}</span>
-                  <Copy className="h-4 w-4 shrink-0" />
-                </button>
-              ) : (
-                <p className="text-muted-foreground italic text-sm">Não disponível</p>
-              )}
-            </CardContent>
-          </Card>
+              <Card className="rounded-[10px] bg-secondary border-none">
+                <CardContent className="px-6 py-5">
+                  <p className="text-sm text-muted-foreground mb-1">última atualização</p>
+                  <p className="text-base font-semibold text-foreground">{formatDateTime(pedido.rastreio_atualizado_em)}</p>
+                </CardContent>
+              </Card>
+            </div>
+          </>
+        )}
 
-          <Card className="rounded-[10px] bg-secondary border-none">
-            <CardContent className="px-6 py-5">
-              <p className="text-sm text-muted-foreground mb-1">última atualização</p>
-              <p className="text-base font-semibold text-foreground">
-                {formatDateTime(pedido.rastreio_atualizado_em)}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Documentos */}
+        {(pedido.documentos ?? []).length > 0 && (
+          <>
+            <h2 className="text-xl font-bold text-foreground mb-4">Documentos</h2>
+            <div className="grid grid-cols-2 gap-4">
+              {(pedido.documentos ?? []).map((doc) => (
+                <Card key={doc.id} className="rounded-[10px] bg-secondary border-none">
+                  <CardContent className="px-6 py-4 flex items-center justify-between">
+                    <a
+                      href={doc.arquivo_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary font-medium hover:underline truncate"
+                    >
+                      {doc.nome_arquivo}
+                    </a>
+                    <a
+                      href={doc.arquivo_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:text-primary-dark shrink-0"
+                      aria-label="Baixar"
+                    >
+                      <Download className="h-4 w-4" />
+                    </a>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </>
+        )}
 
+        {/* Modal: Pedido pendente / aprovar */}
         <Dialog open={showAprovar} onOpenChange={setShowAprovar}>
-          <DialogContent className="sm:max-w-[480px] p-6 [&>button]:hidden">
-            <DialogHeader className="pb-4">
+          <DialogContent className="sm:max-w-[420px] p-6 [&>button]:hidden">
+            <DialogHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <DialogTitle className="text-xl font-semibold">Aprovar pedido</DialogTitle>
+                <DialogTitle className="text-xl font-semibold">Pedido pendente</DialogTitle>
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowAprovar(false)}>
                   <X className="h-4 w-4" />
                 </Button>
@@ -615,83 +790,168 @@ const PedidoDetalhes = () => {
               placeholder="Anote algo relevante sobre essa aprovação..."
             />
             <div className="flex gap-3 mt-4">
-              <Button variant="outline" className="flex-1 rounded-full" onClick={() => setShowAprovar(false)} disabled={acting}>
-                Cancelar
+              <Button
+                variant="outline"
+                className="flex-1 rounded-full border-destructive text-destructive hover:bg-destructive/10"
+                onClick={() => { setShowAprovar(false); setShowRecusar(true); }}
+                disabled={acting}
+              >
+                <X className="h-4 w-4 mr-1" /> Reprovar
               </Button>
               <Button className="flex-1 bg-primary text-white hover:bg-primary-dark rounded-full" onClick={handleAprovar} disabled={acting}>
-                Aprovar
+                <Check className="h-4 w-4 mr-1" /> Aprovar pedido
               </Button>
             </div>
           </DialogContent>
         </Dialog>
 
+        {/* Modal: Pedido reprovado (justificativa) */}
         <Dialog open={showRecusar} onOpenChange={setShowRecusar}>
-          <DialogContent className="sm:max-w-[480px] p-6 [&>button]:hidden">
-            <DialogHeader className="pb-4">
+          <DialogContent className="sm:max-w-[420px] p-6 [&>button]:hidden">
+            <DialogHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <DialogTitle className="text-xl font-semibold">Recusar pedido</DialogTitle>
+                <DialogTitle className="text-xl font-semibold">Pedido reprovado</DialogTitle>
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowRecusar(false)}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
             </DialogHeader>
-            <label className="text-sm font-semibold mb-1 block">Motivo da recusa</label>
+            <label className="text-sm font-semibold mb-1 block">Justificativa</label>
             <Textarea
               value={motivoRecusa}
               onChange={(e) => setMotivoRecusa(e.target.value)}
               className="min-h-[100px] resize-none"
-              placeholder="Explique o motivo para o paciente..."
+              placeholder="Explique brevemente o motivo por ter reprovado o pedido"
             />
             <div className="flex gap-3 mt-4">
               <Button variant="outline" className="flex-1 rounded-full" onClick={() => setShowRecusar(false)} disabled={acting}>
-                Cancelar
+                Voltar
               </Button>
-              <Button className="flex-1 bg-destructive text-white hover:bg-destructive/90 rounded-full" onClick={handleRecusar} disabled={acting}>
-                Confirmar recusa
+              <Button className="flex-1 bg-primary text-white hover:bg-primary-dark rounded-full" onClick={handleRecusar} disabled={acting}>
+                Finalizar
               </Button>
             </div>
           </DialogContent>
         </Dialog>
 
+        {/* Modal: Autorização Anvisa */}
         <Dialog open={showAnvisa} onOpenChange={setShowAnvisa}>
-          <DialogContent className="sm:max-w-[480px] p-6 [&>button]:hidden">
-            <DialogHeader className="pb-4">
+          <DialogContent className="sm:max-w-[440px] p-6 [&>button]:hidden">
+            <DialogHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <DialogTitle className="text-xl font-semibold">Atualizar status Anvisa</DialogTitle>
+                <DialogTitle className="text-xl font-semibold">Autorização Anvisa</DialogTitle>
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowAnvisa(false)}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
             </DialogHeader>
-            <label className="text-sm font-semibold mb-1 block">Status</label>
-            <select
-              value={novoStatusAnvisa}
-              onChange={(e) => setNovoStatusAnvisa(e.target.value as AnvisaStatus)}
-              className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm mb-3"
-            >
-              <option value="nao_solicitado">Não solicitado</option>
-              <option value="em_analise">Em análise</option>
-              <option value="aprovado">Aprovado</option>
-              <option value="recusado">Recusado</option>
-            </select>
-            <label className="text-sm font-semibold mb-1 block">Observação (opcional)</label>
-            <Textarea
-              value={obsAnvisa}
-              onChange={(e) => setObsAnvisa(e.target.value)}
-              className="min-h-[80px] resize-none"
-              placeholder="Notas sobre essa mudança de status..."
-            />
-            <div className="flex gap-3 mt-4">
-              <Button variant="outline" className="flex-1 rounded-full" onClick={() => setShowAnvisa(false)} disabled={acting}>
-                Cancelar
+            <p className="text-sm text-muted-foreground mb-4">
+              Por favor, atualize se a solicitação feita no site do gov.br foi aprovada ou negada pela Anvisa:
+            </p>
+
+            <div className="space-y-3 mb-4">
+              <button
+                className="flex items-center gap-3 w-full text-left"
+                onClick={() => setAnvisaDecisao("aprovada")}
+              >
+                <span className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${anvisaDecisao === "aprovada" ? "border-primary" : "border-muted-foreground/50"}`}>
+                  {anvisaDecisao === "aprovada" && <span className="h-2 w-2 rounded-full bg-primary" />}
+                </span>
+                <span className="text-sm text-foreground flex items-center gap-2">
+                  A solicitação foi aprovada <Check className="h-4 w-4 text-primary" />
+                </span>
+              </button>
+              <button
+                className="flex items-center gap-3 w-full text-left"
+                onClick={() => { setAnvisaDecisao("negada"); setAnvisaFile(null); }}
+              >
+                <span className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${anvisaDecisao === "negada" ? "border-primary" : "border-muted-foreground/50"}`}>
+                  {anvisaDecisao === "negada" && <span className="h-2 w-2 rounded-full bg-primary" />}
+                </span>
+                <span className="text-sm text-foreground flex items-center gap-2">
+                  A solicitação foi negada <X className="h-4 w-4 text-destructive" />
+                </span>
+              </button>
+            </div>
+
+            {anvisaDecisao === "aprovada" && (
+              <>
+                <hr className="border-border/60 mb-4" />
+                <p className="text-sm text-muted-foreground mb-2">Adicione o arquivo da solicitação abaixo</p>
+                <input
+                  ref={anvisaInputRef}
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg"
+                  className="hidden"
+                  onChange={(e) => handleAnvisaFile(e.target.files?.[0])}
+                />
+                {!anvisaFile ? (
+                  <button
+                    onClick={() => anvisaInputRef.current?.click()}
+                    className="w-full rounded-[12px] border-2 border-dashed border-primary/60 bg-card-green/30 hover:bg-card-green/50 py-8 flex flex-col items-center gap-2 transition-colors"
+                  >
+                    <UploadCloud className="h-7 w-7 text-primary" />
+                    <span className="text-sm font-medium text-primary">Clique para adicionar o arquivo</span>
+                  </button>
+                ) : (
+                  <div className="rounded-[12px] border-2 border-primary/60 bg-card-green/30 py-6 flex flex-col items-center gap-2">
+                    <FileText className="h-7 w-7 text-primary" />
+                    <span className="text-sm font-medium text-primary truncate max-w-[80%]">{anvisaFile.name}</span>
+                    <div className="flex items-center gap-4 mt-1">
+                      <button className="flex items-center gap-1 text-sm text-primary" onClick={() => anvisaInputRef.current?.click()}>
+                        <RefreshCw className="h-4 w-4" /> Substituir
+                      </button>
+                      <span className="h-4 w-px bg-border" />
+                      <button className="flex items-center gap-1 text-sm text-destructive" onClick={() => setAnvisaFile(null)}>
+                        <Trash2 className="h-4 w-4" /> Remover
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            <div className="flex gap-3 mt-5">
+              <Button variant="outline" className="flex-1 rounded-full" onClick={() => setShowAnvisa(false)} disabled={anvisaSaving}>
+                Voltar
               </Button>
-              <Button className="flex-1 bg-primary text-white hover:bg-primary-dark rounded-full" onClick={handleUpdateAnvisa} disabled={acting}>
-                Atualizar
+              <Button
+                className="flex-1 bg-primary text-white hover:bg-primary-dark rounded-full"
+                onClick={handleFinalizarAnvisa}
+                disabled={anvisaSaving || !anvisaDecisao || (anvisaDecisao === "aprovada" && !anvisaFile)}
+              >
+                {anvisaSaving ? "Salvando..." : "Finalizar"}
               </Button>
             </div>
           </DialogContent>
         </Dialog>
 
+        {/* Modal: feedback Anvisa negada */}
+        <Dialog open={showAnvisaFeedback} onOpenChange={setShowAnvisaFeedback}>
+          <DialogContent className="sm:max-w-[420px] p-6 [&>button]:hidden">
+            <DialogHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <DialogTitle className="text-xl font-semibold">Autorização Anvisa</DialogTitle>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowAnvisaFeedback(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </DialogHeader>
+            <p className="text-sm font-semibold text-foreground mb-2">A autorização da Anvisa foi negada.</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              O paciente será notificado sobre o cancelamento do pedido e receberá o reembolso do valor pago.
+            </p>
+            <Button
+              variant="outline"
+              className="w-full rounded-full"
+              onClick={() => setShowAnvisaFeedback(false)}
+            >
+              Fechar
+            </Button>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal: Atualizar entrega */}
         <Dialog open={showEntrega} onOpenChange={setShowEntrega}>
           <DialogContent className="sm:max-w-[520px] p-6 [&>button]:hidden">
             <DialogHeader className="pb-4">
@@ -763,6 +1023,7 @@ const PedidoDetalhes = () => {
           </DialogContent>
         </Dialog>
 
+        {/* Modal: Gerar etiqueta Melhor Envio */}
         <Dialog open={showEtiqueta} onOpenChange={setShowEtiqueta}>
           <DialogContent className="sm:max-w-[640px] p-6 [&>button]:hidden">
             <DialogHeader className="pb-4">
@@ -834,52 +1095,25 @@ const PedidoDetalhes = () => {
             </div>
           </DialogContent>
         </Dialog>
-
-        <div className="grid grid-cols-2 gap-4">
-          {(pedido.documentos ?? []).map((doc) => (
-            <Card key={doc.id} className="rounded-[10px] bg-secondary border-none">
-              <CardContent className="px-6 py-4 flex items-center justify-between">
-                <a
-                  href={doc.arquivo_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary font-medium hover:underline truncate"
-                >
-                  {doc.nome_arquivo}
-                </a>
-                <a
-                  href={doc.arquivo_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:text-primary-dark shrink-0"
-                  aria-label="Baixar"
-                >
-                  <Download className="h-4 w-4" />
-                </a>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
       </div>
     </div>
   );
 };
 
-function Field({
-  label,
-  value,
-  capitalize,
-}: {
-  label: string;
-  value: string;
-  capitalize?: boolean;
-}) {
+function Field({ label, value, capitalize }: { label: string; value: string; capitalize?: boolean }) {
   return (
     <div className="border-b border-border/40 pb-3">
       <p className="text-xs text-muted-foreground mb-1">{label}</p>
-      <p className={`text-base font-bold text-foreground ${capitalize ? "capitalize" : ""}`}>
-        {value}
-      </p>
+      <p className={`text-base font-bold text-foreground ${capitalize ? "capitalize" : ""}`}>{value}</p>
+    </div>
+  );
+}
+
+function ItemRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex gap-1">
+      <dt className="text-muted-foreground">{label}:</dt>
+      <dd className="font-semibold text-foreground">{value}</dd>
     </div>
   );
 }
