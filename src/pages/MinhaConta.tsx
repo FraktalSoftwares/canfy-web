@@ -716,7 +716,7 @@ const MinhaConta = () => {
                 navigate(-1);
               }
             }}
-            className="gap-2 text-green-700 hover:text-green-800 hover:bg-transparent p-0"
+            className="gap-2 text-primary hover:text-primary-dark hover:bg-transparent p-0"
           >
             <ArrowLeft className="h-5 w-5" />
             Voltar
@@ -734,8 +734,8 @@ const MinhaConta = () => {
               }}
               className={`gap-2 rounded-full ${
                 isEditing
-                  ? 'bg-green-600 text-white hover:bg-green-700 border-green-600'
-                  : 'border-green-600 text-green-600 hover:bg-green-50'
+                  ? 'bg-primary text-primary-foreground hover:bg-primary-hover border-primary'
+                  : 'border-primary text-primary hover:bg-primary/10'
               }`}
             >
               {isEditing ? (
@@ -756,7 +756,7 @@ const MinhaConta = () => {
             <Button
               variant="outline"
               onClick={() => setAdicionarUsuarioOpen(true)}
-              className="gap-2 rounded-full border-green-600 text-green-600 hover:bg-green-50"
+              className="gap-2 rounded-full border-primary text-primary hover:bg-primary/10"
             >
               <Plus className="h-4 w-4" />
               Adicionar usuário
@@ -769,25 +769,25 @@ const MinhaConta = () => {
           <TabsList className="mb-8 bg-transparent border-b border-border rounded-none w-full justify-start h-auto p-0">
             <TabsTrigger 
               value="dados-basicos" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-green-600 data-[state=active]:bg-transparent data-[state=active]:text-foreground px-6 pb-3 font-semibold text-base"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground px-6 pb-3 font-semibold text-base"
             >
               Dados básicos
             </TabsTrigger>
             <TabsTrigger 
               value="acessos" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-green-600 data-[state=active]:bg-transparent data-[state=active]:text-foreground px-6 pb-3 font-normal text-base text-muted-foreground"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground px-6 pb-3 font-normal text-base text-muted-foreground"
             >
               Acessos
             </TabsTrigger>
             <TabsTrigger 
               value="configuracoes" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-green-600 data-[state=active]:bg-transparent data-[state=active]:text-foreground px-6 pb-3 font-normal text-base text-muted-foreground"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground px-6 pb-3 font-normal text-base text-muted-foreground"
             >
               Configurações
             </TabsTrigger>
             <TabsTrigger 
               value="sobre" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-green-600 data-[state=active]:bg-transparent data-[state=active]:text-foreground px-6 pb-3 font-normal text-base text-muted-foreground"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground px-6 pb-3 font-normal text-base text-muted-foreground"
             >
               Sobre
             </TabsTrigger>
@@ -821,7 +821,7 @@ const MinhaConta = () => {
                           />
                           <label
                             htmlFor="photo-upload"
-                            className="absolute bottom-0 right-0 h-8 w-8 bg-green-600 rounded-full flex items-center justify-center hover:bg-green-700 cursor-pointer"
+                            className="absolute bottom-0 right-0 h-8 w-8 bg-primary rounded-full flex items-center justify-center hover:bg-primary-hover cursor-pointer"
                           >
                             {isUploadingPhoto ? (
                               <RotateCw className="h-4 w-4 text-white animate-spin" />
@@ -985,7 +985,7 @@ const MinhaConta = () => {
                           variant="outline"
                           onClick={handleUpdatePassword}
                           disabled={isUpdatingPassword}
-                          className="rounded-full border-green-600 text-green-600 hover:bg-green-50"
+                          className="rounded-full border-primary text-primary hover:bg-primary/10"
                         >
                           {isUpdatingPassword ? "Atualizando..." : "Atualizar senha"}
                         </Button>
@@ -1008,14 +1008,14 @@ const MinhaConta = () => {
                       <Button
                         variant="outline"
                         onClick={() => navigate("/termos-de-uso")}
-                        className="rounded-full border-green-600 text-green-600 hover:bg-green-50"
+                        className="rounded-full border-primary text-primary hover:bg-primary/10"
                       >
                         Ver termos de uso
                       </Button>
                       <Button
                         variant="outline"
                         onClick={() => navigate("/politica-privacidade")}
-                        className="rounded-full border-green-600 text-green-600 hover:bg-green-50"
+                        className="rounded-full border-primary text-primary hover:bg-primary/10"
                       >
                         Ver Política de Privacidade
                       </Button>
@@ -1219,7 +1219,7 @@ const MinhaConta = () => {
                       Cancelar
                     </Button>
                     <Button
-                      className="flex-1 rounded-full bg-green-600 hover:bg-green-700 text-white"
+                      className="flex-1 rounded-full bg-primary hover:bg-primary-hover text-primary-foreground"
                       onClick={handleCadastrarNovoUsuario}
                     >
                       Concluir cadastro
@@ -1284,7 +1284,7 @@ const MinhaConta = () => {
                           <h3 className="text-xl font-semibold text-foreground leading-tight">
                             {selectedUserData.nome_completo}
                           </h3>
-                          <p className="text-sm text-green-600">
+                          <p className="text-sm text-primary">
                             {selectedUserData.email}
                           </p>
                         </div>
@@ -1398,7 +1398,7 @@ const MinhaConta = () => {
                             Cancelar
                           </Button>
                           <Button
-                            className="rounded-full bg-green-600 hover:bg-green-700 text-white"
+                            className="rounded-full bg-primary hover:bg-primary-hover text-primary-foreground"
                             onClick={handleSavePermissions}
                             disabled={isSavingPermissoes || isLoadingPermissoes}
                           >
@@ -1509,7 +1509,7 @@ const MinhaConta = () => {
 
               <div className="flex justify-end">
                 <Button
-                  className="gap-2 bg-white text-green-600 border border-green-600 hover:bg-green-50 rounded-full"
+                  className="gap-2 bg-white text-primary border border-primary hover:bg-primary/10 rounded-full"
                   onClick={handleSaveNotificationPreferences}
                   disabled={isSavingPrefs}
                 >
@@ -1527,7 +1527,7 @@ const MinhaConta = () => {
               <div className="space-y-8">
                 {/* Seção 1 */}
                 <div>
-                  <h3 className="text-lg font-bold text-green-600 mb-4">1. Introdução</h3>
+                  <h3 className="text-lg font-bold text-primary mb-4">1. Introdução</h3>
                   <div className="space-y-4 text-sm text-muted-foreground leading-relaxed">
                     <p>
                       Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque nec lacus nec nisi vestibulum fermentum. Sed gravida orci vel nisi convallis, nec tincidunt mauris euismod. Ut euismod libero sit amet quam scelerisque, eget scelerisque elit tristique. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Morbi non ex ac velit tincidunt dapibus.
@@ -1540,7 +1540,7 @@ const MinhaConta = () => {
 
                 {/* Seção 2 */}
                 <div>
-                  <h3 className="text-lg font-bold text-green-600 mb-4">2. Informações gerais</h3>
+                  <h3 className="text-lg font-bold text-primary mb-4">2. Informações gerais</h3>
                   <div className="space-y-4 text-sm text-muted-foreground leading-relaxed">
                     <p>
                       Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque nec lacus nec nisi vestibulum fermentum. Sed gravida orci vel nisi convallis, nec tincidunt mauris euismod. Ut euismod libero sit amet quam scelerisque, eget scelerisque elit tristique. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Morbi non ex ac velit tincidunt dapibus.
@@ -1553,7 +1553,7 @@ const MinhaConta = () => {
 
                 {/* Seção 3 */}
                 <div>
-                  <h3 className="text-lg font-bold text-green-600 mb-4">3. Sobre a aplicação Canfy</h3>
+                  <h3 className="text-lg font-bold text-primary mb-4">3. Sobre a aplicação Canfy</h3>
                   <div className="space-y-4 text-sm text-muted-foreground leading-relaxed">
                     <p>
                       O Canfy é uma plataforma de gestão médica para prescrição e acompanhamento de produtos à base de cannabis medicinal, composta por uma aplicação para smartphones e tablets e de uma webpage administrativa, que contém as mesmas funcionalidades da aplicação, acrescida de gráficos e índices calculados a partir dos dados inseridos pelo USUÁRIO.

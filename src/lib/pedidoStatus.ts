@@ -75,3 +75,15 @@ export const timelineStageIndex = (status: string): number => {
 /** Rótulo da etapa 1 muda quando o pedido é reprovado/cancelado. */
 export const isPedidoReprovado = (status: string) =>
   status === "recusado" || status === "cancelado";
+
+// Status da própria receita (enum `status_receita`: ativa | utilizada | expirada | cancelada).
+// Conceito distinto do status do pedido; mantido aqui como fonte única de apresentação.
+export const STATUS_RECEITA_BADGE: Record<string, StatusBadge> = {
+  ativa: { label: "Ativa", bg: "hsl(var(--card-green))", fg: "hsl(var(--primary-dark))" },
+  utilizada: { label: "Utilizada", bg: "hsl(var(--card-blue))", fg: "hsl(207 89% 35%)" },
+  expirada: { label: "Expirada", bg: "hsl(var(--card-yellow))", fg: "hsl(36 80% 38%)" },
+  cancelada: { label: "Cancelada", bg: "hsl(var(--card-red))", fg: "hsl(var(--destructive))" },
+};
+
+export const getReceitaStatusBadge = (status: string): StatusBadge =>
+  STATUS_RECEITA_BADGE[status] ?? { label: status, bg: "hsl(var(--muted))", fg: "hsl(var(--muted-foreground))" };

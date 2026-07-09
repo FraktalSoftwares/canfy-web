@@ -153,7 +153,7 @@ const ProdutoDetalhes = () => {
       setProduto(prev => prev ? { ...prev, status: 'inativo' } : null);
       toast({
         title: "Produto inativado com sucesso!",
-        className: "bg-green-50 border-green-200",
+        className: "bg-card-green border-primary/20",
       });
     } catch (error: any) {
       toast({
@@ -184,7 +184,7 @@ const ProdutoDetalhes = () => {
       setShowDeleteDialog(false);
       toast({
         title: "Produto excluído com sucesso!",
-        className: "bg-green-50 border-green-200",
+        className: "bg-card-green border-primary/20",
       });
       navigate("/produtos");
     } catch (error: any) {
@@ -261,7 +261,7 @@ const ProdutoDetalhes = () => {
       setIsEditing(false);
       toast({
         title: "Produto atualizado com sucesso!",
-        className: "bg-green-50 border-green-200",
+        className: "bg-card-green border-primary/20",
       });
 
       // Recarregar dados
@@ -313,7 +313,7 @@ const ProdutoDetalhes = () => {
 
       toast({
         title: "Produto duplicado com sucesso!",
-        className: "bg-green-50 border-green-200",
+        className: "bg-card-green border-primary/20",
       });
 
       navigate(`/produtos/${data.id}`);
@@ -614,7 +614,7 @@ const ProdutoDetalhes = () => {
                           onClick={() => toggleIndicacao(indicacao.id)}
                           className={`cursor-pointer px-4 py-2 rounded-full ${
                             selectedIndicacoes.includes(indicacao.id)
-                              ? 'bg-green-600 text-white hover:bg-green-700'
+                              ? 'bg-primary text-primary-foreground hover:bg-primary-hover'
                               : 'bg-white text-foreground border border-border hover:bg-gray-50'
                           }`}
                         >

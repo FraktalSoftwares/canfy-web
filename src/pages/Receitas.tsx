@@ -24,6 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { getStatusBadge } from "@/lib/pedidoStatus";
 
 interface Receita {
   id: string;
@@ -50,28 +51,6 @@ interface Receita {
   }[];
 }
 
-type PedidoStatus =
-  | "pendente"
-  | "aprovado"
-  | "em_analise"
-  | "recusado"
-  | "cancelado"
-  | "em_separacao"
-  | "enviado"
-  | "entregue";
-
-const PEDIDO_STATUS_TAG: Record<PedidoStatus, { label: string; bg: string; fg: string }> = {
-  pendente:     { label: "Pendente",     bg: "hsl(var(--card-purple))", fg: "hsl(291 47% 35%)" },
-  aprovado:     { label: "Aprovado",     bg: "hsl(var(--card-green))",  fg: "hsl(var(--primary-dark))" },
-  em_analise:   { label: "Em análise",   bg: "hsl(var(--card-yellow))", fg: "hsl(45 100% 35%)" },
-  recusado:     { label: "Recusado",     bg: "hsl(var(--card-red))",    fg: "hsl(var(--destructive))" },
-  cancelado:    { label: "Cancelado",    bg: "hsl(var(--muted))",       fg: "hsl(var(--muted-foreground))" },
-  em_separacao: { label: "Em separação", bg: "hsl(var(--card-orange))", fg: "hsl(36 100% 35%)" },
-  enviado:      { label: "Enviado",      bg: "hsl(var(--card-blue))",   fg: "hsl(207 89% 35%)" },
-  entregue:     { label: "Entregue",     bg: "hsl(var(--card-teal))",   fg: "hsl(174 51% 30%)" },
-};
-
-
 const Receitas = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -79,6 +58,7 @@ const Receitas = () => {
   const [showFilterDialog, setShowFilterDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [receitas, setReceitas] = useState<Receita[]>([]);
+  const [allReceitas, setAllReceitas] = useState<Receita[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -139,9 +119,63 @@ const Receitas = () => {
       // Aplicar filtro de busca
       let filteredData = transformedData;
       if (searchQuery) {
-        filteredData = transformedData.filter((r: any) => 
-          r.numero_receita.toLowerCase().includes(searchQuery.toLowerCase())
+        const q = searchQuery.toLowerCase();
+        filteredData = filteredData.filter((r: any) =>
+          r.numero_receita.toLowerCase().includes(q) ||
+          (r.pedidos?.[0]?.numero_pedido || "").toLowerCase().includes(q)
         );
+      }
+
+      // Filtro por status do pedido (checkboxes mapeados para o enum do banco)
+      const statusSelecionados: string[] = [];
+      if (statusPedido.aprovado) statusSelecionados.push("aprovado");
+      if (statusPedido.emAnalise) statusSelecionados.push("em_analise", "em_separacao");
+      if (statusPedido.recusado) statusSelecionados.push("recusado");
+      if (statusPedido.cancelado) statusSelecionados.push("cancelado");
+      if (statusPedido.entregue) statusSelecionados.push("entregue");
+      if (statusSelecionados.length > 0) {
+        filteredData = filteredData.filter((r: any) =>
+          statusSelecionados.includes(r.pedidos?.[0]?.status)
+        );
+      }
+
+      // Filtro por canal de aquisição
+      if (canaisAquisicao.length > 0) {
+        const canais = canaisAquisicao.map((c) => c.toLowerCase());
+        filteredData = filteredData.filter((r: any) =>
+          canais.includes((r.pedidos?.[0]?.canal_aquisicao || "").toLowerCase())
+        );
+      }
+
+      // Filtro por médico prescritor
+      if (medicoPrescritor.trim()) {
+        const m = medicoPrescritor.toLowerCase();
+        filteredData = filteredData.filter((r: any) =>
+          (r.medico?.nome || "").toLowerCase().includes(m)
+        );
+      }
+
+      // Filtro por paciente
+      if (paciente.trim()) {
+        const p = paciente.toLowerCase();
+        filteredData = filteredData.filter((r: any) =>
+          (r.paciente?.profiles?.nome_completo || "").toLowerCase().includes(p)
+        );
+      }
+
+      // Filtro por período (data de emissão)
+      const diasPorPeriodo: Record<string, number> = {
+        "Últimos 7 dias": 7,
+        "Últimos 30 dias": 30,
+        "Últimos 3 meses": 90,
+      };
+      if (selectedPeriodo && diasPorPeriodo[selectedPeriodo]) {
+        const limite = new Date();
+        limite.setDate(limite.getDate() - diasPorPeriodo[selectedPeriodo]);
+        filteredData = filteredData.filter((r: any) => {
+          const d = new Date(r.data_emissao);
+          return !isNaN(d.getTime()) && d >= limite;
+        });
       }
 
       // Aplicar paginação
@@ -150,6 +184,7 @@ const Receitas = () => {
       const paginatedData = filteredData.slice(from, to);
 
       setReceitas(paginatedData);
+      setAllReceitas(filteredData);
       setTotalCount(filteredData.length);
     } catch (error: any) {
       console.error('Erro ao buscar receitas:', error);
@@ -203,11 +238,7 @@ const Receitas = () => {
     if (!status) {
       return <span className="text-muted-foreground italic text-sm">Não se aplica</span>;
     }
-    const tag = PEDIDO_STATUS_TAG[status as PedidoStatus] ?? {
-      label: status,
-      bg: "hsl(var(--muted))",
-      fg: "hsl(var(--muted-foreground))",
-    };
+    const tag = getStatusBadge(status);
     return (
       <Badge
         style={{ backgroundColor: tag.bg, color: tag.fg }}
@@ -219,8 +250,80 @@ const Receitas = () => {
   };
 
   const handleApplyFilters = () => {
-    // Apply filter logic here
+    setCurrentPage(1);
+    fetchReceitas();
     setShowFilterDialog(false);
+  };
+
+  // ---- Exportação ----
+  const downloadCSV = (filename: string, headers: string[], rows: (string | number | null)[][]) => {
+    const escape = (v: string | number | null) => {
+      const s = v == null ? "" : String(v);
+      return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv = [headers, ...rows].map((r) => r.map(escape).join(";")).join("\r\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const openPDFPrint = (title: string, headers: string[], rows: (string | number | null)[][]) => {
+    const w = window.open("", "_blank");
+    if (!w) return;
+    const thead = headers.map((h) => `<th>${h}</th>`).join("");
+    const tbody = rows
+      .map((r) => "<tr>" + r.map((c) => `<td>${c == null ? "" : String(c)}</td>`).join("") + "</tr>")
+      .join("");
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${title}</title>
+<style>body{font-family:system-ui,sans-serif;padding:24px}h1{font-size:18px;margin-bottom:16px}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}
+th{background:#e8f5e9}</style></head><body><h1>${title}</h1><table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>
+<script>window.onload=()=>setTimeout(()=>window.print(),200)</script></body></html>`);
+    w.document.close();
+  };
+
+  const handleExport = () => {
+    const source = exportScope === "todas" ? allReceitas : receitas;
+    const headers = [
+      "ID da receita",
+      "Paciente",
+      "Prescritor",
+      "Nº pedido",
+      "Data pedido",
+      "Valor",
+      "Aquisição",
+      "Status",
+    ];
+    const rows = source.map((r) => {
+      const pedido = r.pedidos && r.pedidos.length > 0 ? r.pedidos[0] : null;
+      return [
+        r.numero_receita,
+        (r.paciente as any)?.profiles?.nome_completo || "N/A",
+        (r.medico as any)?.nome || "N/A",
+        pedido?.numero_pedido || "Não se aplica",
+        pedido ? formatDate(pedido.data_pedido) : "Não se aplica",
+        pedido ? formatCurrency(pedido.valor_total || 0) : "Não se aplica",
+        pedido?.canal_aquisicao || "Não se aplica",
+        pedido?.status ? getStatusBadge(pedido.status).label : "Não se aplica",
+      ];
+    });
+    const stamp = format(new Date(), "yyyy-MM-dd_HHmm");
+    if (exportFormat === "CSV" || exportFormat === "XLSX") {
+      // CSV com BOM abre diretamente no Excel; cobre também o formato XLSX.
+      downloadCSV(`receitas_${stamp}.csv`, headers, rows);
+    } else {
+      openPDFPrint(
+        `Receitas — ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}`,
+        headers,
+        rows,
+      );
+    }
+    toast({ title: `Exportação concluída (${rows.length} ${rows.length === 1 ? "registro" : "registros"})` });
+    setShowExportDialog(false);
   };
 
   const handleClearFilters = () => {
@@ -432,8 +535,8 @@ const Receitas = () => {
                     onClick={() => setSelectedPeriodo(periodo)}
                     className={`cursor-pointer px-4 py-2 rounded-full ${
                       selectedPeriodo === periodo
-                        ? 'bg-green-600 text-white hover:bg-green-700'
-                        : 'bg-white text-foreground border border-border hover:bg-gray-50'
+                        ? 'bg-primary text-primary-foreground hover:bg-primary-hover'
+                        : 'bg-card text-foreground border border-border hover:bg-muted'
                     }`}
                   >
                     {periodo}
@@ -527,8 +630,8 @@ const Receitas = () => {
                     onClick={() => toggleCanalAquisicao(canal)}
                     className={`cursor-pointer px-4 py-2 rounded-full ${
                       canaisAquisicao.includes(canal)
-                        ? 'bg-green-600 text-white hover:bg-green-700'
-                        : 'bg-white text-foreground border border-border hover:bg-gray-50'
+                        ? 'bg-primary text-primary-foreground hover:bg-primary-hover'
+                        : 'bg-card text-foreground border border-border hover:bg-muted'
                     }`}
                   >
                     {canal}
@@ -571,14 +674,14 @@ const Receitas = () => {
             <div className="space-y-3 pt-4">
               <Button
                 onClick={handleApplyFilters}
-                className="w-full h-12 bg-green-600 text-white hover:bg-green-700 rounded-[10px]"
+                className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary-hover rounded-[10px]"
               >
                 Aplicar filtros
               </Button>
               <Button
                 variant="link"
                 onClick={handleClearFilters}
-                className="w-full text-green-600 hover:text-green-700"
+                className="w-full text-primary hover:text-primary-dark"
               >
                 Limpar filtros
               </Button>
@@ -614,8 +717,8 @@ const Receitas = () => {
                     onClick={() => setExportFormat(f)}
                     className={`cursor-pointer px-4 py-2 rounded-full ${
                       exportFormat === f
-                        ? 'bg-green-600 text-white hover:bg-green-700'
-                        : 'bg-white text-foreground border border-border hover:bg-gray-50'
+                        ? 'bg-primary text-primary-foreground hover:bg-primary-hover'
+                        : 'bg-card text-foreground border border-border hover:bg-muted'
                     }`}
                   >
                     {f}
@@ -635,8 +738,8 @@ const Receitas = () => {
                     onClick={() => setExportScope(opt.key)}
                     className={`cursor-pointer px-4 py-2 rounded-full ${
                       exportScope === opt.key
-                        ? 'bg-green-600 text-white hover:bg-green-700'
-                        : 'bg-white text-foreground border border-border hover:bg-gray-50'
+                        ? 'bg-primary text-primary-foreground hover:bg-primary-hover'
+                        : 'bg-card text-foreground border border-border hover:bg-muted'
                     }`}
                   >
                     {opt.label}
@@ -645,8 +748,8 @@ const Receitas = () => {
               </div>
             </div>
             <Button
-              className="w-full h-12 bg-green-600 text-white hover:bg-green-700 rounded-[10px]"
-              onClick={() => setShowExportDialog(false)}
+              className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary-hover rounded-[10px]"
+              onClick={handleExport}
             >
               Exportar
             </Button>

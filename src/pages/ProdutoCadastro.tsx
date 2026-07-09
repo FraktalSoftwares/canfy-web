@@ -224,7 +224,7 @@ const ProdutoCadastro = () => {
               {isSaving ? "Salvando..." : "Salvar rascunho"}
             </Button>
             <Button
-              className="gap-2 bg-green-600 text-white hover:bg-green-700 rounded-[20px]"
+              className="gap-2 bg-primary text-primary-foreground hover:bg-primary-hover rounded-[20px]"
               onClick={() => handleSaveProduct('ativo')}
               disabled={isSaving}
             >
@@ -386,8 +386,8 @@ const ProdutoCadastro = () => {
               {!imagemPreview ? (
                 <div className="border-2 border-dashed border-primary/30 rounded-lg bg-background hover:border-primary/50 transition-colors">
                   <label className="flex flex-col items-center justify-center py-20 cursor-pointer">
-                    <CloudUpload className="h-12 w-12 text-green-600 mb-4" />
-                    <p className="text-sm text-green-600 font-medium text-center">
+                    <CloudUpload className="h-12 w-12 text-primary mb-4" />
+                    <p className="text-sm text-primary font-medium text-center">
                       Clique para adicionar a imagem do produto<br />
                       ou arraste até aqui
                     </p>
@@ -508,7 +508,7 @@ const ProdutoCadastro = () => {
             <h2 className="text-xl font-bold">Orientações de uso</h2>
             <Button
               variant="outline"
-              className="gap-2 border-green-600 text-green-600 hover:bg-green-50 rounded-[20px]"
+              className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-[20px]"
               onClick={() => document.getElementById('document-upload')?.click()}
             >
               <Upload className="h-4 w-4" />
@@ -533,7 +533,7 @@ const ProdutoCadastro = () => {
                 className="min-h-[200px] bg-background border-none resize-none"
               />
               {documentoOrientacao && (
-                <p className="text-xs text-green-600 mt-2">
+                <p className="text-xs text-primary mt-2">
                   Documento anexado: {documentoOrientacao.name}
                 </p>
               )}
@@ -552,7 +552,7 @@ const ProdutoCadastro = () => {
             {isSaving ? "Salvando..." : "Salvar rascunho"}
           </Button>
           <Button
-            className="gap-2 bg-green-600 text-white hover:bg-green-700 rounded-[20px]"
+            className="gap-2 bg-primary text-primary-foreground hover:bg-primary-hover rounded-[20px]"
             onClick={() => handleSaveProduct('ativo')}
             disabled={isSaving}
           >

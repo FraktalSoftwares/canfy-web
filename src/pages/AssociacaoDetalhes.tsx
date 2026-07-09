@@ -96,7 +96,7 @@ const AssociacaoDetalhes = () => {
       setIsEditing(false);
       toast({
         title: "Dados salvos com sucesso!",
-        className: "bg-green-50 border-green-200",
+        className: "bg-card-green border-primary/20",
       });
     } catch (error: any) {
       console.error('Erro ao atualizar associação:', error);
@@ -119,7 +119,7 @@ const AssociacaoDetalhes = () => {
       setShowDeleteDialog(false);
       toast({
         title: "Associação removida com sucesso!",
-        className: "bg-green-50 border-green-200",
+        className: "bg-card-green border-primary/20",
       });
       navigate("/associacoes");
     } catch (error: any) {
@@ -182,7 +182,7 @@ const AssociacaoDetalhes = () => {
           <h1 className="text-2xl font-bold text-foreground">Dados da associação/marca</h1>
           {isEditing ? (
             <Button
-              className="gap-2 bg-green-600 text-white hover:bg-green-700 rounded-[20px]"
+              className="gap-2 bg-primary text-primary-foreground hover:bg-primary-hover rounded-[20px]"
               onClick={handleSave}
             >
               <Check className="h-4 w-4" />
@@ -191,7 +191,7 @@ const AssociacaoDetalhes = () => {
           ) : (
             <Button
               variant="outline"
-              className="gap-2 border-green-600 text-green-600 hover:bg-green-50 rounded-[20px]"
+              className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-[20px]"
               onClick={() => setIsEditing(true)}
             >
               <Pencil className="h-4 w-4" />
@@ -309,9 +309,9 @@ const AssociacaoDetalhes = () => {
               <Card key={produto.id} className="rounded-[10px] bg-secondary border-none">
                 <CardContent className="pt-6 pb-4">
                   <div className="flex flex-col items-center text-center">
-                    <div className="w-16 h-16 rounded-full bg-green-200 flex items-center justify-center mb-3">
-                      <div className="w-8 h-10 bg-green-600 rounded-sm relative">
-                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-4 h-2 bg-green-700 rounded-t"></div>
+                    <div className="w-16 h-16 rounded-full bg-card-green flex items-center justify-center mb-3">
+                      <div className="w-8 h-10 bg-primary rounded-sm relative">
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-4 h-2 bg-primary-dark rounded-t"></div>
                       </div>
                     </div>
                     <p className="text-sm font-semibold">{produto.nome}</p>

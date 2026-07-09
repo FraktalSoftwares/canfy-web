@@ -164,8 +164,8 @@ const NotificacoesPersonalizadas = () => {
   const statusOf = (n: Notificacao) => {
     const enviada = new Date(n.data_envio).getTime() <= Date.now();
     return enviada
-      ? { label: "Enviada", color: "bg-green-100 text-green-700" }
-      : { label: "Agendada", color: "bg-blue-100 text-blue-700" };
+      ? { label: "Enviada", color: "bg-card-green text-primary-dark" }
+      : { label: "Agendada", color: "bg-card-blue text-[hsl(207_89%_35%)]" };
   };
 
   const destinatarioLabel = (tipo: DestinatarioTipo) => {
@@ -199,7 +199,7 @@ const NotificacoesPersonalizadas = () => {
           </Button>
           <Button
             onClick={() => setNovaNotificacaoOpen(true)}
-            className="gap-2 bg-white text-green-600 border border-green-600 hover:bg-green-50 rounded-full"
+            className="gap-2 bg-card text-primary border border-primary hover:bg-primary/10 rounded-full"
           >
             <Plus className="h-4 w-4" />
             Nova notificação
@@ -330,7 +330,7 @@ const NotificacoesPersonalizadas = () => {
                   Cancelar
                 </Button>
                 <Button
-                  className="flex-1 rounded-full bg-green-600 hover:bg-green-700 text-white"
+                  className="flex-1 rounded-full bg-primary hover:bg-primary-hover text-primary-foreground"
                   onClick={handleSalvar}
                   disabled={salvando}
                 >

@@ -151,7 +151,7 @@ const Notificacoes = () => {
                   variant="link"
                   size="sm"
                   onClick={() => handleMarcarComoLida(notif.id)}
-                  className="h-9 text-green-600 hover:text-green-700 p-0"
+                  className="h-9 text-primary hover:text-primary-dark p-0"
                 >
                   Marcar como lida
                 </Button>
@@ -182,7 +182,7 @@ const Notificacoes = () => {
               <Button
                 variant="ghost"
                 onClick={handleMarcarTodasComoLidas}
-                className="text-green-600 hover:bg-green-50 rounded-full"
+                className="text-primary hover:bg-primary/10 rounded-full"
               >
                 Marcar todas como lidas
               </Button>
@@ -190,7 +190,7 @@ const Notificacoes = () => {
             <Button
               variant="outline"
               onClick={() => navigate("/notificacoes/personalizadas")}
-              className="gap-2 border-green-600 text-green-600 hover:bg-green-50 rounded-full"
+              className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-full"
             >
               <Settings className="h-4 w-4" />
               Notificações personalizadas
@@ -202,13 +202,13 @@ const Notificacoes = () => {
           <TabsList className="mb-6 bg-transparent border-b border-border rounded-none w-full justify-start h-auto p-0">
             <TabsTrigger
               value="todas"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-green-600 data-[state=active]:bg-transparent data-[state=active]:text-green-600 px-6 pb-3 font-semibold"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary px-6 pb-3 font-semibold"
             >
               Todas
             </TabsTrigger>
             <TabsTrigger
               value="nao-lidas"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-green-600 data-[state=active]:bg-transparent data-[state=active]:text-green-600 px-6 pb-3 font-normal"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary px-6 pb-3 font-normal"
             >
               Não lidas {naoLidas.length > 0 && `(${naoLidas.length})`}
             </TabsTrigger>
@@ -224,7 +224,7 @@ const Notificacoes = () => {
                     onClick={() => setSelectedFilter(f.label)}
                     className={`cursor-pointer px-4 py-2 rounded-full text-sm ${
                       selectedFilter === f.label
-                        ? "bg-green-600 text-white hover:bg-green-700"
+                        ? "bg-primary text-primary-foreground hover:bg-primary-hover"
                         : "bg-white text-foreground border border-border hover:bg-gray-50"
                     }`}
                   >

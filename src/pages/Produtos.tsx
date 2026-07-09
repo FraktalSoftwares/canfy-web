@@ -324,8 +324,8 @@ const Produtos = () => {
               </div>
             </div>
             <div className="space-y-3 pt-4">
-              <Button className="w-full h-12 bg-green-600 text-white hover:bg-green-700 rounded-[10px]" onClick={handleApplyFilters}>Aplicar filtros</Button>
-              <Button variant="link" className="w-full text-green-600 hover:text-green-700" onClick={handleClearFilters}>Limpar filtros</Button>
+              <Button className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary-hover rounded-[10px]" onClick={handleApplyFilters}>Aplicar filtros</Button>
+              <Button variant="link" className="w-full text-primary hover:text-primary-dark" onClick={handleClearFilters}>Limpar filtros</Button>
             </div>
           </div>
         </DialogContent>

@@ -1,56 +1,92 @@
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download, Copy, CheckCircle2, Circle } from "lucide-react";
+import { ArrowLeft, Download, Pill, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { getReceitaStatusBadge } from "@/lib/pedidoStatus";
+
+interface ReceitaDetalhe {
+  id: string;
+  numero_receita: string;
+  data_emissao: string | null;
+  validade: string | null;
+  status: string;
+  observacoes: string | null;
+  documento_url: string | null;
+  paciente_id: string;
+  paciente_nome: string;
+  medico_nome: string | null;
+  medico_crm: string | null;
+}
+
+interface ReceitaItem {
+  item_id: string;
+  produto_id: string;
+  produto_nome: string;
+  imagem_url: string | null;
+  forma_farmaceutica: string | null;
+  concentracao_thc: string | null;
+  concentracao_cbd: string | null;
+  posologia: string | null;
+  quantidade_prescrita: number | null;
+  duracao_tratamento: string | null;
+}
+
+const formatDate = (d: string | null) => {
+  if (!d) return "—";
+  try {
+    return format(new Date(d), "dd/MM/yyyy", { locale: ptBR });
+  } catch {
+    return "—";
+  }
+};
 
 const ReceitaDetalhes = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const { toast } = useToast();
 
-  // Mock data
-  const receita = {
-    pedidoId: "#1234567",
-    receitaId: "#1234567",
-    emissao: "01/05/2025",
-    paciente: "Ana Clara Silva",
-    canal: "Associação",
-    prescritor: "Claudio Fonseca",
-    totalPago: "R$140,00",
-    status: "Pedido na Anvisa",
-    prazoEntrega: "Chega entre 10 e 12 de setembro",
-    codigoRastreio: "0019860 0954614 46169 6966 0053593 1433737 0000010 0...",
-    ultimaAtualizacao: "05/05/2025 • 13:20",
-  };
+  const [receita, setReceita] = useState<ReceitaDetalhe | null>(null);
+  const [itens, setItens] = useState<ReceitaItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const timeline = [
-    { label: "Validando documentos", completed: true },
-    { label: "Liberando importação", completed: true },
-    { label: "Importação liberada", completed: true },
-    { label: "Pedido na Anvisa", completed: true },
-    { label: "Pedido liberado pela Anvisa", completed: false },
-    { label: "Pedido entregue", completed: false },
-  ];
+  useEffect(() => {
+    if (!id) return;
+    const fetchReceita = async () => {
+      setIsLoading(true);
+      try {
+        const [{ data: detalhe, error: errDetalhe }, { data: itensData, error: errItens }] =
+          await Promise.all([
+            (supabase.rpc as any)("admin_get_receita_detalhes", { p_id: id }),
+            (supabase.rpc as any)("admin_get_receita_itens", { p_receita_id: id }),
+          ]);
+        if (errDetalhe) throw errDetalhe;
+        if (errItens) throw errItens;
+        setReceita((detalhe && detalhe[0]) || null);
+        setItens(itensData || []);
+      } catch (error: any) {
+        console.error("Erro ao carregar receita:", error);
+        toast({
+          title: "Erro ao carregar receita",
+          description: error.message,
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchReceita();
+  }, [id, toast]);
 
-  const documentos = [
-    "CNH.jpg",
-    "comprovante_de_residencia.pdf",
-  ];
-
-  const handleCopyRastreio = () => {
-    navigator.clipboard.writeText(receita.codigoRastreio);
-    toast({
-      title: "Código copiado com sucesso!",
-      className: "bg-green-50 border-green-200",
-    });
-  };
+  const statusBadge = receita ? getReceitaStatusBadge(receita.status) : null;
 
   return (
     <div className="min-h-screen bg-background">
-
-      
       <div className="px-6 py-8 max-w-5xl mx-auto">
         {/* Breadcrumb */}
         <div className="flex items-center gap-4 mb-6">
@@ -66,122 +102,151 @@ const ReceitaDetalhes = () => {
 
         <div className="mb-6">
           <p className="text-sm text-muted-foreground mb-2">
-            Receitas e pedidos &gt; Pedido {receita.pedidoId}
+            Receitas e pedidos &gt; Receita {receita ? receita.numero_receita : ""}
           </p>
         </div>
 
-        {/* Header */}
-        <h1 className="text-2xl font-bold text-foreground mb-8">Dados do pedido</h1>
+        <h1 className="text-2xl font-bold text-foreground mb-8">Dados da receita</h1>
 
-        {/* Pedido Card */}
-        <Card className="rounded-[10px] bg-secondary border-none mb-8">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold">Pedido {receita.pedidoId}</h2>
-              <Badge className="bg-blue-500 text-white hover:bg-blue-500 px-4 py-1">
-                {receita.status}
-              </Badge>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-background rounded-lg p-4">
-                <p className="text-xs text-muted-foreground mb-2">Id da receita</p>
-                <p className="font-semibold">{receita.receitaId}</p>
-              </div>
-              <div className="bg-background rounded-lg p-4">
-                <p className="text-xs text-muted-foreground mb-2">Emissão da receita</p>
-                <p className="font-semibold">{receita.emissao}</p>
-              </div>
-              <div className="bg-background rounded-lg p-4">
-                <p className="text-xs text-muted-foreground mb-2">Paciente</p>
-                <p className="font-semibold">{receita.paciente}</p>
-              </div>
-              <div className="bg-background rounded-lg p-4">
-                <p className="text-xs text-muted-foreground mb-2">Canal de associação</p>
-                <p className="font-semibold">{receita.canal}</p>
-              </div>
-              <div className="bg-background rounded-lg p-4">
-                <p className="text-xs text-muted-foreground mb-2">Prescritor</p>
-                <p className="font-semibold">{receita.prescritor}</p>
-              </div>
-              <div className="bg-background rounded-lg p-4">
-                <p className="text-xs text-muted-foreground mb-2">Total pago</p>
-                <p className="font-semibold">{receita.totalPago}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Timeline */}
-        <div className="mb-8">
-          <h2 className="text-xl font-bold mb-4">Linha do tempo do pedido</h2>
-          <Card className="rounded-[10px] bg-secondary border-none">
-            <CardContent className="pt-6">
-              <p className="text-sm font-semibold mb-6">{receita.prazoEntrega}</p>
-              
-              <div className="space-y-1">
-                {timeline.map((item, index) => (
-                  <div key={index} className="flex items-start gap-3">
-                    <div className="flex flex-col items-center">
-                      {item.completed ? (
-                        <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
-                      ) : (
-                        <Circle className="h-5 w-5 text-gray-300 flex-shrink-0" />
-                      )}
-                      {index < timeline.length - 1 && (
-                        <div className={`w-0.5 h-8 ${item.completed ? 'bg-green-600' : 'bg-gray-300'}`} />
-                      )}
-                    </div>
-                    <p className={`text-sm pt-0.5 ${item.completed ? 'text-green-600 font-medium' : 'text-gray-400'}`}>
-                      {item.label}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Rastreio */}
-        <div className="mb-8">
-          <h2 className="text-xl font-bold mb-4">Rastreio</h2>
-          <Card className="rounded-[10px] bg-secondary border-none">
-            <CardContent className="pt-6">
-              <div className="bg-background rounded-lg p-4 mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs text-muted-foreground">Código de rastreio</p>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={handleCopyRastreio}
-                  >
-                    <Copy className="h-4 w-4 text-primary" />
-                  </Button>
+        {isLoading ? (
+          <p className="text-muted-foreground py-8">Carregando receita...</p>
+        ) : !receita ? (
+          <p className="text-muted-foreground py-8">Receita não encontrada.</p>
+        ) : (
+          <>
+            {/* Receita Card */}
+            <Card className="rounded-[10px] bg-secondary border-none mb-8">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-semibold">Receita {receita.numero_receita}</h2>
+                  {statusBadge && (
+                    <Badge
+                      style={{ backgroundColor: statusBadge.bg, color: statusBadge.fg }}
+                      className="border-none rounded-full px-4 py-1 font-medium hover:opacity-90"
+                    >
+                      {statusBadge.label}
+                    </Badge>
+                  )}
                 </div>
-                <p className="text-sm text-green-600 font-mono">{receita.codigoRastreio}</p>
-              </div>
-              
-              <div className="bg-background rounded-lg p-4">
-                <p className="text-xs text-muted-foreground mb-2">última atualização</p>
-                <p className="font-semibold text-sm">{receita.ultimaAtualizacao}</p>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                {documentos.map((doc, index) => (
-                  <div key={index} className="bg-background rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-normal text-primary">{doc}</p>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Download className="h-4 w-4 text-primary" />
-                      </Button>
-                    </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-background rounded-lg p-4">
+                    <p className="text-xs text-muted-foreground mb-2">Nº da receita</p>
+                    <p className="font-semibold">{receita.numero_receita}</p>
                   </div>
-                ))}
+                  <div className="bg-background rounded-lg p-4">
+                    <p className="text-xs text-muted-foreground mb-2">Emissão</p>
+                    <p className="font-semibold">{formatDate(receita.data_emissao)}</p>
+                  </div>
+                  <div className="bg-background rounded-lg p-4">
+                    <p className="text-xs text-muted-foreground mb-2">Validade</p>
+                    <p className="font-semibold">{formatDate(receita.validade)}</p>
+                  </div>
+                  <div className="bg-background rounded-lg p-4">
+                    <p className="text-xs text-muted-foreground mb-2">Paciente</p>
+                    <p className="font-semibold">{receita.paciente_nome}</p>
+                  </div>
+                  <div className="bg-background rounded-lg p-4">
+                    <p className="text-xs text-muted-foreground mb-2">Prescritor</p>
+                    <p className="font-semibold">{receita.medico_nome || "—"}</p>
+                  </div>
+                  <div className="bg-background rounded-lg p-4">
+                    <p className="text-xs text-muted-foreground mb-2">CRM</p>
+                    <p className="font-semibold">{receita.medico_crm || "—"}</p>
+                  </div>
+                </div>
+
+                {receita.observacoes && (
+                  <div className="bg-background rounded-lg p-4 mt-4">
+                    <p className="text-xs text-muted-foreground mb-2">Observações</p>
+                    <p className="text-sm">{receita.observacoes}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Itens prescritos */}
+            <div className="mb-8">
+              <h2 className="text-xl font-bold mb-4">Itens prescritos</h2>
+              <Card className="rounded-[10px] bg-secondary border-none">
+                <CardContent className="pt-6 space-y-4">
+                  {itens.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      Nenhum item prescrito nesta receita.
+                    </p>
+                  ) : (
+                    itens.map((item) => (
+                      <div key={item.item_id} className="bg-background rounded-lg p-4 flex gap-4">
+                        <div className="h-16 w-16 rounded-lg bg-card-green flex items-center justify-center overflow-hidden shrink-0">
+                          {item.imagem_url ? (
+                            <img
+                              src={item.imagem_url}
+                              alt={item.produto_nome}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <Pill className="h-6 w-6 text-primary" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold">{item.produto_nome}</p>
+                          <p className="text-xs text-muted-foreground mb-2">
+                            {[
+                              item.forma_farmaceutica,
+                              item.concentracao_thc ? `THC ${item.concentracao_thc}` : null,
+                              item.concentracao_cbd ? `CBD ${item.concentracao_cbd}` : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" • ") || "—"}
+                          </p>
+                          <div className="grid grid-cols-3 gap-2 text-sm">
+                            <div>
+                              <span className="text-xs text-muted-foreground">Quantidade</span>
+                              <p className="font-medium">{item.quantidade_prescrita ?? "—"}</p>
+                            </div>
+                            <div>
+                              <span className="text-xs text-muted-foreground">Duração</span>
+                              <p className="font-medium">{item.duracao_tratamento || "—"}</p>
+                            </div>
+                            <div className="col-span-1">
+                              <span className="text-xs text-muted-foreground">Posologia</span>
+                              <p className="font-medium">{item.posologia || "—"}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Documento da receita */}
+            {receita.documento_url && (
+              <div className="mb-8">
+                <h2 className="text-xl font-bold mb-4">Documento</h2>
+                <Card className="rounded-[10px] bg-secondary border-none">
+                  <CardContent className="pt-6">
+                    <a
+                      href={receita.documento_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-background rounded-lg p-4 flex items-center justify-between hover:bg-muted/40 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-5 w-5 text-primary" />
+                        <span className="text-sm font-normal text-primary">
+                          Documento da receita
+                        </span>
+                      </div>
+                      <Download className="h-4 w-4 text-primary" />
+                    </a>
+                  </CardContent>
+                </Card>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

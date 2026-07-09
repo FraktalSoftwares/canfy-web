@@ -28,6 +28,7 @@ const Navbar = () => {
     { name: "Receitas", path: "/receitas" },
     { name: "Pedidos", path: "/pedidos" },
     { name: "Produtos", path: "/produtos" },
+    { name: "Blog", path: "/admin/blog" },
   ];
 
   useEffect(() => {

@@ -169,7 +169,7 @@ const Associacoes = () => {
       setShowCreateDialog(false);
       toast({
         title: "Associação/marca cadastrada com sucesso!",
-        className: "bg-green-50 border-green-200",
+        className: "bg-card-green border-primary/20",
       });
 
       // Reset form e recarregar lista
@@ -438,14 +438,14 @@ const Associacoes = () => {
             <div className="space-y-3 pt-4">
               <Button
                 onClick={handleApplyFilters}
-                className="w-full h-12 bg-green-600 text-white hover:bg-green-700 rounded-[10px]"
+                className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary-hover rounded-[10px]"
               >
                 Aplicar filtros
               </Button>
               <Button
                 variant="link"
                 onClick={handleClearFilters}
-                className="w-full text-green-600 hover:text-green-700"
+                className="w-full text-primary hover:text-primary-dark"
               >
                 Limpar filtros
               </Button>
@@ -585,7 +585,7 @@ const Associacoes = () => {
               </Button>
               <Button
                 onClick={handleCreateAssociacao}
-                className="flex-1 h-11 bg-green-600 text-white hover:bg-green-700 rounded-[10px]"
+                className="flex-1 h-11 bg-primary text-primary-foreground hover:bg-primary-hover rounded-[10px]"
                 disabled={!newAssociacao.nome || !newAssociacao.email}
               >
                 Salvar
