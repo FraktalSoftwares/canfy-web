@@ -30,6 +30,9 @@ import NotificacoesPersonalizadas from "./pages/NotificacoesPersonalizadas";
 import MinhaConta from "./pages/MinhaConta";
 import TermosDeUso from "./pages/TermosDeUso";
 import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
+import Landing from "./pages/Landing";
+import Blog from "./pages/Blog";
+import BlogPost from "./pages/BlogPost";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,6 +46,9 @@ const App = () => (
         <RouteTitle />
         <Routes>
           {/* Rotas públicas */}
+          <Route path="/" element={<Landing />} />
+          <Route path="/blog" element={<Blog />} />
+          <Route path="/blog/:slug" element={<BlogPost />} />
           <Route path="/entrar" element={<Login />} />
           <Route path="/esqueci-senha" element={<ForgotPassword />} />
           <Route path="/termos-de-uso" element={<TermosDeUso />} />
@@ -50,7 +56,6 @@ const App = () => (
 
           {/* Rotas protegidas com Navbar persistente */}
           <Route element={<AppLayout />}>
-            <Route path="/" element={<Dashboard />} />
             <Route path="/home" element={<Dashboard />} />
             <Route path="/inicio" element={<Dashboard />} />
             <Route path="/painel" element={<Dashboard />} />
@@ -79,7 +84,7 @@ const App = () => (
             <Route path="/minha-conta" element={<MinhaConta />} />
 
             <Route path="/configuracoes-sistema" element={<ConfigSistema />} />
-            <Route path="/blog" element={<BlogAdmin />} />
+            <Route path="/admin/blog" element={<BlogAdmin />} />
             <Route path="/feedbacks" element={<FeedbacksConsultas />} />
           </Route>
 

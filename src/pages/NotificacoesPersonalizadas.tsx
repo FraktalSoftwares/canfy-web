@@ -135,14 +135,50 @@ const NotificacoesPersonalizadas = () => {
       destinatario_tipo: destinatario,
       data_envio: dataEnvio,
     });
-    setSalvando(false);
 
     if (error) {
+      setSalvando(false);
       toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
       return;
     }
 
-    toast({ title: "Notificação salva", description: "Notificação cadastrada com sucesso." });
+    // Envio imediato: dispara e-mail (canal externo) além da entrega in-app.
+    // Best-effort: se o provedor não estiver configurado, a notificação in-app já foi salva.
+    if (tipoEnvio === "imediato") {
+      try {
+        const { data: dispatch } = await supabase.functions.invoke("dispatch-notificacao", {
+          body: {
+            titulo: titulo.trim(),
+            descricao: observacoes.trim(),
+            destinatario_tipo: destinatario,
+          },
+        });
+        if (dispatch && (dispatch as any).dispatched) {
+          toast({
+            title: "Notificação enviada",
+            description: `E-mail disparado para ${(dispatch as any).recipients} destinatário(s).`,
+          });
+        } else {
+          toast({
+            title: "Notificação salva",
+            description: "Entregue no app. E-mail não enviado (provedor não configurado).",
+          });
+        }
+      } catch {
+        toast({
+          title: "Notificação salva",
+          description: "Entregue no app. Falha ao disparar e-mail externo.",
+        });
+      }
+      setSalvando(false);
+      setNovaNotificacaoOpen(false);
+      resetForm();
+      fetchNotificacoes();
+      return;
+    }
+
+    setSalvando(false);
+    toast({ title: "Notificação agendada", description: "Notificação cadastrada com sucesso." });
     setNovaNotificacaoOpen(false);
     resetForm();
     fetchNotificacoes();

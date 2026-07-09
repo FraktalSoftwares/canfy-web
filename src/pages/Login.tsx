@@ -47,7 +47,7 @@ const Login = () => {
           title: "Login realizado com sucesso!",
           description: "Redirecionando...",
         });
-        navigate("/");
+        navigate("/home");
       }
     } catch (error: any) {
       if (error.errors) {
