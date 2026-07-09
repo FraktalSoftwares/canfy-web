@@ -134,7 +134,7 @@ const Navbar = () => {
                 key={item.path}
                 to={item.path}
                 className={`text-sm pb-1 border-b-2 transition-colors ${
-                  location.pathname === item.path
+                  location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)
                     ? "border-primary text-primary font-semibold"
                     : "border-transparent text-muted-foreground hover:text-foreground font-medium"
                 }`}

@@ -12,10 +12,19 @@ interface BlogPostFull {
   titulo: string;
   slug: string;
   resumo: string | null;
+  subtitulo: string | null;
   conteudo: string | null;
   capa_url: string | null;
   data_publicacao: string | null;
   created_at: string;
+}
+
+interface BlogPostSecao {
+  id: string;
+  ordem: number;
+  titulo: string | null;
+  texto: string;
+  imagem_url: string | null;
 }
 
 const BLOG_LINKS = [
@@ -35,6 +44,7 @@ const formatData = (iso: string | null) => {
 const BlogPost = () => {
   const { slug } = useParams();
   const [post, setPost] = useState<BlogPostFull | null>(null);
+  const [secoes, setSecoes] = useState<BlogPostSecao[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -43,13 +53,21 @@ const BlogPost = () => {
       setLoading(true);
       const { data, error } = await supabase
         .from("blog_posts")
-        .select("id, titulo, slug, resumo, conteudo, capa_url, data_publicacao, created_at")
+        .select("id, titulo, slug, resumo, subtitulo, conteudo, capa_url, data_publicacao, created_at")
         .eq("slug", slug)
         .eq("status", "publicado")
         .maybeSingle();
       if (!error && data) {
-        setPost(data as BlogPostFull);
-        document.title = `${(data as BlogPostFull).titulo} — Blog Canfy`;
+        const found = data as BlogPostFull;
+        setPost(found);
+        document.title = `${found.titulo} — Blog Canfy`;
+
+        const { data: secoesData } = await supabase
+          .from("blog_post_secoes")
+          .select("id, ordem, titulo, texto, imagem_url")
+          .eq("post_id", found.id)
+          .order("ordem", { ascending: true });
+        setSecoes((secoesData as BlogPostSecao[]) ?? []);
       }
       setLoading(false);
     };
@@ -120,7 +138,7 @@ const BlogPost = () => {
             <h1 className="font-display text-3xl font-bold leading-tight text-foreground md:text-4xl">
               {post.titulo}
             </h1>
-            {post.resumo && <p className="mt-4 text-lg text-muted-foreground">{post.resumo}</p>}
+            {post.subtitulo && <p className="mt-4 text-lg text-muted-foreground">{post.subtitulo}</p>}
 
             <span className="mt-6 inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-sm text-muted-foreground">
               <Calendar className="h-4 w-4 text-primary" />
@@ -135,10 +153,34 @@ const BlogPost = () => {
               />
             )}
 
-            {post.conteudo && (
-              <div className="mt-8 whitespace-pre-wrap text-base leading-relaxed text-foreground/90">
-                {post.conteudo}
+            {secoes.length > 0 ? (
+              <div className="mt-8 space-y-8">
+                {secoes.map((secao) => (
+                  <div key={secao.id}>
+                    {secao.titulo && (
+                      <h2 className="font-display text-xl font-semibold text-foreground mb-3">
+                        {secao.titulo}
+                      </h2>
+                    )}
+                    <div className="whitespace-pre-wrap text-base leading-relaxed text-foreground/90">
+                      {secao.texto}
+                    </div>
+                    {secao.imagem_url && (
+                      <img
+                        src={secao.imagem_url}
+                        alt={secao.titulo ?? post.titulo}
+                        className="mt-4 w-full rounded-[10px] object-cover"
+                      />
+                    )}
+                  </div>
+                ))}
               </div>
+            ) : (
+              post.conteudo && (
+                <div className="mt-8 whitespace-pre-wrap text-base leading-relaxed text-foreground/90">
+                  {post.conteudo}
+                </div>
+              )
             )}
           </>
         )}

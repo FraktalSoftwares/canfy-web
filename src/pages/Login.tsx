@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, Lock } from "lucide-react";
+import { Mail, Lock, AlertTriangle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -14,12 +14,16 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setEmailError(null);
+    setPasswordError(null);
 
     try {
       // Validate input
@@ -34,11 +38,17 @@ const Login = () => {
       });
 
       if (error) {
-        toast({
-          title: "Erro ao entrar",
-          description: getUserFriendlyError(error),
-          variant: "destructive",
-        });
+        const msg = error.message.toLowerCase();
+        if (msg.includes("invalid login credentials")) {
+          setEmailError("E-mail incorreto");
+          setPasswordError("Senha incorreta");
+        } else {
+          toast({
+            title: "Erro ao entrar",
+            description: getUserFriendlyError(error),
+            variant: "destructive",
+          });
+        }
         return;
       }
 
@@ -96,11 +106,21 @@ const Login = () => {
                 type="text"
                 placeholder="Insira seu e-mail ou telefone"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="pl-10 bg-card"
-                style={{ width: '480px', height: '44px', borderRadius: '20px', borderColor: '#00994B' }}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setEmailError(null);
+                }}
+                className={`pl-10 h-11 w-full rounded-[20px] bg-card ${
+                  emailError ? "border-destructive bg-destructive/5" : "border-primary"
+                }`}
               />
             </div>
+            {emailError && (
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-destructive">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                {emailError}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -114,11 +134,21 @@ const Login = () => {
                 type="password"
                 placeholder="Insira sua senha"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pl-10 bg-card"
-                style={{ width: '480px', height: '44px', borderRadius: '20px', borderColor: '#00994B' }}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setPasswordError(null);
+                }}
+                className={`pl-10 h-11 w-full rounded-[20px] bg-card ${
+                  passwordError ? "border-destructive bg-destructive/5" : "border-primary"
+                }`}
               />
             </div>
+            {passwordError && (
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-destructive">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                {passwordError}
+              </p>
+            )}
           </div>
 
           <div>
@@ -133,8 +163,7 @@ const Login = () => {
           <Button
             type="submit"
             disabled={isLoading}
-            className="h-12 text-primary-foreground rounded-full text-base font-medium"
-            style={{ backgroundColor: '#00994B', width: '480px' }}
+            className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary-hover rounded-full text-base font-medium"
           >
             {isLoading ? "Entrando..." : "Entrar"}
           </Button>

@@ -56,6 +56,9 @@ All colors MUST be HSL.
     --card-teal: 174 51% 93%; /* #E0F2F1 */
     --card-red: 14 77% 95%; /* #FBE9E7 */
 
+    /* Verde médio do cabeçalho das tabelas (Figma) */
+    --table-head: 144 48% 62%; /* ~#5FC98A */
+
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 0 0% 20%;
     --sidebar-primary: 149 100% 30%;

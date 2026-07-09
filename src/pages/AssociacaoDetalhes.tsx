@@ -218,7 +218,7 @@ const AssociacaoDetalhes = () => {
               {!isEditing && (
                 <Button
                   variant="link"
-                  className="text-red-500 p-0 h-auto text-sm font-normal flex items-center gap-1"
+                  className="text-destructive p-0 h-auto text-sm font-normal flex items-center gap-1"
                   onClick={() => setShowDeleteDialog(true)}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -233,7 +233,7 @@ const AssociacaoDetalhes = () => {
                 <Input
                   value={formData.nome}
                   onChange={(e) => setFormData({...formData, nome: e.target.value})}
-                  className="h-9 font-semibold bg-white"
+                  className="h-9 font-semibold bg-card"
                 />
               ) : (
                 <h2 className="text-xl font-semibold">{formData.nome}</h2>
@@ -246,7 +246,7 @@ const AssociacaoDetalhes = () => {
                 <Input
                   value={formData.cnpj}
                   onChange={(e) => setFormData({...formData, cnpj: e.target.value})}
-                  className="h-11 bg-white"
+                  className="h-11 bg-card"
                   disabled={!isEditing}
                   placeholder="Não informado"
                 />
@@ -257,7 +257,7 @@ const AssociacaoDetalhes = () => {
                 <Input
                   value={formData.telefone}
                   onChange={(e) => setFormData({...formData, telefone: e.target.value})}
-                  className="h-11 bg-white"
+                  className="h-11 bg-card"
                   disabled={!isEditing}
                   placeholder="Não informado"
                 />
@@ -268,7 +268,7 @@ const AssociacaoDetalhes = () => {
                 <Input
                   value={formData.email}
                   onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  className="h-11 bg-white"
+                  className="h-11 bg-card"
                   disabled={!isEditing}
                 />
               </div>
@@ -278,7 +278,7 @@ const AssociacaoDetalhes = () => {
                 <Input
                   value={formData.regiao}
                   onChange={(e) => setFormData({...formData, regiao: e.target.value})}
-                  className="h-11 bg-white"
+                  className="h-11 bg-card"
                   disabled={!isEditing}
                   placeholder="Não informado"
                 />
@@ -290,7 +290,7 @@ const AssociacaoDetalhes = () => {
                   value={observacoes}
                   onChange={(e) => setObservacoes(e.target.value)}
                   placeholder="Adicione observações internas ou anotações administrativas..."
-                  className="min-h-[120px] bg-white resize-none"
+                  className="min-h-[120px] bg-card resize-none"
                   disabled={!isEditing}
                 />
                 <p className="text-xs text-right text-muted-foreground mt-1">{observacoes.length}/500</p>
@@ -356,7 +356,7 @@ const AssociacaoDetalhes = () => {
             </Button>
             <Button
               onClick={handleDelete}
-              className="flex-1 rounded-full bg-red-500 text-white hover:bg-red-600"
+              className="flex-1 rounded-full bg-destructive text-white hover:bg-destructive/90"
             >
               Remover
             </Button>

@@ -4,6 +4,7 @@ import { useLocation } from "react-router-dom";
 const TITLES: Array<{ test: (path: string) => boolean; title: string }> = [
   { test: (p) => p === "/entrar", title: "Login" },
   { test: (p) => p === "/esqueci-senha", title: "Recuperar senha" },
+  { test: (p) => p === "/redefinir-senha", title: "Redefinir senha" },
   { test: (p) => p === "/termos-de-uso", title: "Termos de uso" },
   { test: (p) => p === "/politica-privacidade", title: "Política de privacidade" },
   { test: (p) => ["/home", "/inicio", "/painel"].includes(p), title: "Dashboard" },
@@ -23,6 +24,7 @@ const TITLES: Array<{ test: (path: string) => boolean; title: string }> = [
   { test: (p) => p === "/notificacoes", title: "Notificações" },
   { test: (p) => p === "/minha-conta", title: "Minha conta" },
   { test: (p) => p === "/configuracoes-sistema", title: "Configurações" },
+  { test: (p) => /^\/admin\/blog\/[^/]+$/.test(p), title: "Detalhes do post" },
   { test: (p) => p === "/admin/blog", title: "Blog" },
   { test: (p) => p === "/feedbacks", title: "Feedbacks" },
 ];

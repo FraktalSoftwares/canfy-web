@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Star } from "lucide-react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -32,6 +33,12 @@ interface MonthlyData {
   month: number;
   month_name: string;
   count: number;
+}
+
+interface FeedbacksResumo {
+  total: number;
+  media_geral: number;
+  notas_baixas: number;
 }
 
 type AnvisaStatus = "nao_solicitado" | "em_analise" | "aprovado" | "recusado";
@@ -70,6 +77,7 @@ const Dashboard = () => {
   const [pedidosData, setPedidosData] = useState<MonthlyData[]>([]);
   const [recentAnvisa, setRecentAnvisa] = useState<RecentAnvisa[]>([]);
   const [recentMedicos, setRecentMedicos] = useState<RecentMedico[]>([]);
+  const [feedbacks, setFeedbacks] = useState<FeedbacksResumo | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -128,6 +136,13 @@ const Dashboard = () => {
       );
       if (medicosError && !medicosError.message.includes("not authorized")) throw medicosError;
       setRecentMedicos(medicos || []);
+
+      const { data: feedbacksResumo, error: feedbacksError } = await supabase.rpc(
+        "admin_get_feedbacks_resumo"
+      );
+      if (feedbacksError && !feedbacksError.message.includes("not authorized")) throw feedbacksError;
+      if (feedbacksResumo && feedbacksResumo.length > 0)
+        setFeedbacks(feedbacksResumo[0] as FeedbacksResumo);
     } catch (error: any) {
       console.error("Error fetching dashboard data:", error);
       toast({
@@ -206,22 +221,65 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-3 gap-4 mb-4">
           <StatCard title="Receitas emitidas" value={stats?.receitas_emitidas ?? 0} />
           <StatCard title="Pedidos realizados" value={stats?.pedidos_realizados ?? 0} />
-          <StatCard title="Aprovações anvisa" value={stats?.aprovacoes_anvisa ?? 0} />
           <StatCard title="Produtos no catálogo" value={stats?.produtos_catalogo ?? 0} />
         </div>
 
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-3 gap-4 mb-8">
           <StatCard title="Médicos ativos" value={stats?.medicos_ativos ?? 0} />
           <StatCard title="Pacientes ativos" value={stats?.pacientes_ativos ?? 0} />
           <StatCard title="Associações/marcas ativas" value={stats?.associacoes_ativas ?? 0} />
         </div>
 
-        <div className="space-y-6 mb-6">
-          <BarsCard title="Receitas emitidas" data={receitasData} />
-          <BarsCard title="Pedidos realizados" data={pedidosData} />
+        {/* Feedbacks de consultas */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-foreground">Feedbacks de consultas</h2>
+            <Link to="/feedbacks" className="text-sm font-medium text-primary hover:text-primary-dark">
+              Ver tudo
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="rounded-[10px] bg-secondary border-none">
+              <CardContent className="py-6">
+                <p className="text-sm text-muted-foreground mb-3">Nota média das consultas Canfy</p>
+                <div className="flex items-center gap-3 mb-3">
+                  <StarRating value={feedbacks?.media_geral ?? 0} />
+                  <span className="text-2xl font-bold text-foreground">
+                    {(feedbacks?.media_geral ?? 0).toFixed(1)}
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {(feedbacks?.total ?? 0).toLocaleString("pt-BR")} avaliações totais.
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="rounded-[10px] bg-secondary border-none">
+              <CardContent className="py-6">
+                <p className="text-sm text-muted-foreground mb-2">
+                  Total de consultas com avaliações negativas
+                </p>
+                <p className="text-3xl font-bold text-foreground mb-3">
+                  {feedbacks?.notas_baixas ?? 0}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Consultas com nota abaixo de 3.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold text-foreground mb-4">
+            Receitas e pedidos ao longo do ano
+          </h2>
+          <div className="space-y-6">
+            <BarsCard title="Receitas emitidas" data={receitasData} />
+            <BarsCard title="Pedidos realizados" data={pedidosData} />
+          </div>
         </div>
 
         <div className="space-y-6">
@@ -307,6 +365,22 @@ const Dashboard = () => {
     </div>
   );
 };
+
+function StarRating({ value }: { value: number }) {
+  const rounded = Math.round(value);
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Star
+          key={i}
+          className={`h-5 w-5 ${
+            i <= rounded ? "fill-status-warning text-status-warning" : "fill-muted text-muted"
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
 
 function BarsCard({ title, data }: { title: string; data: MonthlyData[] }) {
   const chartData = data.map((d) => ({ month: d.month_name, value: Number(d.count) }));

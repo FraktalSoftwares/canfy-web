@@ -8,6 +8,7 @@ import { RouteTitle } from "@/components/RouteTitle";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Pacientes from "./pages/Pacientes";
 import PacienteDetalhes from "./pages/PacienteDetalhes";
 import Dashboard from "./pages/Dashboard";
@@ -22,6 +23,7 @@ import Pedidos from "./pages/Pedidos";
 import PedidoDetalhes from "./pages/PedidoDetalhes";
 import ConfigSistema from "./pages/ConfigSistema";
 import BlogAdmin from "./pages/BlogAdmin";
+import BlogPostAdminDetalhes from "./pages/BlogPostAdminDetalhes";
 import FeedbacksConsultas from "./pages/FeedbacksConsultas";
 import Associacoes from "./pages/Associacoes";
 import AssociacaoDetalhes from "./pages/AssociacaoDetalhes";
@@ -51,6 +53,7 @@ const App = () => (
           <Route path="/blog/:slug" element={<BlogPost />} />
           <Route path="/entrar" element={<Login />} />
           <Route path="/esqueci-senha" element={<ForgotPassword />} />
+          <Route path="/redefinir-senha" element={<ResetPassword />} />
           <Route path="/termos-de-uso" element={<TermosDeUso />} />
           <Route path="/politica-privacidade" element={<PoliticaPrivacidade />} />
 
@@ -85,6 +88,7 @@ const App = () => (
 
             <Route path="/configuracoes-sistema" element={<ConfigSistema />} />
             <Route path="/admin/blog" element={<BlogAdmin />} />
+            <Route path="/admin/blog/:id" element={<BlogPostAdminDetalhes />} />
             <Route path="/feedbacks" element={<FeedbacksConsultas />} />
           </Route>
 

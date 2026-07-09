@@ -5,7 +5,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Search, Filter, Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, X } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Search, Filter, Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, X, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,6 +69,41 @@ const Associacoes = () => {
     regiao: "",
     observacoes: "",
   });
+
+  // Produtos que fornece + Outras informações (documentos exigidos)
+  const [produtosDisponiveis, setProdutosDisponiveis] = useState<{ id: string; nome_comercial: string }[]>([]);
+  const [buscaProduto, setBuscaProduto] = useState("");
+  const [produtosSelecionados, setProdutosSelecionados] = useState<string[]>([]);
+  const [requerDocumentos, setRequerDocumentos] = useState(false);
+  const [documentosExigidos, setDocumentosExigidos] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchProdutos = async () => {
+      const { data } = await supabase
+        .from("produtos")
+        .select("id, nome_comercial")
+        .order("nome_comercial");
+      setProdutosDisponiveis(data ?? []);
+    };
+    fetchProdutos();
+  }, []);
+
+  const resetProdutosEDocumentos = () => {
+    setBuscaProduto("");
+    setProdutosSelecionados([]);
+    setRequerDocumentos(false);
+    setDocumentosExigidos([]);
+  };
+
+  const toggleProdutoSelecionado = (produtoId: string) => {
+    setProdutosSelecionados((prev) =>
+      prev.includes(produtoId) ? prev.filter((id) => id !== produtoId) : [...prev, produtoId]
+    );
+  };
+
+  const produtosFiltrados = produtosDisponiveis.filter((p) =>
+    p.nome_comercial.toLowerCase().includes(buscaProduto.toLowerCase())
+  );
 
   // Buscar associações do banco
   const fetchAssociacoes = async () => {
@@ -162,6 +198,10 @@ const Associacoes = () => {
         p_telefone: newAssociacao.telefone || null,
         p_regiao: newAssociacao.regiao || null,
         p_observacoes: newAssociacao.observacoes || null,
+        p_produtos_ids: produtosSelecionados.length > 0 ? produtosSelecionados : null,
+        p_documentos_obrigatorios: requerDocumentos
+          ? documentosExigidos.filter((d) => d.trim())
+          : null,
       });
 
       if (error) throw error;
@@ -182,7 +222,8 @@ const Associacoes = () => {
         regiao: "",
         observacoes: "",
       });
-      
+      resetProdutosEDocumentos();
+
       // Recarregar dados
       setCurrentPage(1);
     } catch (error: any) {
@@ -206,6 +247,7 @@ const Associacoes = () => {
       regiao: "",
       observacoes: "",
     });
+    resetProdutosEDocumentos();
   };
 
   return (
@@ -254,7 +296,7 @@ const Associacoes = () => {
           
           <Table>
             <TableHeader>
-              <TableRow className="bg-card-green border-none hover:bg-card-green">
+              <TableRow className="bg-table-head border-none hover:bg-table-head">
                 <TableHead className="font-semibold text-foreground">Nome</TableHead>
                 <TableHead className="font-semibold text-foreground">Tipo</TableHead>
                 <TableHead className="font-semibold text-foreground">Região</TableHead>
@@ -574,12 +616,110 @@ const Associacoes = () => {
               />
             </div>
 
+            {/* Produtos que fornece */}
+            <div>
+              <label className="text-sm font-semibold mb-2 block">Produtos que fornece</label>
+              <div className="relative mb-3">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={buscaProduto}
+                  onChange={(e) => setBuscaProduto(e.target.value)}
+                  placeholder="Buscar produto..."
+                  className="pl-9 h-10 rounded-full"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3 max-h-48 overflow-y-auto rounded-[10px] bg-secondary p-4">
+                {produtosFiltrados.length === 0 ? (
+                  <p className="col-span-2 text-sm text-muted-foreground">Nenhum produto encontrado.</p>
+                ) : (
+                  produtosFiltrados.map((produto) => (
+                    <div key={produto.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`produto-${produto.id}`}
+                        checked={produtosSelecionados.includes(produto.id)}
+                        onCheckedChange={() => toggleProdutoSelecionado(produto.id)}
+                      />
+                      <label
+                        htmlFor={`produto-${produto.id}`}
+                        className="text-sm cursor-pointer truncate"
+                      >
+                        {produto.nome_comercial}
+                      </label>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Outras informações */}
+            <div>
+              <label className="text-sm font-semibold mb-3 block">Outras informações</label>
+              <p className="text-sm text-muted-foreground mb-3">
+                A associação/marca exige outros documentos além da receita médica?
+              </p>
+              <RadioGroup
+                value={requerDocumentos ? "sim" : "nao"}
+                onValueChange={(v) => setRequerDocumentos(v === "sim")}
+                className="flex gap-6 mb-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="sim" id="requer-docs-sim" />
+                  <Label htmlFor="requer-docs-sim" className="cursor-pointer font-normal">Sim</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="nao" id="requer-docs-nao" />
+                  <Label htmlFor="requer-docs-nao" className="cursor-pointer font-normal">Não</Label>
+                </div>
+              </RadioGroup>
+
+              {requerDocumentos && (
+                <div className="space-y-3">
+                  {documentosExigidos.map((doc, index) => (
+                    <div key={index}>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-sm font-semibold">Documento exigido {index + 1}</label>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDocumentosExigidos((prev) => prev.filter((_, i) => i !== index))
+                          }
+                          className="text-destructive hover:opacity-80"
+                          aria-label="Remover documento"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <Input
+                        value={doc}
+                        onChange={(e) =>
+                          setDocumentosExigidos((prev) =>
+                            prev.map((d, i) => (i === index ? e.target.value : d))
+                          )
+                        }
+                        placeholder="Ex.: Laudo médico"
+                        className="h-11"
+                      />
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="link"
+                    onClick={() => setDocumentosExigidos((prev) => [...prev, ""])}
+                    className="gap-2 text-primary hover:text-primary-dark p-0 h-auto"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Mais documentos
+                  </Button>
+                </div>
+              )}
+            </div>
+
             {/* Action Buttons */}
             <div className="flex gap-3 pt-4">
               <Button
                 variant="outline"
                 onClick={handleCancelCreate}
-                className="flex-1 h-11 rounded-[10px] border-gray-300"
+                className="flex-1 h-11 rounded-[10px] border-border"
               >
                 Cancelar
               </Button>

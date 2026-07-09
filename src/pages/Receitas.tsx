@@ -396,7 +396,7 @@ th{background:#e8f5e9}</style></head><body><h1>${title}</h1><table><thead><tr>${
           
           <Table>
             <TableHeader>
-              <TableRow className="bg-card-green border-none hover:bg-card-green">
+              <TableRow className="bg-table-head border-none hover:bg-table-head">
                 <TableHead className="font-semibold text-foreground">ID da receita</TableHead>
                 <TableHead className="font-semibold text-foreground">Paciente</TableHead>
                 <TableHead className="font-semibold text-foreground">Prescritor</TableHead>

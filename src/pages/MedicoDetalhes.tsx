@@ -669,10 +669,10 @@ const MedicoDetalhes = () => {
         </div>
 
         <h2 className="text-xl font-bold text-foreground mb-4">Histórico de repasses</h2>
-        <Card className="rounded-[16px] bg-white border-none mb-8 overflow-hidden">
+        <Card className="rounded-[16px] bg-secondary border-none mb-8 overflow-hidden">
           <Table>
             <TableHeader>
-              <TableRow className="bg-card-green hover:bg-card-green border-none">
+              <TableRow className="bg-table-head hover:bg-table-head border-none">
                 <TableHead className="font-normal text-foreground">Data do repasse</TableHead>
                 <TableHead className="font-normal text-foreground">Valor</TableHead>
               </TableRow>
@@ -738,7 +738,7 @@ const MedicoDetalhes = () => {
             ) : (
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-card-green hover:bg-card-green border-none">
+                  <TableRow className="bg-table-head hover:bg-table-head border-none">
                     <TableHead>Data</TableHead>
                     <TableHead>Paciente</TableHead>
                     <TableHead>Queixa</TableHead>
@@ -797,7 +797,7 @@ const MedicoDetalhes = () => {
             ) : (
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-card-green hover:bg-card-green border-none">
+                  <TableRow className="bg-table-head hover:bg-table-head border-none">
                     <TableHead>Nº receita</TableHead>
                     <TableHead>Paciente</TableHead>
                     <TableHead>Emissão</TableHead>

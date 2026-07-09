@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Star } from "lucide-react";
+import { Star, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -12,11 +13,15 @@ interface Feedback {
   id: string;
   nota: number;
   comentario: string | null;
+  paciente_id: string;
   paciente_nome: string;
+  medico_id: string | null;
   medico_nome: string | null;
   data_consulta: string | null;
   created_at: string;
 }
+
+type Perspectiva = "medicos" | "pacientes";
 
 interface Resumo {
   total: number;
@@ -30,6 +35,7 @@ const FeedbacksConsultas = () => {
   const [resumo, setResumo] = useState<Resumo | null>(null);
   const [filtroNota, setFiltroNota] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [perspectiva, setPerspectiva] = useState<Perspectiva>("medicos");
 
   useEffect(() => {
     fetchAll();
@@ -86,6 +92,38 @@ const FeedbacksConsultas = () => {
         </div>
 
         <div className="flex items-center gap-2 mb-4">
+          <Button
+            size="sm"
+            variant={perspectiva === "medicos" ? "default" : "outline"}
+            onClick={() => setPerspectiva("medicos")}
+            className={
+              perspectiva === "medicos"
+                ? "rounded-full bg-primary text-primary-foreground hover:bg-primary-hover"
+                : "rounded-full"
+            }
+          >
+            Feedbacks de médicos
+          </Button>
+          <Button
+            size="sm"
+            variant={perspectiva === "pacientes" ? "default" : "outline"}
+            onClick={() => setPerspectiva("pacientes")}
+            className={
+              perspectiva === "pacientes"
+                ? "rounded-full bg-primary text-primary-foreground hover:bg-primary-hover"
+                : "rounded-full"
+            }
+          >
+            Feedbacks de pacientes
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground mb-4">
+          {perspectiva === "medicos"
+            ? "Avaliações recebidas por cada médico, feitas pelos pacientes atendidos."
+            : "Avaliações feitas por cada paciente sobre o médico que os atendeu."}
+        </p>
+
+        <div className="flex items-center gap-2 mb-4">
           <span className="text-sm text-muted-foreground">Filtrar:</span>
           {[null, 1, 2, 3, 4, 5].map((n) => (
             <Button
@@ -126,9 +164,44 @@ const FeedbacksConsultas = () => {
                 <CardContent className="px-6 py-4">
                   <div className="flex items-start justify-between mb-2">
                     <div>
-                      <p className="font-semibold text-foreground">{f.paciente_nome}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Atendido por {f.medico_nome ?? "—"} •{" "}
+                      {perspectiva === "medicos" ? (
+                        <Link
+                          to={f.medico_id ? `/medicos/${f.medico_id}` : "#"}
+                          className="inline-flex items-center gap-1.5 font-semibold text-foreground hover:text-primary"
+                        >
+                          {f.medico_nome ?? "Médico não identificado"}
+                          {f.medico_id && <ExternalLink className="h-3.5 w-3.5" />}
+                        </Link>
+                      ) : (
+                        <Link
+                          to={`/pacientes/${f.paciente_id}`}
+                          className="inline-flex items-center gap-1.5 font-semibold text-foreground hover:text-primary"
+                        >
+                          {f.paciente_nome}
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </Link>
+                      )}
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        {perspectiva === "medicos" ? (
+                          <>
+                            Paciente relacionado:{" "}
+                            <Link to={`/pacientes/${f.paciente_id}`} className="text-primary hover:underline">
+                              {f.paciente_nome}
+                            </Link>
+                          </>
+                        ) : (
+                          <>
+                            Médico relacionado:{" "}
+                            {f.medico_id ? (
+                              <Link to={`/medicos/${f.medico_id}`} className="text-primary hover:underline">
+                                {f.medico_nome}
+                              </Link>
+                            ) : (
+                              "—"
+                            )}
+                          </>
+                        )}
+                        {" • "}
                         {f.data_consulta
                           ? format(new Date(f.data_consulta), "dd/MM/yyyy", { locale: ptBR })
                           : "—"}

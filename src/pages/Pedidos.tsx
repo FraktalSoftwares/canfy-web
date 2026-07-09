@@ -283,7 +283,7 @@ th{background:#eef}</style></head><body><h1>${title}</h1><table><thead><tr>${the
             <>
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-card-green border-none hover:bg-card-green">
+                  <TableRow className="bg-table-head border-none hover:bg-table-head">
                     <TableHead className="font-semibold text-foreground">ID</TableHead>
                     <TableHead className="font-semibold text-foreground">Paciente</TableHead>
                     <TableHead className="font-semibold text-foreground">Prescritor</TableHead>

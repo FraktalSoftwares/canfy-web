@@ -1253,7 +1253,7 @@ const MinhaConta = () => {
                             loadPermissoesUsuario(usuario.id);
                           }}
                           className={`flex h-20 w-full items-center justify-between rounded-2xl px-8 py-7 text-left transition-colors ${
-                            isSelected ? 'bg-[#ececea] ring-1 ring-green-600/40' : 'bg-[#f7f7f5] hover:bg-[#ececea]'
+                            isSelected ? 'bg-[#ececea] ring-1 ring-primary/40' : 'bg-[#f7f7f5] hover:bg-[#ececea]'
                           }`}
                         >
                           <span className="text-base font-semibold text-[#3f3f3d]">
@@ -1311,12 +1311,12 @@ const MinhaConta = () => {
                               <AccordionItem
                                 key={mod.key}
                                 value={mod.key}
-                                className="border border-[#d6d6d3] data-[state=open]:bg-white bg-white overflow-hidden first:rounded-t-xl last:rounded-b-xl -mt-px first:mt-0"
+                                className="border border-[#d6d6d3] data-[state=open]:bg-card bg-card overflow-hidden first:rounded-t-xl last:rounded-b-xl -mt-px first:mt-0"
                               >
                                 <AccordionTrigger className="bg-[#3f3f3d] text-white hover:bg-[#2f2f2d] px-5 py-4 rounded-none hover:no-underline data-[state=open]:bg-[#3f3f3d] [&>svg]:text-white">
                                   <span className="text-base font-semibold">{mod.label}</span>
                                 </AccordionTrigger>
-                                <AccordionContent className="px-5 py-4 bg-white">
+                                <AccordionContent className="px-5 py-4 bg-card">
                                   <div className="flex items-center gap-3 pr-3">
                                     <Checkbox
                                       id={`${mod.key}-selecionar-tudo`}
@@ -1378,7 +1378,7 @@ const MinhaConta = () => {
                           variant="ghost"
                           onClick={() => setConfirmDeleteOpen(true)}
                           disabled={isSavingPermissoes || isDeletingUser}
-                          className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-full px-4"
+                          className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-full px-4"
                         >
                           <Trash2 className="h-4 w-4" />
                           Excluir usuário
@@ -1428,7 +1428,7 @@ const MinhaConta = () => {
                   <AlertDialogAction
                     onClick={handleDeleteUser}
                     disabled={isDeletingUser}
-                    className="bg-red-600 hover:bg-red-700 text-white"
+                    className="bg-destructive hover:bg-destructive/90 text-white"
                   >
                     {isDeletingUser ? "Excluindo..." : "Excluir"}
                   </AlertDialogAction>
@@ -1509,7 +1509,7 @@ const MinhaConta = () => {
 
               <div className="flex justify-end">
                 <Button
-                  className="gap-2 bg-white text-primary border border-primary hover:bg-primary/10 rounded-full"
+                  className="gap-2 bg-card text-primary border border-primary hover:bg-primary/10 rounded-full"
                   onClick={handleSaveNotificationPreferences}
                   disabled={isSavingPrefs}
                 >

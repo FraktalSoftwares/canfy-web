@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Upload, AlertCircle, Check, CloudUpload } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -40,7 +41,37 @@ const ProdutoCadastro = () => {
   const [imagemProduto, setImagemProduto] = useState<File | null>(null);
   const [imagemPreview, setImagemPreview] = useState<string>("");
   const [documentoOrientacao, setDocumentoOrientacao] = useState<File | null>(null);
+  const [documentoCOA, setDocumentoCOA] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  const [associacoesTodas, setAssociacoesTodas] = useState<{ id: string; nome: string; produtos_ids: string[] | null }[]>([]);
+  const [associacoesSelecionadas, setAssociacoesSelecionadas] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchAssociacoes = async () => {
+      const { data } = await supabase
+        .from("associacoes_marcas")
+        .select("id, nome, produtos_ids")
+        .order("nome");
+      setAssociacoesTodas((data as any) ?? []);
+    };
+    fetchAssociacoes();
+  }, []);
+
+  const toggleAssociacao = (associacaoId: string) => {
+    setAssociacoesSelecionadas((prev) =>
+      prev.includes(associacaoId) ? prev.filter((a) => a !== associacaoId) : [...prev, associacaoId]
+    );
+  };
+
+  const uploadDocumento = async (file: File, prefixo: string) => {
+    const fileExt = file.name.split(".").pop();
+    const filePath = `${prefixo}/${crypto.randomUUID()}.${fileExt}`;
+    const { error } = await supabase.storage.from("documents").upload(filePath, file);
+    if (error) throw error;
+    const { data } = supabase.storage.from("documents").getPublicUrl(filePath);
+    return data.publicUrl;
+  };
 
   const handleSaveProduct = async (status: 'ativo' | 'inativo') => {
     setIsSaving(true);
@@ -85,6 +116,12 @@ const ProdutoCadastro = () => {
         imagemUrl = publicUrl;
       }
 
+      // Upload dos documentos (COA e orientações de uso), se houver
+      const documentoCoaUrl = documentoCOA ? await uploadDocumento(documentoCOA, "coa") : null;
+      const orientacaoDocumentoUrl = documentoOrientacao
+        ? await uploadDocumento(documentoOrientacao, "orientacoes")
+        : null;
+
       // Usar a função RPC para criar o produto
       const { data: newProductId, error: insertError } = await supabase.rpc('create_produto', {
         p_nome_comercial: validatedData.nome_comercial,
@@ -100,6 +137,8 @@ const ProdutoCadastro = () => {
         p_largura_cm: validatedData.largura_cm,
         p_altura_cm: validatedData.altura_cm,
         p_comprimento_cm: validatedData.comprimento_cm,
+        p_documento_coa_url: documentoCoaUrl,
+        p_orientacao_documento_url: orientacaoDocumentoUrl,
       });
 
       if (insertError) {
@@ -107,11 +146,21 @@ const ProdutoCadastro = () => {
       }
 
       if (newProductId) {
+        const produtoId = newProductId as unknown as string;
         await supabase.from("produtos").update({
           tipo_origem: tipoOrigem,
           preco_brl: precoBrl ? Number(precoBrl) : null,
           preco_usd: precoUsd ? Number(precoUsd) : null,
-        }).eq("id", newProductId as unknown as string);
+        }).eq("id", produtoId);
+
+        // Vincular produto às associações/marcas selecionadas
+        await Promise.all(
+          associacoesSelecionadas.map(async (associacaoId) => {
+            const associacao = associacoesTodas.find((a) => a.id === associacaoId);
+            const novos = Array.from(new Set([...(associacao?.produtos_ids || []), produtoId]));
+            await supabase.from("associacoes_marcas").update({ produtos_ids: novos }).eq("id", associacaoId);
+          })
+        );
       }
 
       toast({
@@ -188,6 +237,21 @@ const ProdutoCadastro = () => {
     }
   };
 
+  const handleCOAUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.type !== "application/pdf") {
+        toast({
+          title: "Tipo de arquivo inválido",
+          description: "Envie o COA em formato PDF.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setDocumentoCOA(file);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
 
@@ -235,9 +299,9 @@ const ProdutoCadastro = () => {
         </div>
 
         {/* Alert */}
-        <Alert className="mb-8 bg-yellow-50 border-yellow-200">
-          <AlertCircle className="h-5 w-5 text-yellow-600" />
-          <AlertDescription className="text-yellow-800 ml-2">
+        <Alert className="mb-8 bg-card-yellow border-none">
+          <AlertCircle className="h-5 w-5 text-[hsl(36_80%_42%)]" />
+          <AlertDescription className="text-foreground ml-2">
             Este produto só pode ser comercializado e utilizado com receita médica.
           </AlertDescription>
         </Alert>
@@ -498,6 +562,60 @@ const ProdutoCadastro = () => {
                   />
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Associações e marcas vinculadas */}
+        <div className="mb-8">
+          <h2 className="text-xl font-bold mb-4">Associações e marcas vinculadas</h2>
+          <Card className="rounded-[10px] bg-secondary border-none">
+            <CardContent className="pt-6">
+              {associacoesTodas.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhuma associação/marca cadastrada.</p>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {associacoesTodas.map((assoc) => (
+                    <div key={assoc.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`assoc-novo-${assoc.id}`}
+                        checked={associacoesSelecionadas.includes(assoc.id)}
+                        onCheckedChange={() => toggleAssociacao(assoc.id)}
+                      />
+                      <label htmlFor={`assoc-novo-${assoc.id}`} className="text-sm cursor-pointer truncate">
+                        {assoc.nome}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Documento COA */}
+        <div className="mb-8">
+          <h2 className="text-xl font-bold mb-4">Documento COA</h2>
+          <Card className="rounded-[10px] bg-secondary border-none">
+            <CardContent className="pt-6">
+              <label
+                htmlFor="coa-upload"
+                className="flex flex-col items-center justify-center gap-2 rounded-[10px] border-2 border-dashed border-primary/40 bg-background py-10 cursor-pointer hover:bg-card-green/20 transition-colors"
+              >
+                <CloudUpload className="h-10 w-10 text-primary" />
+                <p className="text-sm font-medium text-primary text-center">
+                  {documentoCOA
+                    ? documentoCOA.name
+                    : "Clique para adicionar o arquivo COA ou arraste aqui"}
+                </p>
+                <input
+                  id="coa-upload"
+                  type="file"
+                  className="hidden"
+                  accept="application/pdf"
+                  onChange={handleCOAUpload}
+                />
+              </label>
             </CardContent>
           </Card>
         </div>

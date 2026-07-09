@@ -134,10 +134,10 @@ const Notificacoes = () => {
       <CardContent className="pt-6">
         <div className="flex gap-4">
           <div className="flex-shrink-0">
-            <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center relative">
-              <Mail className="h-6 w-6 text-purple-600" />
+            <div className="w-12 h-12 rounded-lg bg-card-purple flex items-center justify-center relative">
+              <Mail className="h-6 w-6 text-[hsl(291_47%_45%)]" />
               {!notif.lida && (
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full" />
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full" />
               )}
             </div>
           </div>
@@ -225,7 +225,7 @@ const Notificacoes = () => {
                     className={`cursor-pointer px-4 py-2 rounded-full text-sm ${
                       selectedFilter === f.label
                         ? "bg-primary text-primary-foreground hover:bg-primary-hover"
-                        : "bg-white text-foreground border border-border hover:bg-gray-50"
+                        : "bg-card text-foreground border border-border hover:bg-muted"
                     }`}
                   >
                     {f.label}

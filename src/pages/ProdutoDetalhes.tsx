@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Download, Pencil, Copy, AlertCircle, Trash2, Check, Upload } from "lucide-react";
+import { ArrowLeft, Download, Pencil, Copy, AlertCircle, Trash2, Check, Upload, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -32,6 +33,8 @@ interface Produto {
   imagem_url: string | null;
   status: string;
   associacao_marca_id: string | null;
+  documento_coa_url: string | null;
+  orientacao_documento_url: string | null;
 }
 
 
@@ -47,6 +50,8 @@ const ProdutoDetalhes = () => {
   const [produto, setProduto] = useState<Produto | null>(null);
   const [imagemProduto, setImagemProduto] = useState<File | null>(null);
   const [imagemPreview, setImagemPreview] = useState<string>("");
+  const [documentoCOA, setDocumentoCOA] = useState<File | null>(null);
+  const [documentoOrientacao, setDocumentoOrientacao] = useState<File | null>(null);
 
   // Form states
   const [nomeComercial, setNomeComercial] = useState("");
@@ -60,6 +65,11 @@ const ProdutoDetalhes = () => {
   const [indicacoes, setIndicacoes] = useState<string[]>([]);
   const [selectedIndicacoes, setSelectedIndicacoes] = useState<string[]>([]);
   const [novaIndicacao, setNovaIndicacao] = useState("");
+
+  // Associações/marcas vinculadas (many-to-many via associacoes_marcas.produtos_ids)
+  const [associacoesTodas, setAssociacoesTodas] = useState<{ id: string; nome: string; produtos_ids: string[] | null }[]>([]);
+  const [associacoesSelecionadas, setAssociacoesSelecionadas] = useState<string[]>([]);
+  const [associacoesOriginais, setAssociacoesOriginais] = useState<string[]>([]);
 
   // Buscar produto do banco
   useEffect(() => {
@@ -112,6 +122,21 @@ const ProdutoDetalhes = () => {
         if (allIndicacoes) {
           setIndicacoes(allIndicacoes.map(i => ({ id: i.id, nome: i.nome })) as any);
         }
+
+        // Buscar associações/marcas e derivar quais já vinculam este produto
+        const { data: allAssociacoes } = await supabase
+          .from('associacoes_marcas')
+          .select('id, nome, produtos_ids')
+          .order('nome');
+
+        if (allAssociacoes) {
+          setAssociacoesTodas(allAssociacoes as any);
+          const vinculadas = (allAssociacoes as any[])
+            .filter((a) => (a.produtos_ids || []).includes(id))
+            .map((a) => a.id);
+          setAssociacoesSelecionadas(vinculadas);
+          setAssociacoesOriginais(vinculadas);
+        }
       } catch (error: any) {
         console.error('Erro ao buscar produto:', error);
         toast({
@@ -127,6 +152,29 @@ const ProdutoDetalhes = () => {
     fetchProduto();
   }, [id, toast]);
 
+  const toggleAssociacao = (associacaoId: string) => {
+    setAssociacoesSelecionadas((prev) =>
+      prev.includes(associacaoId) ? prev.filter((a) => a !== associacaoId) : [...prev, associacaoId]
+    );
+  };
+
+  const syncAssociacoesVinculadas = async () => {
+    if (!id) return;
+    const adicionadas = associacoesSelecionadas.filter((a) => !associacoesOriginais.includes(a));
+    const removidas = associacoesOriginais.filter((a) => !associacoesSelecionadas.includes(a));
+    if (adicionadas.length === 0 && removidas.length === 0) return;
+
+    await Promise.all(
+      [...adicionadas, ...removidas].map(async (associacaoId) => {
+        const associacao = associacoesTodas.find((a) => a.id === associacaoId);
+        const atuais = associacao?.produtos_ids || [];
+        const novos = adicionadas.includes(associacaoId)
+          ? Array.from(new Set([...atuais, id]))
+          : atuais.filter((p) => p !== id);
+        await supabase.from('associacoes_marcas').update({ produtos_ids: novos }).eq('id', associacaoId);
+      })
+    );
+  };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -222,6 +270,22 @@ const ProdutoDetalhes = () => {
         imagemUrl = publicUrl;
       }
 
+      let documentoCoaUrl = produto?.documento_coa_url ?? null;
+      if (documentoCOA) {
+        const path = `coa/${crypto.randomUUID()}.${documentoCOA.name.split('.').pop()}`;
+        const { error: coaError } = await supabase.storage.from('documents').upload(path, documentoCOA);
+        if (coaError) throw coaError;
+        documentoCoaUrl = supabase.storage.from('documents').getPublicUrl(path).data.publicUrl;
+      }
+
+      let orientacaoDocumentoUrl = produto?.orientacao_documento_url ?? null;
+      if (documentoOrientacao) {
+        const path = `orientacoes/${crypto.randomUUID()}.${documentoOrientacao.name.split('.').pop()}`;
+        const { error: orientError } = await supabase.storage.from('documents').upload(path, documentoOrientacao);
+        if (orientError) throw orientError;
+        orientacaoDocumentoUrl = supabase.storage.from('documents').getPublicUrl(path).data.publicUrl;
+      }
+
       // Atualizar produto
       const { error: updateError } = await supabase
         .from('produtos')
@@ -229,6 +293,8 @@ const ProdutoDetalhes = () => {
           nome_comercial: nomeComercial,
           principio_ativo: principioAtivo,
           forma_farmaceutica: formaFarmaceutica,
+          documento_coa_url: documentoCoaUrl,
+          orientacao_documento_url: orientacaoDocumentoUrl,
           concentracao_cbd: concentracaoCBD || null,
           concentracao_thc: concentracaoTHC || null,
           fabricante: fabricante || null,
@@ -257,6 +323,8 @@ const ProdutoDetalhes = () => {
 
         if (indicacoesError) throw indicacoesError;
       }
+
+      await syncAssociacoesVinculadas();
 
       setIsEditing(false);
       toast({
@@ -417,9 +485,9 @@ const ProdutoDetalhes = () => {
         </div>
 
         {/* Alert */}
-        <Alert className="mb-8 bg-yellow-50 border-yellow-200">
-          <AlertCircle className="h-5 w-5 text-yellow-600" />
-          <AlertDescription className="text-yellow-800 ml-2">
+        <Alert className="mb-8 bg-card-yellow border-none">
+          <AlertCircle className="h-5 w-5 text-[hsl(36_80%_42%)]" />
+          <AlertDescription className="text-foreground ml-2">
             Este produto só pode ser comercializado e utilizado com receita médica.
           </AlertDescription>
         </Alert>
@@ -506,7 +574,7 @@ const ProdutoDetalhes = () => {
                   </Button>
                   <Button
                     variant="outline"
-                    className="gap-2 border-red-500 text-red-500 hover:bg-red-50 rounded-[20px]"
+                    className="gap-2 border-destructive text-destructive hover:bg-destructive/10 rounded-[20px]"
                     onClick={() => setShowDeleteDialog(true)}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -615,7 +683,7 @@ const ProdutoDetalhes = () => {
                           className={`cursor-pointer px-4 py-2 rounded-full ${
                             selectedIndicacoes.includes(indicacao.id)
                               ? 'bg-primary text-primary-foreground hover:bg-primary-hover'
-                              : 'bg-white text-foreground border border-border hover:bg-gray-50'
+                              : 'bg-card text-foreground border border-border hover:bg-muted'
                           }`}
                         >
                           {indicacao.nome}
@@ -636,17 +704,140 @@ const ProdutoDetalhes = () => {
           </CardContent>
         </Card>
 
-        {/* Orientação de uso gerais */}
+        {/* Associações e marcas vinculadas */}
         <div className="mb-8">
-          <h2 className="text-xl font-bold mb-4">Orientação de uso gerais</h2>
+          <h2 className="text-xl font-bold mb-4">Associações e marcas vinculadas</h2>
           <Card className="rounded-[10px] bg-secondary border-none">
             <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-normal text-primary">Orientações.pdf</p>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <Download className="h-4 w-4 text-primary" />
+              {isEditing ? (
+                associacoesTodas.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhuma associação/marca cadastrada.</p>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {associacoesTodas.map((assoc) => (
+                      <div key={assoc.id} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`assoc-${assoc.id}`}
+                          checked={associacoesSelecionadas.includes(assoc.id)}
+                          onCheckedChange={() => toggleAssociacao(assoc.id)}
+                        />
+                        <label htmlFor={`assoc-${assoc.id}`} className="text-sm cursor-pointer truncate">
+                          {assoc.nome}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                )
+              ) : associacoesSelecionadas.length === 0 ? (
+                <p className="text-sm text-muted-foreground italic">Nenhuma associação/marca vinculada.</p>
+              ) : (
+                <div className="space-y-3">
+                  {associacoesTodas
+                    .filter((a) => associacoesSelecionadas.includes(a.id))
+                    .map((assoc) => (
+                      <button
+                        key={assoc.id}
+                        onClick={() => navigate(`/associacoes/${assoc.id}`)}
+                        className="flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+                      >
+                        {assoc.nome}
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </button>
+                    ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Orientação de uso gerais */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">Orientação de uso gerais</h2>
+            {isEditing && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-full"
+                  onClick={() => document.getElementById('orientacao-upload')?.click()}
+                >
+                  <Upload className="h-4 w-4" />
+                  {documentoOrientacao ? documentoOrientacao.name : "Upload de documento"}
                 </Button>
-              </div>
+                <input
+                  id="orientacao-upload"
+                  type="file"
+                  className="hidden"
+                  accept="application/pdf"
+                  onChange={(e) => setDocumentoOrientacao(e.target.files?.[0] ?? null)}
+                />
+              </>
+            )}
+          </div>
+          <Card className="rounded-[10px] bg-secondary border-none">
+            <CardContent className="pt-6">
+              {produto?.orientacao_documento_url || documentoOrientacao ? (
+                <a
+                  href={documentoOrientacao ? undefined : produto?.orientacao_documento_url ?? undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between hover:opacity-80"
+                >
+                  <p className="text-sm font-normal text-primary truncate">
+                    {documentoOrientacao?.name ?? "Orientações.pdf"}
+                  </p>
+                  <Download className="h-4 w-4 text-primary shrink-0" />
+                </a>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">Nenhum documento anexado.</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Documento COA */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">Documento COA</h2>
+            {isEditing && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-full"
+                  onClick={() => document.getElementById('coa-upload-detalhes')?.click()}
+                >
+                  <Upload className="h-4 w-4" />
+                  {documentoCOA ? documentoCOA.name : "Upload de documento"}
+                </Button>
+                <input
+                  id="coa-upload-detalhes"
+                  type="file"
+                  className="hidden"
+                  accept="application/pdf"
+                  onChange={(e) => setDocumentoCOA(e.target.files?.[0] ?? null)}
+                />
+              </>
+            )}
+          </div>
+          <Card className="rounded-[10px] bg-secondary border-none">
+            <CardContent className="pt-6">
+              {produto?.documento_coa_url || documentoCOA ? (
+                <a
+                  href={documentoCOA ? undefined : produto?.documento_coa_url ?? undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between hover:opacity-80"
+                >
+                  <p className="text-sm font-normal text-primary truncate">
+                    {documentoCOA?.name ?? "COA.pdf"}
+                  </p>
+                  <Download className="h-4 w-4 text-primary shrink-0" />
+                </a>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">Nenhum documento anexado.</p>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -724,7 +915,7 @@ const ProdutoDetalhes = () => {
             </Button>
             <Button
               onClick={handleDeleteProduct}
-              className="flex-1 rounded-full bg-red-500 text-white hover:bg-red-600"
+              className="flex-1 rounded-full bg-destructive text-white hover:bg-destructive/90"
             >
               Excluir
             </Button>
