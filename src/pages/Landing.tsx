@@ -6,13 +6,14 @@ import {
   Package,
   Handshake,
   UserRound,
-  Stethoscope,
-  BookOpen,
-  LayoutDashboard,
-  HeartHandshake,
 } from "lucide-react";
 import PublicNavbar from "@/components/public/PublicNavbar";
 import PublicFooter from "@/components/public/PublicFooter";
+import heroPhones from "@/assets/landing/hero-phones.png";
+import stepConsulta from "@/assets/landing/step-consulta.png";
+import stepCatalogo from "@/assets/landing/step-catalogo.png";
+import stepAdmin from "@/assets/landing/step-admin.png";
+import stepEcossistema from "@/assets/landing/step-ecossistema.png";
 
 const features = [
   {
@@ -39,27 +40,31 @@ const features = [
 
 const steps = [
   {
-    icon: Stethoscope,
     title: "Consulta e prescrição",
     description:
       "Interface intuitiva para médicos realizarem prescrições digitais de forma rápida e segura.",
+    image: stepConsulta,
+    alt: "Tela de consulta e chat entre médico e paciente no app Canfy",
   },
   {
-    icon: BookOpen,
     title: "Catálogo de produtos",
     description:
       "Amplo catálogo com produtos regulamentados e informações detalhadas para prescrição.",
+    image: stepCatalogo,
+    alt: "Tela de catálogo de produtos de cannabis medicinal no app Canfy",
   },
   {
-    icon: LayoutDashboard,
     title: "Área de administração",
     description:
       "Gerencie pedidos, pagamentos e histórico de pacientes e fornecedores em um só painel.",
+    image: stepAdmin,
+    alt: "Painel de administração da plataforma Canfy em um notebook",
   },
   {
-    icon: HeartHandshake,
     title: "Ecossistema acolhedor",
     description: "Um espaço que conecta todos os envolvidos, com praticidade e cuidado.",
+    image: stepEcossistema,
+    alt: "Aplicativo Canfy conectando pessoas com cuidado e acolhimento",
   },
 ];
 
@@ -81,7 +86,7 @@ const Landing = () => {
               "radial-gradient(60% 50% at 80% 40%, hsl(var(--card-green)) 0%, transparent 60%), radial-gradient(50% 40% at 20% 70%, hsl(var(--card-pink)) 0%, transparent 60%)",
           }}
         />
-        <div className="mx-auto max-w-4xl px-6 pt-20 pb-16 text-center">
+        <div className="mx-auto max-w-4xl px-6 pt-20 pb-10 text-center">
           <h1 className="font-display text-4xl font-bold leading-tight text-foreground md:text-5xl">
             Plataforma completa para prescrição e acesso a{" "}
             <span className="text-primary">produtos de cannabis medicinal</span>
@@ -100,6 +105,16 @@ const Landing = () => {
               </Button>
             </Link>
           </div>
+        </div>
+
+        {/* Mockups do app */}
+        <div className="mx-auto max-w-5xl px-6 pb-16">
+          <img
+            src={heroPhones}
+            alt="Aplicativo Canfy exibindo a tela inicial e a prescrição de produtos"
+            className="mx-auto w-full max-w-4xl"
+            loading="eager"
+          />
         </div>
       </section>
 
@@ -131,10 +146,7 @@ const Landing = () => {
       </section>
 
       {/* Veja a plataforma em ação */}
-      <section
-        id="plataforma"
-        className="relative overflow-hidden py-20"
-      >
+      <section id="plataforma" className="relative overflow-hidden py-20">
         <div
           className="pointer-events-none absolute inset-0 -z-10"
           style={{
@@ -152,16 +164,36 @@ const Landing = () => {
           </p>
         </div>
 
-        <div className="mx-auto mt-14 max-w-4xl px-6">
-          <ol className="relative space-y-12 before:absolute before:left-6 before:top-4 before:h-[calc(100%-2rem)] before:w-px before:bg-primary/20">
+        <div className="mx-auto mt-16 max-w-5xl px-6">
+          <ol className="relative space-y-16 lg:space-y-24 before:absolute before:left-6 before:top-6 before:hidden before:h-[calc(100%-3rem)] before:w-px before:bg-primary/20 lg:before:block">
             {steps.map((s, i) => (
-              <li key={s.title} className="relative flex gap-6">
-                <div className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-card-green font-display text-lg font-bold text-primary">
-                  {i + 1}
+              <li
+                key={s.title}
+                className="relative grid grid-cols-1 items-center gap-8 lg:grid-cols-2 lg:gap-16"
+              >
+                {/* Texto + número */}
+                <div className="flex gap-5 lg:gap-6">
+                  <div className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary font-display text-lg font-bold text-primary-foreground">
+                    {i + 1}
+                  </div>
+                  <div className="pt-1">
+                    <h3 className="font-display text-xl font-semibold text-foreground md:text-2xl">
+                      {s.title}
+                    </h3>
+                    <p className="mt-2 max-w-md text-sm text-muted-foreground md:text-base">
+                      {s.description}
+                    </p>
+                  </div>
                 </div>
-                <div className="pt-1">
-                  <h3 className="font-display text-xl font-semibold text-foreground">{s.title}</h3>
-                  <p className="mt-2 max-w-md text-sm text-muted-foreground">{s.description}</p>
+
+                {/* Mockup */}
+                <div className="flex justify-center lg:justify-end">
+                  <img
+                    src={s.image}
+                    alt={s.alt}
+                    className="w-full max-w-md"
+                    loading="lazy"
+                  />
                 </div>
               </li>
             ))}
