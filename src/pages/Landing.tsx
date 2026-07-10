@@ -38,6 +38,25 @@ const features = [
   },
 ];
 
+/**
+ * Blobs de fundo do Figma: círculos com gradiente vertical
+ * (verde #66DDA2 → roxo #C3A6F9 → coral #FFB2A7), opacidade 0.25 e blur.
+ * Posições em % correspondem aos centros das elipses no design (frame 1512×6114).
+ */
+const BLOB_GRADIENT =
+  "linear-gradient(180deg, #66DDA2 0%, #C3A6F9 47.4%, #FFB2A7 100%)";
+
+const blobs = [
+  { left: "77%", top: "16%" },
+  { left: "27%", top: "19%" },
+  { left: "37%", top: "48%" },
+  { left: "79%", top: "59%" },
+  { left: "81%", top: "70%" },
+  { left: "23%", top: "70%" },
+  { left: "94%", top: "85%" },
+  { left: "-1%", top: "89%" },
+];
+
 const steps = [
   {
     title: "Consulta e prescrição",
@@ -74,18 +93,29 @@ const Landing = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="relative min-h-screen overflow-hidden bg-background">
+      {/* Efeito de fundo: blobs coloridos difusos (Figma) */}
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        {blobs.map((b, i) => (
+          <div
+            key={i}
+            className="absolute h-[871px] w-[871px] rounded-full"
+            style={{
+              left: b.left,
+              top: b.top,
+              transform: "translate(-50%, -50%)",
+              background: BLOB_GRADIENT,
+              opacity: 0.25,
+              filter: "blur(90px)",
+            }}
+          />
+        ))}
+      </div>
+
       <PublicNavbar />
 
       {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div
-          className="pointer-events-none absolute inset-0 -z-10"
-          style={{
-            background:
-              "radial-gradient(60% 50% at 80% 40%, hsl(var(--card-green)) 0%, transparent 60%), radial-gradient(50% 40% at 20% 70%, hsl(var(--card-pink)) 0%, transparent 60%)",
-          }}
-        />
+      <section className="relative">
         <div className="mx-auto max-w-4xl px-6 pt-20 pb-10 text-center">
           <h1 className="font-display text-4xl font-bold leading-tight text-foreground md:text-5xl">
             Plataforma completa para prescrição e acesso a{" "}
@@ -146,14 +176,7 @@ const Landing = () => {
       </section>
 
       {/* Veja a plataforma em ação */}
-      <section id="plataforma" className="relative overflow-hidden py-20">
-        <div
-          className="pointer-events-none absolute inset-0 -z-10"
-          style={{
-            background:
-              "radial-gradient(50% 40% at 30% 20%, hsl(var(--card-green)) 0%, transparent 60%), radial-gradient(50% 40% at 70% 80%, hsl(var(--card-purple)) 0%, transparent 60%)",
-          }}
-        />
+      <section id="plataforma" className="relative py-20">
         <div className="mx-auto max-w-3xl px-6 text-center">
           <h2 className="font-display text-3xl font-bold text-foreground md:text-4xl">
             Veja a plataforma em ação
