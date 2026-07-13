@@ -65,9 +65,9 @@ Mesmo usando Playwright (que já localiza por texto/role), mantemos `Key`s nos w
 - **Status:** ⬜ pendente / ✅ passou / ❌ falhou / ⚠️ bloqueado
 ```
 
-## Resumo executivo (atualizado 2026-07-10 — rodada de correções)
+## Resumo executivo (atualizado 2026-07-13 — segunda rodada de correções)
 
-Executadas quatro rodadas: duas de levantamento (testes reais nos 4 ambientes) e duas de **correção + revalidação**. Das falhas críticas/altas encontradas, **9 foram corrigidas e confirmadas** (código + migrations + deploy de edge functions + rotação de secret pelo usuário), e mais 3 bugs menores novos surgiram ao destravar os fluxos antes bloqueados (ainda pendentes):
+Executadas cinco rodadas: duas de levantamento (testes reais nos 4 ambientes) e três de **correção + revalidação**. De todas as falhas críticas/altas/médias/baixas encontradas ao longo da UAT, **apenas uma permanece pendente** (REG-14, feature faltante — decisão de produto, não bug de código):
 
 | ID | Bug | Severidade | Status |
 |---|---|---|---|
@@ -75,20 +75,20 @@ Executadas quatro rodadas: duas de levantamento (testes reais nos 4 ambientes) e
 | **REG-09** | Valor da consulta hardcoded em 9 pontos (não só 2), incluindo o valor real de cobrança | Alta | ✅ Corrigido — RPC `get_valor_consulta_padrao()` + fix em todas as telas |
 | **REG-11** | Upload de documentos quebrado no Flutter web (`PlatformFile.path`) | Crítica | ✅ Corrigido e validado ao vivo (upload real de 5 documentos) |
 | **REG-12** | RLS de `pacientes`/`profiles` não reconhece médicos | Crítica | ✅ Corrigido e validado ao vivo (2 médicos, 2 consultas) |
-| **REG-13** | Storage sem policy para `pedido_anvisa` | Crítica | ✅ Corrigido (policy); UI do botão de upload ainda pendente |
-| **REG-14** | App mobile sem tela de notificações | Alta | ⬜ Não corrigido — feature incompleta, decisão de produto pendente |
+| **REG-13** | Storage sem policy para `pedido_anvisa` | Crítica | ✅ Corrigido (policy); parte "UI sem botão visível" reinvestigada — falso positivo |
+| **REG-14** | App mobile sem tela de notificações | Alta | ⬜ **Único item pendente** — feature incompleta, decisão de produto |
 | **REG-15** | Compartilhar produto usa link hardcoded | Média | ✅ Corrigido |
 | **REG-17** | Médico recusado nunca é informado | Alta | ✅ Corrigido e validado |
 | **REG-18** | CORS em `delete-user-account` deixa registro órfão | Crítica | ✅ Corrigido |
 | **REG-19** | `ASAAS_API_KEY` inválida/incompatível — bloqueava todo pagamento | Crítica | ✅ Corrigido — usuário rotacionou a chave; PIX real gerado e confirmado |
-| **REG-20** *(novo)* | Chat da consulta falha silenciosamente em consulta com data retroativa | Média | ⬜ Não corrigido — causa raiz não identificada com certeza |
-| **REG-21** *(novo)* | Listas de consultas do médico não atualizam após finalizar atendimento | Baixa | ⬜ Não corrigido — falta refetch/atualização otimista |
-| **REG-22** *(novo)* | `/home` (médico) acessível por paciente sem guarda de papel | Baixa | ⬜ Não corrigido — mesmo padrão do SEC-08, sem vazamento de dado |
+| **REG-20** | Chat da consulta falhou silenciosamente em consulta com data retroativa | Média | ⬜ **Não reproduziu** — RLS/realtime confirmados OK; reprodução direcionada funcionou normalmente; classificado como transitório da sessão anterior |
+| **REG-21** | Listas de consultas do médico não atualizavam após finalizar atendimento | Baixa | ✅ Corrigido e validado — `RouteObserver`/`didPopNext` |
+| **REG-22** | `/home` (médico) acessível por paciente sem guarda de papel | Baixa | ✅ Corrigido e validado nas duas direções (paciente↔médico) |
 | **REG-23** | RLS de `paciente_anamnese` sem policy para o paciente dono — perdia histórico de saúde silenciosamente | Média | ✅ Corrigido e validado |
-| **REG-24** *(novo)* | Upload `.path` quebrado em mais 3 telas (novo pedido etapa 3, editar documento médico, editar foto de perfil) | Crítica/Média | ✅ Corrigido e validado |
+| **REG-24** | Upload `.path` quebrado em mais 4 telas (novo pedido etapa 3, editar documento médico, editar foto de perfil, ajuste de foto no cadastro de médico) | Crítica/Média | ✅ Corrigido e validado — nenhuma ocorrência restante no projeto |
 
 Com REG-08, REG-12, REG-19, REG-23 e REG-24 corrigidos, **as duas jornadas ponta-a-ponta do produto foram fechadas e validadas nesta sessão pela primeira vez**:
-- **E2E-01 (jornada clínica):** PAC-15/16/17 (agendar consulta + fila + pagamento PIX real confirmado) → MED-06 a MED-12 (fila → assumir → atendimento ao vivo → chat → emitir receita → finalizar) → receita ativa confirmada visível ao paciente. Restando pendente apenas o bug pontual de chat em consulta retroativa (REG-20, não reproduziu em consulta com data atual).
+- **E2E-01 (jornada clínica):** PAC-15/16/17 (agendar consulta + fila + pagamento PIX real confirmado) → MED-06 a MED-12 (fila → assumir → atendimento ao vivo → chat → emitir receita → finalizar) → receita ativa confirmada visível ao paciente.
 - **E2E-02 (jornada comercial):** seleção de receita ativa → upload dos 5 documentos obrigatórios (RG/CNH, comprovante, Anvisa, complementar, laudo — todos persistidos em Storage) → endereço → cotação de frete real via Melhor Envio (5 opções retornadas, sandbox) → PIX gerado via Asaas → pedido criado em `pedidos`/`pedido_itens`. Não testado até o fim: confirmação de pagamento (compensação PIX não ocorre sozinha em sandbox) e assinatura real via DocuSign (requer OAuth fora desta sessão) — ambos fora do que dá para automatizar razoavelmente.
 
 Detalhes completos, evidências e fixes aplicados em `08-regressao-bugs.md` (REG-01 a REG-24).
