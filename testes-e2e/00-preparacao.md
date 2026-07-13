@@ -1,24 +1,26 @@
 # Preparação — contas, dados, sandbox
 
-## Contas de teste necessárias
+## Conta de teste já criada (ambiente de desenvolvimento)
+
+Criada de ponta a ponta pelo fluxo real de cadastro do app (não inserida direto no banco), e depois promovida a admin via `user_roles` para também cobrir os pilotos do admin web:
+
+| Campo | Valor |
+|---|---|
+| E-mail | `teste.e2e.paciente@canfy-test.local` |
+| Senha | `CanfyTeste123!` |
+| `profiles.tipo_usuario` | `paciente` |
+| `user_roles.role` | `admin` (adicionado depois, via SQL, só nesta conta de teste) |
+| `pacientes.data_nascimento` | `1995-01-01` |
+
+Essa conta cobre PAC-\* (fluxo paciente) e ADM-\* (fluxo admin) com um único par de credenciais. Ambiente é de desenvolvimento — sem dados reais de pacientes/clientes.
+
+## Contas de teste adicionais (a criar quando os fluxos exigirem)
 
 | Papel | Onde criar | Observação |
 |---|---|---|
-| Paciente | `/register?type=patient` no mobile, ou seed `create-sample-patients` | Precisa de e-mail/senha fixos para os testes automatizados |
 | Médico | `/register?type=doctor` no mobile | Precisa ser **aprovado** pelo admin (`admin_aprovar_medico`) antes de testar fluxos de atendimento |
-| Admin | `user_roles` com `role='admin'` | Criado via SQL direto ou tela "Acessos" por outro admin |
-| Super admin | `user_roles` com `role='super_admin'` | Para casos SEC-\* de permissão máxima |
-| Gestor / Visualizador | tela "Acessos" (`MinhaConta.tsx`) | Para casos negativos de permissão (SEC-06/SEC-07) |
-
-## Credenciais para os testes automatizados
-
-Não hardcodar em código. Passar via `--dart-define` (Flutter) ou variáveis de ambiente locais (Playwright):
-
-```
-TEST_PATIENT_EMAIL / TEST_PATIENT_PASSWORD
-TEST_DOCTOR_EMAIL / TEST_DOCTOR_PASSWORD
-TEST_ADMIN_EMAIL / TEST_ADMIN_PASSWORD
-```
+| Gestor / Visualizador | tela "Acessos" (`MinhaConta.tsx`), por um admin | Para casos negativos de permissão (SEC-06/SEC-07) |
+| Super admin | `user_roles` com `role='super_admin'` | Só se algum caso exigir distinção admin vs super_admin |
 
 ## Seeds reaproveitáveis
 
@@ -41,21 +43,19 @@ Nunca rodar os testes de pagamento/envio contra as APIs de produção.
 ```bash
 # Admin/Landing (canfy-web/)
 npm install
-npm run dev   # http://localhost:8080
+npm run dev   # sobe em 8080, ou próxima porta livre (8081/8082...) se já houver instância
 
 # Mobile (canfy-mobile/)
 flutter pub get
-flutter run -d chrome                     # execução manual
-flutter test integration_test/<arquivo>.dart -d chrome \
-  --dart-define=TEST_PATIENT_EMAIL=... \
-  --dart-define=TEST_PATIENT_PASSWORD=...
+flutter run -d web-server --web-port=5679 --web-hostname=localhost
+# depois: Playwright MCP navega para http://localhost:5679/<rota>
 ```
 
 ## Status do harness
 
-- [x] `.mcp.json` com `playwright` (`@playwright/mcp`) — **requer reiniciar a sessão do Claude Code para carregar**
-- [x] `integration_test` como dev_dependency no `canfy-mobile/pubspec.yaml`
-- [x] `canfy-mobile/integration_test/` criado com o piloto `pac_04_login_test.dart`
-- [ ] Contas de teste reais criadas e credenciais definidas
-- [ ] Piloto web (Playwright) executado
-- [ ] Piloto mobile (`pac_04_login_test.dart`) executado com sucesso
+- [x] `.mcp.json` com `playwright` (`@playwright/mcp`) — carregado e validado
+- [x] `Key`s adicionadas em `login_page.dart` e `register_page.dart` (convenção `pac_*`)
+- [x] Conta de teste criada de ponta a ponta (paciente + admin) — ver acima
+- [x] Piloto web admin (Playwright): login → `/home` (Dashboard) — ✅ passou
+- [x] Piloto mobile paciente (Playwright): cadastro real → `/patient/home`, depois login → `/patient/home` — ✅ passou
+- [x] Decisão: **Playwright é o único mecanismo de automação** (web e mobile). `integration_test`/`flutter drive` foi descartado nesta sessão — exigiria `chromedriver` (ausente) e suporte desktop Flutter (não configurado no projeto). Ver `README.md` para a receita de como dirigir o Flutter web via Playwright (ativação de accessibility, click-before-type).
