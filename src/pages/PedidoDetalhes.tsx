@@ -294,6 +294,26 @@ const PedidoDetalhes = () => {
     return `Chega entre ${format(ini, "d 'de' MMM", { locale: ptBR })} e ${format(fim, "d 'de' MMM", { locale: ptBR })}`;
   }, [pedido]);
 
+  /** Reembolsa (ou cancela, se pendente) o pagamento Asaas vinculado ao pedido.
+   * Falha silenciosa: a recusa do pedido já foi confirmada antes desta chamada. */
+  const reembolsarPagamentoDoPedido = async (pedidoId: string) => {
+    try {
+      const { data } = await supabase
+        .from("asaas_payments")
+        .select("asaas_payment_id")
+        .eq("reference_type", "order")
+        .eq("reference_id", pedidoId)
+        .maybeSingle();
+      const asaasPaymentId = data?.asaas_payment_id;
+      if (!asaasPaymentId) return;
+      await supabase.functions.invoke("asaas-refund-payment", {
+        body: { asaas_payment_id: asaasPaymentId },
+      });
+    } catch {
+      // não bloqueante
+    }
+  };
+
   const handleAprovar = async () => {
     try {
       setActing(true);
@@ -325,6 +345,7 @@ const PedidoDetalhes = () => {
         p_motivo: motivoRecusa.trim(),
       });
       if (error) throw error;
+      await reembolsarPagamentoDoPedido(pedido!.id);
       toast({ title: "Pedido reprovado" });
       setShowRecusar(false);
       setMotivoRecusa("");
