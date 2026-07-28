@@ -158,7 +158,7 @@ const BlogPost = () => {
                 {secoes.map((secao) => (
                   <div key={secao.id}>
                     {secao.titulo && (
-                      <h2 className="font-display text-xl font-semibold text-foreground mb-3">
+                      <h2 className="mb-3 inline-flex rounded-full bg-primary/10 px-3 py-1 font-display text-xl font-semibold text-primary">
                         {secao.titulo}
                       </h2>
                     )}

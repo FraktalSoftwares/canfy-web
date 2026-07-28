@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Lock, Eye, EyeOff, Check, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserFriendlyError } from "@/lib/errorUtils";
-import logo from "@/assets/logo.svg";
+import logo from "@/assets/logo-wordmark.svg";
 
 type Estado = "verificando" | "form" | "invalido" | "sucesso";
 

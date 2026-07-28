@@ -6,7 +6,7 @@ import { Mail, Lock, AlertTriangle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import logo from "@/assets/logo.svg";
+import logo from "@/assets/logo-wordmark.svg";
 import { loginSchema } from "@/lib/validations";
 import { getUserFriendlyError, getValidationError } from "@/lib/errorUtils";
 

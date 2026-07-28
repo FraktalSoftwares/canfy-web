@@ -7,7 +7,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserFriendlyError } from "@/lib/errorUtils";
 import { useToast } from "@/hooks/use-toast";
-import logo from "@/assets/logo.svg";
+import logo from "@/assets/logo-wordmark.svg";
 
 const RESEND_COOLDOWN_S = 60;
 

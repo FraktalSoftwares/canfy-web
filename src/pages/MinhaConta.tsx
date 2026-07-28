@@ -1102,7 +1102,7 @@ const MinhaConta = () => {
                     
                     <Accordion type="single" collapsible className="space-y-2">
                       <AccordionItem value="acessos" className="border-none">
-                        <AccordionTrigger className="bg-gray-700 text-white hover:bg-gray-600 px-4 py-3 rounded-lg hover:no-underline">
+                        <AccordionTrigger className="bg-[#3f3f3d] text-white hover:bg-[#2f2f2d] px-4 py-3 rounded-lg hover:no-underline data-[state=open]:bg-[#3f3f3d] [&>svg]:text-white">
                           Acessos
                         </AccordionTrigger>
                         <AccordionContent className="px-4 pt-4">
@@ -1111,7 +1111,7 @@ const MinhaConta = () => {
                       </AccordionItem>
 
                       <AccordionItem value="usuarios" className="border-none">
-                        <AccordionTrigger className="bg-gray-700 text-white hover:bg-gray-600 px-4 py-3 rounded-lg hover:no-underline">
+                        <AccordionTrigger className="bg-[#3f3f3d] text-white hover:bg-[#2f2f2d] px-4 py-3 rounded-lg hover:no-underline data-[state=open]:bg-[#3f3f3d] [&>svg]:text-white">
                           Usuários
                         </AccordionTrigger>
                         <AccordionContent className="px-4 pt-4 space-y-3">
@@ -1171,7 +1171,7 @@ const MinhaConta = () => {
                       </AccordionItem>
 
                       <AccordionItem value="receitas" className="border-none">
-                        <AccordionTrigger className="bg-gray-700 text-white hover:bg-gray-600 px-4 py-3 rounded-lg hover:no-underline">
+                        <AccordionTrigger className="bg-[#3f3f3d] text-white hover:bg-[#2f2f2d] px-4 py-3 rounded-lg hover:no-underline data-[state=open]:bg-[#3f3f3d] [&>svg]:text-white">
                           Receitas e pedidos
                         </AccordionTrigger>
                         <AccordionContent className="px-4 pt-4">
@@ -1180,7 +1180,7 @@ const MinhaConta = () => {
                       </AccordionItem>
 
                       <AccordionItem value="catalogo" className="border-none">
-                        <AccordionTrigger className="bg-gray-700 text-white hover:bg-gray-600 px-4 py-3 rounded-lg hover:no-underline">
+                        <AccordionTrigger className="bg-[#3f3f3d] text-white hover:bg-[#2f2f2d] px-4 py-3 rounded-lg hover:no-underline data-[state=open]:bg-[#3f3f3d] [&>svg]:text-white">
                           Catálogo de produtos
                         </AccordionTrigger>
                         <AccordionContent className="px-4 pt-4">
@@ -1189,7 +1189,7 @@ const MinhaConta = () => {
                       </AccordionItem>
 
                       <AccordionItem value="associacoes" className="border-none">
-                        <AccordionTrigger className="bg-gray-700 text-white hover:bg-gray-600 px-4 py-3 rounded-lg hover:no-underline">
+                        <AccordionTrigger className="bg-[#3f3f3d] text-white hover:bg-[#2f2f2d] px-4 py-3 rounded-lg hover:no-underline data-[state=open]:bg-[#3f3f3d] [&>svg]:text-white">
                           Associações/marcas
                         </AccordionTrigger>
                         <AccordionContent className="px-4 pt-4">
