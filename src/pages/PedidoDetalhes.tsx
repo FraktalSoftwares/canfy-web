@@ -896,7 +896,7 @@ const PedidoDetalhes = () => {
             </div>
 
             {anvisaDecisao === "aprovada" && (
-              <>
+              <div>
                 <hr className="border-border/60 mb-4" />
                 <p className="text-sm text-muted-foreground mb-2">Adicione o arquivo da solicitação abaixo</p>
                 <input
@@ -904,10 +904,14 @@ const PedidoDetalhes = () => {
                   type="file"
                   accept=".pdf,.png,.jpg,.jpeg"
                   className="hidden"
-                  onChange={(e) => handleAnvisaFile(e.target.files?.[0])}
+                  onChange={(e) => {
+                    handleAnvisaFile(e.target.files?.[0]);
+                    e.target.value = "";
+                  }}
                 />
                 {!anvisaFile ? (
                   <button
+                    type="button"
                     onClick={() => anvisaInputRef.current?.click()}
                     className="w-full rounded-[12px] border-2 border-dashed border-primary/60 bg-card-green/30 hover:bg-card-green/50 py-8 flex flex-col items-center gap-2 transition-colors"
                   >
@@ -919,17 +923,17 @@ const PedidoDetalhes = () => {
                     <FileText className="h-7 w-7 text-primary" />
                     <span className="text-sm font-medium text-primary truncate max-w-[80%]">{anvisaFile.name}</span>
                     <div className="flex items-center gap-4 mt-1">
-                      <button className="flex items-center gap-1 text-sm text-primary" onClick={() => anvisaInputRef.current?.click()}>
+                      <button type="button" className="flex items-center gap-1 text-sm text-primary" onClick={() => anvisaInputRef.current?.click()}>
                         <RefreshCw className="h-4 w-4" /> Substituir
                       </button>
                       <span className="h-4 w-px bg-border" />
-                      <button className="flex items-center gap-1 text-sm text-destructive" onClick={() => setAnvisaFile(null)}>
+                      <button type="button" className="flex items-center gap-1 text-sm text-destructive" onClick={() => setAnvisaFile(null)}>
                         <Trash2 className="h-4 w-4" /> Remover
                       </button>
                     </div>
                   </div>
                 )}
-              </>
+              </div>
             )}
 
             <div className="flex gap-3 mt-5">

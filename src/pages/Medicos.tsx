@@ -178,6 +178,12 @@ const Medicos = () => {
     }
   };
 
+  // Busca/filtros: ao alterar, volta para a primeira página das duas listas
+  useEffect(() => {
+    setMedicosPage(1);
+    setSolicitacoesPage(1);
+  }, [searchQuery, status, crm, especialidade, filtroAtendimentos, filtroAusencias]);
+
   useEffect(() => {
     fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -161,6 +161,11 @@ const Associacoes = () => {
     }
   };
 
+  // Busca/filtros: ao alterar, volta para a primeira página
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, tipo, cidade, regiao, status]);
+
   useEffect(() => {
     fetchAssociacoes();
   }, [currentPage, searchQuery, tipo, cidade, regiao, status, toast]);

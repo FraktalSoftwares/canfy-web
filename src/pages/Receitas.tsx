@@ -198,6 +198,11 @@ const Receitas = () => {
     }
   };
 
+  // Busca: ao alterar o termo, volta para a primeira página
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
   useEffect(() => {
     fetchReceitas();
   }, [currentPage, searchQuery, toast]);

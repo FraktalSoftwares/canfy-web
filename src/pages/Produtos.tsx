@@ -31,7 +31,7 @@ const Produtos = () => {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilterDialog, setShowFilterDialog] = useState(false);
-  const [status, setStatus] = useState<'todos'|'ativo'|'inativo'>('todos');
+  const [status, setStatus] = useState<'todos'|'ativo'|'inativo'|'rascunho'>('todos');
   const [nome, setNome] = useState("");
   const [indicacoes, setIndicacoes] = useState("");
   const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -100,6 +100,11 @@ const Produtos = () => {
       setIsLoading(false);
     }
   };
+
+  // Busca: ao alterar o termo, volta para a primeira página
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   useEffect(() => {
     fetchProdutos();
@@ -230,10 +235,12 @@ const Produtos = () => {
                         className={
                           produto.status === "ativo"
                             ? "rounded-full px-4 py-1 font-medium border-none bg-card-purple text-[hsl(291_47%_35%)] hover:bg-card-purple"
+                            : produto.status === "rascunho"
+                            ? "rounded-full px-4 py-1 font-medium border-none bg-card-yellow text-[hsl(36_80%_35%)] hover:bg-card-yellow"
                             : "rounded-full px-4 py-1 font-medium border-none bg-muted text-muted-foreground hover:bg-muted"
                         }
                       >
-                        {produto.status === "ativo" ? "Ativo" : "Inativo"}
+                        {produto.status === "ativo" ? "Ativo" : produto.status === "rascunho" ? "Rascunho" : "Inativo"}
                       </Badge>
                     </TableCell>
                   </TableRow>
@@ -320,6 +327,9 @@ const Produtos = () => {
                 </label>
                 <label className="flex items-center gap-2 text-sm cursor-pointer">
                   <input type="radio" name="prd-status" checked={status==='inativo'} onChange={() => setStatus('inativo')} /> Inativo
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="radio" name="prd-status" checked={status==='rascunho'} onChange={() => setStatus('rascunho')} /> Rascunho
                 </label>
               </div>
             </div>

@@ -15,6 +15,7 @@ interface UsuarioOut {
   email: string;
   foto_perfil_url: string | null;
   ativo: boolean;
+  role: string | null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -52,11 +53,24 @@ Deno.serve(async (req: Request) => {
     const { data: profiles, error: profErr } = await sbAdmin
       .from('profiles')
       .select('id, nome_completo, foto_perfil_url, ativo')
-      .eq('ativo', true);
+      .eq('ativo', true)
+      .eq('tipo_usuario', 'admin');
     if (profErr) return jsonRes({ error: 'profiles fetch failed', detail: profErr.message }, 500);
 
     const ids = (profiles ?? []).map((p) => p.id as string);
     const emailMap = new Map<string, string>();
+
+    const roleMap = new Map<string, string>();
+    if (ids.length > 0) {
+      const { data: roles, error: rolesErr } = await sbAdmin
+        .from('user_roles')
+        .select('user_id, role')
+        .in('user_id', ids);
+      if (rolesErr) return jsonRes({ error: 'roles fetch failed', detail: rolesErr.message }, 500);
+      for (const r of roles ?? []) {
+        roleMap.set(r.user_id as string, r.role as string);
+      }
+    }
 
     let page = 1;
     const perPage = 1000;
@@ -76,6 +90,7 @@ Deno.serve(async (req: Request) => {
       email: emailMap.get(p.id as string) ?? '',
       foto_perfil_url: (p.foto_perfil_url as string | null) ?? null,
       ativo: !!p.ativo,
+      role: roleMap.get(p.id as string) ?? null,
     }));
 
     return jsonRes({ usuarios: out });

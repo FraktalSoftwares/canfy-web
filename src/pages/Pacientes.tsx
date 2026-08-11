@@ -61,6 +61,11 @@ const Pacientes = () => {
     fetchPacientes();
   }, []);
 
+  // Busca: ao alterar o termo, volta para a primeira página
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
   // Subscrição realtime para atualização automática
   useRealtimeSubscription({
     table: 'pacientes',

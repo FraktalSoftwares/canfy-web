@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { productSchema } from "@/lib/validations";
 import { getUserFriendlyError, getValidationError } from "@/lib/errorUtils";
+import { IndicacoesSelector, type Indicacao } from "@/components/produtos/IndicacoesSelector";
 
 const ProdutoCadastro = () => {
   const navigate = useNavigate();
@@ -47,6 +48,9 @@ const ProdutoCadastro = () => {
   const [associacoesTodas, setAssociacoesTodas] = useState<{ id: string; nome: string; produtos_ids: string[] | null }[]>([]);
   const [associacoesSelecionadas, setAssociacoesSelecionadas] = useState<string[]>([]);
 
+  const [indicacoes, setIndicacoes] = useState<Indicacao[]>([]);
+  const [selectedIndicacoes, setSelectedIndicacoes] = useState<string[]>([]);
+
   useEffect(() => {
     const fetchAssociacoes = async () => {
       const { data } = await supabase
@@ -56,11 +60,26 @@ const ProdutoCadastro = () => {
       setAssociacoesTodas((data as any) ?? []);
     };
     fetchAssociacoes();
+
+    const fetchIndicacoes = async () => {
+      const { data } = await supabase
+        .from("indicacoes_clinicas")
+        .select("id, nome")
+        .order("nome");
+      setIndicacoes((data as Indicacao[]) ?? []);
+    };
+    fetchIndicacoes();
   }, []);
 
   const toggleAssociacao = (associacaoId: string) => {
     setAssociacoesSelecionadas((prev) =>
       prev.includes(associacaoId) ? prev.filter((a) => a !== associacaoId) : [...prev, associacaoId]
+    );
+  };
+
+  const toggleIndicacao = (indicacaoId: string) => {
+    setSelectedIndicacoes((prev) =>
+      prev.includes(indicacaoId) ? prev.filter((i) => i !== indicacaoId) : [...prev, indicacaoId]
     );
   };
 
@@ -73,7 +92,7 @@ const ProdutoCadastro = () => {
     return data.publicUrl;
   };
 
-  const handleSaveProduct = async (status: 'ativo' | 'inativo') => {
+  const handleSaveProduct = async (status: 'ativo' | 'rascunho') => {
     setIsSaving(true);
 
     try {
@@ -161,6 +180,17 @@ const ProdutoCadastro = () => {
             await supabase.from("associacoes_marcas").update({ produtos_ids: novos }).eq("id", associacaoId);
           })
         );
+
+        // Vincular indicações clínicas selecionadas
+        if (selectedIndicacoes.length > 0) {
+          const { error: indicacoesError } = await supabase.from("produto_indicacoes").insert(
+            selectedIndicacoes.map((indicacaoId) => ({
+              produto_id: produtoId,
+              indicacao_id: indicacaoId,
+            }))
+          );
+          if (indicacoesError) throw indicacoesError;
+        }
       }
 
       toast({
@@ -282,7 +312,7 @@ const ProdutoCadastro = () => {
             <Button
               variant="outline"
               className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-[20px]"
-              onClick={() => handleSaveProduct('inativo')}
+              onClick={() => handleSaveProduct('rascunho')}
               disabled={isSaving}
             >
               {isSaving ? "Salvando..." : "Salvar rascunho"}
@@ -566,6 +596,20 @@ const ProdutoCadastro = () => {
           </Card>
         </div>
 
+        {/* Indicações clínicas */}
+        <div className="mb-8">
+          <h2 className="text-xl font-bold mb-4">Indicações clínicas</h2>
+          <Card className="rounded-[10px] bg-secondary border-none">
+            <CardContent className="pt-6">
+              <IndicacoesSelector
+                indicacoes={indicacoes}
+                selected={selectedIndicacoes}
+                onToggle={toggleIndicacao}
+              />
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Associações e marcas vinculadas */}
         <div className="mb-8">
           <h2 className="text-xl font-bold mb-4">Associações e marcas vinculadas</h2>
@@ -664,7 +708,7 @@ const ProdutoCadastro = () => {
           <Button
             variant="outline"
             className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-[20px]"
-            onClick={() => handleSaveProduct('inativo')}
+            onClick={() => handleSaveProduct('rascunho')}
             disabled={isSaving}
           >
             {isSaving ? "Salvando..." : "Salvar rascunho"}

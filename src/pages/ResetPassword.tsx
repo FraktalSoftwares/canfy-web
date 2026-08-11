@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
-import { Lock, Eye, EyeOff, Check, AlertTriangle } from "lucide-react";
+import { Lock, Check, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserFriendlyError } from "@/lib/errorUtils";
 import logo from "@/assets/logo-wordmark.svg";
@@ -15,8 +15,6 @@ const ResetPassword = () => {
   const [estado, setEstado] = useState<Estado>("verificando");
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
-  const [showNovaSenha, setShowNovaSenha] = useState(false);
-  const [showConfirmarSenha, setShowConfirmarSenha] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -152,22 +150,13 @@ const ResetPassword = () => {
             </Label>
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input
+              <PasswordInput
                 id="nova-senha"
-                type={showNovaSenha ? "text" : "password"}
                 placeholder="Insira sua senha"
                 value={novaSenha}
                 onChange={(e) => setNovaSenha(e.target.value)}
-                className="pl-11 pr-11 h-11 w-full rounded-full bg-card border-border"
+                className="pl-11 h-11 w-full rounded-full bg-card border-border"
               />
-              <button
-                type="button"
-                onClick={() => setShowNovaSenha((v) => !v)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                aria-label={showNovaSenha ? "Ocultar senha" : "Mostrar senha"}
-              >
-                {showNovaSenha ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </button>
             </div>
           </div>
 
@@ -177,24 +166,15 @@ const ResetPassword = () => {
             </Label>
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input
+              <PasswordInput
                 id="confirmar-senha"
-                type={showConfirmarSenha ? "text" : "password"}
                 placeholder="Confirme sua nova senha"
                 value={confirmarSenha}
                 onChange={(e) => setConfirmarSenha(e.target.value)}
-                className={`pl-11 pr-11 h-11 w-full rounded-full bg-card ${
+                className={`pl-11 h-11 w-full rounded-full bg-card ${
                   senhasNaoCoincidem ? "border-destructive bg-destructive/5" : "border-border"
                 }`}
               />
-              <button
-                type="button"
-                onClick={() => setShowConfirmarSenha((v) => !v)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                aria-label={showConfirmarSenha ? "Ocultar senha" : "Mostrar senha"}
-              >
-                {showConfirmarSenha ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </button>
             </div>
             {erro && (
               <p className="flex items-center gap-1.5 text-xs font-semibold text-destructive">

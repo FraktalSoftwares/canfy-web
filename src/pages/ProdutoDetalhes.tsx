@@ -20,6 +20,7 @@ import { X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { IndicacoesSelector } from "@/components/produtos/IndicacoesSelector";
 
 interface Produto {
   id: string;
@@ -541,10 +542,12 @@ const ProdutoDetalhes = () => {
                     className={
                       produto.status === "ativo"
                         ? "rounded-full px-4 py-1 font-medium border-none bg-card-purple text-[hsl(291_47%_35%)] hover:bg-card-purple"
+                        : produto.status === "rascunho"
+                        ? "rounded-full px-4 py-1 font-medium border-none bg-card-yellow text-[hsl(36_80%_35%)] hover:bg-card-yellow"
                         : "rounded-full px-4 py-1 font-medium border-none bg-muted text-muted-foreground hover:bg-muted"
                     }
                   >
-                    {produto.status === "ativo" ? "Ativo" : "Inativo"}
+                    {produto.status === "ativo" ? "Ativo" : produto.status === "rascunho" ? "Rascunho" : "Inativo"}
                   </Badge>
                 </div>
                 
@@ -674,23 +677,11 @@ const ProdutoDetalhes = () => {
               <div className="border-t pt-4">
                 <Label className="text-xs text-muted-foreground mb-3 block">Indicações clínicas</Label>
                 {isEditing ? (
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap gap-2">
-                      {(indicacoes as any[]).map((indicacao) => (
-                        <Badge
-                          key={indicacao.id}
-                          onClick={() => toggleIndicacao(indicacao.id)}
-                          className={`cursor-pointer px-4 py-2 rounded-full ${
-                            selectedIndicacoes.includes(indicacao.id)
-                              ? 'bg-primary text-primary-foreground hover:bg-primary-hover'
-                              : 'bg-card text-foreground border border-border hover:bg-muted'
-                          }`}
-                        >
-                          {indicacao.nome}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
+                  <IndicacoesSelector
+                    indicacoes={indicacoes as any[]}
+                    selected={selectedIndicacoes}
+                    onToggle={toggleIndicacao}
+                  />
                 ) : (
                   <p className="font-semibold">
                     {(indicacoes as any[])

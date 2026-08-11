@@ -39,7 +39,7 @@ export const productSchema = z.object({
   imagem_url: z.string()
     .url('URL de imagem inválida')
     .optional(),
-  status: z.enum(['ativo', 'inativo']).default('ativo'),
+  status: z.enum(['ativo', 'inativo', 'rascunho']).default('ativo'),
   peso_g: z.number()
     .int('Peso deve ser inteiro (em gramas)')
     .positive('Peso deve ser maior que zero')

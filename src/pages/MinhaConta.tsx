@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Pencil, LogOut, ArrowLeft, Check, User, Mail, Phone, Lock, Eye, EyeOff, Plus, RotateCw, ChevronRight, Trash2, X, Upload, History } from "lucide-react";
+import { Pencil, LogOut, ArrowLeft, Check, User, Mail, Phone, Lock, Plus, RotateCw, ChevronRight, Trash2, X, Upload, History } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,7 +32,15 @@ interface Usuario {
   email: string;
   foto_perfil_url: string | null;
   ativo?: boolean;
+  role?: string | null;
 }
+
+const ROLE_LABELS: Record<string, string> = {
+  super_admin: "Super admin",
+  admin: "Admin",
+  gestor: "Gestor",
+  visualizador: "Visualizador",
+};
 
 type PermissoesMap = {
   acessos: { acessar: boolean; editar: boolean };
@@ -80,9 +89,6 @@ const MinhaConta = () => {
   const [senhaAtual, setSenhaAtual] = useState("");
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
-  const [showSenhaAtual, setShowSenhaAtual] = useState(false);
-  const [showNovaSenha, setShowNovaSenha] = useState(false);
-  const [showConfirmarSenha, setShowConfirmarSenha] = useState(false);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [selectedUserData, setSelectedUserData] = useState<Usuario | null>(null);
   const [adicionarUsuarioOpen, setAdicionarUsuarioOpen] = useState(false);
@@ -132,6 +138,7 @@ const MinhaConta = () => {
           email: u.email || 'Email não disponível',
           foto_perfil_url: u.foto_perfil_url,
           ativo: u.ativo,
+          role: u.role,
         }));
 
       setUsuarios(lista);
@@ -918,21 +925,13 @@ const MinhaConta = () => {
                         <Label htmlFor="senha-atual">Senha atual</Label>
                         <div className="relative">
                           <Lock className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
-                          <Input
+                          <PasswordInput
                             id="senha-atual"
-                            type={showSenhaAtual ? "text" : "password"}
                             placeholder="Insira sua senha atual"
                             value={senhaAtual}
                             onChange={(e) => setSenhaAtual(e.target.value)}
-                            className="pl-10 pr-10"
+                            className="pl-10"
                           />
-                          <button
-                            type="button"
-                            onClick={() => setShowSenhaAtual(!showSenhaAtual)}
-                            className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
-                          >
-                            {showSenhaAtual ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                          </button>
                         </div>
                       </div>
 
@@ -940,21 +939,13 @@ const MinhaConta = () => {
                         <Label htmlFor="nova-senha">Nova senha</Label>
                         <div className="relative">
                           <Lock className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
-                          <Input
+                          <PasswordInput
                             id="nova-senha"
-                            type={showNovaSenha ? "text" : "password"}
                             placeholder="Insira sua nova senha"
                             value={novaSenha}
                             onChange={(e) => setNovaSenha(e.target.value)}
-                            className="pl-10 pr-10"
+                            className="pl-10"
                           />
-                          <button
-                            type="button"
-                            onClick={() => setShowNovaSenha(!showNovaSenha)}
-                            className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
-                          >
-                            {showNovaSenha ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                          </button>
                         </div>
                       </div>
 
@@ -962,21 +953,13 @@ const MinhaConta = () => {
                         <Label htmlFor="confirmar-senha">Confirmar nova senha</Label>
                         <div className="relative">
                           <Lock className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
-                          <Input
+                          <PasswordInput
                             id="confirmar-senha"
-                            type={showConfirmarSenha ? "text" : "password"}
                             placeholder="Confirme sua nova senha"
                             value={confirmarSenha}
                             onChange={(e) => setConfirmarSenha(e.target.value)}
-                            className="pl-10 pr-10"
+                            className="pl-10"
                           />
-                          <button
-                            type="button"
-                            onClick={() => setShowConfirmarSenha(!showConfirmarSenha)}
-                            className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
-                          >
-                            {showConfirmarSenha ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                          </button>
                         </div>
                       </div>
 
@@ -1256,9 +1239,16 @@ const MinhaConta = () => {
                             isSelected ? 'bg-[#ececea] ring-1 ring-primary/40' : 'bg-[#f7f7f5] hover:bg-[#ececea]'
                           }`}
                         >
-                          <span className="text-base font-semibold text-[#3f3f3d]">
-                            {usuario.nome_completo}
-                          </span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-base font-semibold text-[#3f3f3d]">
+                              {usuario.nome_completo}
+                            </span>
+                            {usuario.role && (
+                              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                                {ROLE_LABELS[usuario.role] ?? usuario.role}
+                              </span>
+                            )}
+                          </div>
                           <ChevronRight className="h-5 w-5 text-muted-foreground" />
                         </button>
                       );
