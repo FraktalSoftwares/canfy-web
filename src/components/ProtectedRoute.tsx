@@ -1,33 +1,24 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useUserRole } from "@/hooks/useUserRole";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
 export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const { loading, session, temAcessoPainel } = useUserRole();
+  const semAcesso = !loading && !!session && !temAcessoPainel;
 
   useEffect(() => {
-    // Check current session
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setIsAuthenticated(!!session);
-    };
-
-    checkAuth();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(!!session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+    if (semAcesso) {
+      supabase.auth.signOut();
+    }
+  }, [semAcesso]);
 
   // Loading state
-  if (isAuthenticated === null) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-pulse text-muted-foreground">Carregando...</div>
@@ -36,8 +27,13 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }
 
   // Not authenticated - redirect to login
-  if (!isAuthenticated) {
+  if (!session) {
     return <Navigate to="/entrar" replace />;
+  }
+
+  // Authenticated but without an admin-panel role - sign out and redirect
+  if (semAcesso) {
+    return <Navigate to="/entrar" state={{ semAcesso: true }} replace />;
   }
 
   // Authenticated - render children

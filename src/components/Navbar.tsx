@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { filtroDestinatario } from "@/lib/notificacoes";
 import logo from "@/assets/logo.svg";
 
 const Navbar = () => {
@@ -30,6 +31,26 @@ const Navbar = () => {
     { name: "Produtos", path: "/produtos" },
     { name: "Blog", path: "/admin/blog" },
   ];
+
+  const fetchNaoLidas = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setNaoLidas(0);
+      return;
+    }
+
+    const { count, error } = await supabase
+      .from('notificacoes')
+      .select('id', { count: 'exact', head: true })
+      .eq('lida', false)
+      .or(filtroDestinatario(user.id));
+
+    if (!error) setNaoLidas(count ?? 0);
+  };
+
+  useEffect(() => {
+    fetchNaoLidas();
+  }, [location.pathname]);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -59,17 +80,6 @@ const Navbar = () => {
     };
 
     fetchUserData();
-
-    const fetchNaoLidas = async () => {
-      const { count, error } = await supabase
-        .from('notificacoes')
-        .select('id', { count: 'exact', head: true })
-        .eq('lida', false);
-
-      if (!error) setNaoLidas(count ?? 0);
-    };
-
-    fetchNaoLidas();
 
     // Atualizar dados quando o usuário voltar de outra aba
     const channel = supabase

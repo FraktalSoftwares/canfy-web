@@ -8,6 +8,7 @@ import { Settings, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
+import { filtroDestinatario } from "@/lib/notificacoes";
 import { format, isToday, isYesterday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { Database } from "@/integrations/supabase/types";
@@ -35,9 +36,17 @@ const Notificacoes = () => {
   const [loading, setLoading] = useState(true);
 
   const fetchNotificacoes = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setNotificacoes([]);
+      setLoading(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from("notificacoes")
       .select("*")
+      .or(filtroDestinatario(user.id))
       .order("data_envio", { ascending: false });
 
     if (error) {

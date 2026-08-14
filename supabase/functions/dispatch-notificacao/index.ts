@@ -3,7 +3,7 @@
 // cuida apenas do e-mail. Auth obrigatório: caller deve ser admin ou super_admin.
 //
 // Segredo necessário no projeto Supabase: RESEND_API_KEY
-// (opcional) RESEND_FROM — remetente verificado no Resend. Default: onboarding@resend.dev
+// (opcional) RESEND_FROM — remetente verificado no Resend. Default: naoresponda@fraktalsoftwares.com.br
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1';
 
@@ -34,7 +34,7 @@ Deno.serve(async (req: Request) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const resendKey = Deno.env.get('RESEND_API_KEY');
-    const fromEmail = Deno.env.get('RESEND_FROM') ?? 'Canfy <onboarding@resend.dev>';
+    const fromEmail = Deno.env.get('RESEND_FROM') ?? 'Canfy <naoresponda@fraktalsoftwares.com.br>';
 
     // Autenticação do caller
     const sbUser = createClient(supabaseUrl, anonKey, {

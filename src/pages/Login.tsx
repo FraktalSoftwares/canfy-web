@@ -1,15 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Mail, Lock, AlertTriangle } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo-wordmark.svg";
 import { loginSchema } from "@/lib/validations";
 import { getUserFriendlyError, getValidationError } from "@/lib/errorUtils";
+
+const SEM_ACESSO_MENSAGEM = "Esta conta não tem acesso ao painel administrativo.";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -18,7 +20,20 @@ const Login = () => {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if ((location.state as { semAcesso?: boolean } | null)?.semAcesso) {
+      toast({
+        title: "Acesso negado",
+        description: SEM_ACESSO_MENSAGEM,
+        variant: "destructive",
+      });
+      navigate(location.pathname, { replace: true, state: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,6 +69,22 @@ const Login = () => {
       }
 
       if (data.session) {
+        const { data: roles, error: rolesError } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", data.session.user.id)
+          .limit(1);
+
+        if (rolesError || !roles || roles.length === 0) {
+          await supabase.auth.signOut();
+          toast({
+            title: "Acesso negado",
+            description: SEM_ACESSO_MENSAGEM,
+            variant: "destructive",
+          });
+          return;
+        }
+
         toast({
           title: "Login realizado com sucesso!",
           description: "Redirecionando...",

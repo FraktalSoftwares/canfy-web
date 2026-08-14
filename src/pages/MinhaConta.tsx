@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -94,6 +95,7 @@ const MinhaConta = () => {
   const [adicionarUsuarioOpen, setAdicionarUsuarioOpen] = useState(false);
   const [novoUsuarioNome, setNovoUsuarioNome] = useState("");
   const [novoUsuarioEmail, setNovoUsuarioEmail] = useState("");
+  const [novoUsuarioRole, setNovoUsuarioRole] = useState<"admin" | "gestor" | "visualizador">("admin");
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [isLoadingUsuarios, setIsLoadingUsuarios] = useState(false);
   const { toast } = useToast();
@@ -553,58 +555,39 @@ const MinhaConta = () => {
     }
 
     try {
-      // Criar novo usuário no Supabase Auth
-      const senhaTemporaria = Math.random().toString(36).slice(-12) + "A1!"; // Senha temporária forte
-      
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: novoUsuarioEmail,
-        password: senhaTemporaria,
-        options: {
-          data: {
-            nome_completo: novoUsuarioNome,
-          },
-          emailRedirectTo: `${window.location.origin}/`,
+      // Montar permissões escolhidas para o novo usuário
+      const permissoesBody: Record<string, { pode_acessar: boolean; pode_editar: boolean }> = {};
+      Object.entries(novoUsuarioPermissoes).forEach(([modulo, perms]) => {
+        if (perms.acessar || perms.editar) {
+          permissoesBody[modulo] = {
+            pode_acessar: perms.acessar,
+            pode_editar: perms.editar,
+          };
+        }
+      });
+
+      const { data, error } = await supabase.functions.invoke('admin-create-user', {
+        body: {
+          nome_completo: novoUsuarioNome,
+          email: novoUsuarioEmail,
+          role: novoUsuarioRole,
+          permissoes: permissoesBody,
         },
       });
 
-      if (authError) {
-        if (authError.message.includes('already registered')) {
+      if (error) {
+        throw error;
+      }
+      if (data?.error) {
+        if (data.error === 'e-mail já cadastrado') {
           toast({
             title: "E-mail já cadastrado",
             description: "Este e-mail já está registrado no sistema.",
             variant: "destructive",
           });
-        } else {
-          throw authError;
+          return;
         }
-        return;
-      }
-
-      if (!authData.user) {
-        throw new Error("Erro ao criar usuário");
-      }
-
-      // Criar permissões para o novo usuário
-      const permissoesArray = [];
-      Object.entries(novoUsuarioPermissoes).forEach(([modulo, perms]) => {
-        if (perms.acessar || perms.editar) {
-          permissoesArray.push({
-            user_id: authData.user.id,
-            modulo,
-            pode_acessar: perms.acessar,
-            pode_editar: perms.editar,
-          });
-        }
-      });
-
-      if (permissoesArray.length > 0) {
-        const { error: permError } = await supabase
-          .from('user_permissions')
-          .insert(permissoesArray);
-
-        if (permError) {
-          console.error("Erro ao criar permissões:", permError);
-        }
+        throw new Error(data.error);
       }
 
       toast({
@@ -616,6 +599,7 @@ const MinhaConta = () => {
       setAdicionarUsuarioOpen(false);
       setNovoUsuarioNome("");
       setNovoUsuarioEmail("");
+      setNovoUsuarioRole("admin");
       setNovoUsuarioPermissoes({
         acessos: { acessar: false, editar: false },
         usuarios: { acessar: false, editar: false },
@@ -623,6 +607,7 @@ const MinhaConta = () => {
         produtos: { acessar: false, editar: false },
         associacoes: { acessar: false, editar: false },
       });
+      fetchUsuarios();
     } catch (error: any) {
       toast({
         title: "Erro ao cadastrar usuário",
@@ -1080,6 +1065,23 @@ const MinhaConta = () => {
                     />
                   </div>
 
+                  <div className="space-y-2">
+                    <Label htmlFor="novo-role">Perfil de acesso</Label>
+                    <Select
+                      value={novoUsuarioRole}
+                      onValueChange={(v) => setNovoUsuarioRole(v as "admin" | "gestor" | "visualizador")}
+                    >
+                      <SelectTrigger id="novo-role">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">{ROLE_LABELS.admin}</SelectItem>
+                        <SelectItem value="gestor">{ROLE_LABELS.gestor}</SelectItem>
+                        <SelectItem value="visualizador">{ROLE_LABELS.visualizador}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <div className="space-y-3">
                     <Label>Permissões</Label>
                     
@@ -1190,6 +1192,7 @@ const MinhaConta = () => {
                         setAdicionarUsuarioOpen(false);
                         setNovoUsuarioNome("");
                         setNovoUsuarioEmail("");
+                        setNovoUsuarioRole("admin");
                         setNovoUsuarioPermissoes({
                           acessos: { acessar: false, editar: false },
                           usuarios: { acessar: false, editar: false },
