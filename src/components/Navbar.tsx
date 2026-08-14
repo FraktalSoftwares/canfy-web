@@ -53,10 +53,13 @@ const Navbar = () => {
   }, [location.pathname]);
 
   useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let notifChannel: ReturnType<typeof supabase.channel> | null = null;
+
     const fetchUserData = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        
+
         if (user) {
           setUserEmail(user.email || "");
 
@@ -73,6 +76,36 @@ const Navbar = () => {
           } else {
             setUserName(user.email?.split('@')[0] || "Usuário");
           }
+
+          // Atualizar dados quando o próprio profile do usuário mudar
+          channel = supabase
+            .channel(`profile-changes-${user.id}`)
+            .on(
+              'postgres_changes',
+              {
+                event: '*',
+                schema: 'public',
+                table: 'profiles',
+                filter: `id=eq.${user.id}`
+              },
+              (payload) => {
+                if (payload.new && typeof payload.new === 'object') {
+                  const newData = payload.new as { nome_completo?: string; foto_perfil_url?: string };
+                  if (newData.nome_completo) setUserName(newData.nome_completo);
+                  if (newData.foto_perfil_url !== undefined) setUserPhoto(newData.foto_perfil_url);
+                }
+              }
+            )
+            .subscribe();
+
+          notifChannel = supabase
+            .channel('notificacoes-badge')
+            .on(
+              'postgres_changes',
+              { event: '*', schema: 'public', table: 'notificacoes' },
+              () => fetchNaoLidas()
+            )
+            .subscribe();
         }
       } catch (error) {
         console.error('Erro ao buscar dados do usuário:', error);
@@ -81,38 +114,9 @@ const Navbar = () => {
 
     fetchUserData();
 
-    // Atualizar dados quando o usuário voltar de outra aba
-    const channel = supabase
-      .channel('profile-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'profiles'
-        },
-        (payload) => {
-          if (payload.new && typeof payload.new === 'object') {
-            const newData = payload.new as { nome_completo?: string; foto_perfil_url?: string };
-            if (newData.nome_completo) setUserName(newData.nome_completo);
-            if (newData.foto_perfil_url !== undefined) setUserPhoto(newData.foto_perfil_url);
-          }
-        }
-      )
-      .subscribe();
-
-    const notifChannel = supabase
-      .channel('notificacoes-badge')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'notificacoes' },
-        () => fetchNaoLidas()
-      )
-      .subscribe();
-
     return () => {
-      supabase.removeChannel(channel);
-      supabase.removeChannel(notifChannel);
+      if (channel) supabase.removeChannel(channel);
+      if (notifChannel) supabase.removeChannel(notifChannel);
     };
   }, []);
 
