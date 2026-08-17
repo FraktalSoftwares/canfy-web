@@ -8,7 +8,7 @@ import { Settings, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
-import { filtroDestinatario } from "@/lib/notificacoes";
+import { useInvalidarNotificacoesNaoLidas } from "@/hooks/useNotificacoesNaoLidas";
 import { format, isToday, isYesterday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { Database } from "@/integrations/supabase/types";
@@ -31,23 +31,13 @@ const FILTROS: Array<{ label: string; categoria: CategoriaEnum | null }> = [
 const Notificacoes = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const invalidarNaoLidas = useInvalidarNotificacoesNaoLidas();
   const [selectedFilter, setSelectedFilter] = useState<string>("Todos");
   const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchNotificacoes = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setNotificacoes([]);
-      setLoading(false);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("notificacoes")
-      .select("*")
-      .or(filtroDestinatario(user.id))
-      .order("data_envio", { ascending: false });
+    const { data, error } = await supabase.rpc("listar_minhas_notificacoes");
 
     if (error) {
       toast({
@@ -88,6 +78,7 @@ const Notificacoes = () => {
     setNotificacoes((prev) =>
       prev.map((n) => (n.id === id ? { ...n, lida: true, lida_em: new Date().toISOString() } : n))
     );
+    invalidarNaoLidas();
   };
 
   const handleMarcarTodasComoLidas = async () => {
@@ -104,6 +95,7 @@ const Notificacoes = () => {
       return;
     }
     fetchNotificacoes();
+    invalidarNaoLidas();
   };
 
   const filtroAtual = FILTROS.find((f) => f.label === selectedFilter) ?? FILTROS[0];

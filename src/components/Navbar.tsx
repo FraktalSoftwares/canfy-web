@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { filtroDestinatario } from "@/lib/notificacoes";
+import { useNotificacoesNaoLidas } from "@/hooks/useNotificacoesNaoLidas";
 import logo from "@/assets/logo.svg";
 
 const Navbar = () => {
@@ -19,7 +19,7 @@ const Navbar = () => {
   const [userName, setUserName] = useState("Usuário");
   const [userEmail, setUserEmail] = useState("");
   const [userPhoto, setUserPhoto] = useState("");
-  const [naoLidas, setNaoLidas] = useState(0);
+  const { data: naoLidas = 0, refetch: refetchNaoLidas } = useNotificacoesNaoLidas();
 
   const navItems = [
     { name: "Dashboard", path: "/home" },
@@ -31,26 +31,6 @@ const Navbar = () => {
     { name: "Produtos", path: "/produtos" },
     { name: "Blog", path: "/admin/blog" },
   ];
-
-  const fetchNaoLidas = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setNaoLidas(0);
-      return;
-    }
-
-    const { count, error } = await supabase
-      .from('notificacoes')
-      .select('id', { count: 'exact', head: true })
-      .eq('lida', false)
-      .or(filtroDestinatario(user.id));
-
-    if (!error) setNaoLidas(count ?? 0);
-  };
-
-  useEffect(() => {
-    fetchNaoLidas();
-  }, [location.pathname]);
 
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
@@ -103,7 +83,7 @@ const Navbar = () => {
             .on(
               'postgres_changes',
               { event: '*', schema: 'public', table: 'notificacoes' },
-              () => fetchNaoLidas()
+              () => refetchNaoLidas()
             )
             .subscribe();
         }
@@ -118,7 +98,11 @@ const Navbar = () => {
       if (channel) supabase.removeChannel(channel);
       if (notifChannel) supabase.removeChannel(notifChannel);
     };
-  }, []);
+  }, [refetchNaoLidas]);
+
+  useEffect(() => {
+    refetchNaoLidas();
+  }, [location.pathname, refetchNaoLidas]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

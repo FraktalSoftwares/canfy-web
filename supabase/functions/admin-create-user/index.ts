@@ -87,9 +87,14 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    const appUrl = Deno.env.get('APP_URL') ?? 'https://app.canfy.com.br';
+
     const { data: inviteData, error: inviteErr } = await sbAdmin.auth.admin.inviteUserByEmail(
       email,
-      { data: { nome_completo: nomeCompleto, tipo_usuario: 'admin' } },
+      {
+        data: { nome_completo: nomeCompleto, tipo_usuario: 'admin' },
+        redirectTo: `${appUrl}/redefinir-senha`,
+      },
     );
 
     if (inviteErr) {

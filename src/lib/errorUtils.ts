@@ -49,6 +49,25 @@ export const getUserFriendlyError = (error: any): string => {
 };
 
 /**
+ * supabase.functions.invoke() transforma qualquer resposta não-2xx em
+ * FunctionsHttpError com a mensagem fixa em inglês "Edge Function returned
+ * a non-2xx status code" e `data: null` — o corpo JSON que a função
+ * devolveu (ex.: { error: 'e-mail já cadastrado' }) só é acessível via
+ * error.context. Esta função lê esse corpo para recuperar a mensagem real.
+ */
+export const getEdgeFunctionErrorMessage = async (error: any): Promise<string | null> => {
+  if (error?.context && typeof error.context.json === 'function') {
+    try {
+      const body = await error.context.json();
+      if (body?.error) return body.error as string;
+    } catch {
+      // corpo não é JSON ou já foi consumido — segue para o fallback
+    }
+  }
+  return null;
+};
+
+/**
  * Format validation errors from Zod or similar libraries
  */
 export const getValidationError = (error: any): string => {

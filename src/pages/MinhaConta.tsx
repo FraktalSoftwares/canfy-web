@@ -26,6 +26,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { getEdgeFunctionErrorMessage } from "@/lib/errorUtils";
 
 interface Usuario {
   id: string;
@@ -278,7 +279,8 @@ const MinhaConta = () => {
       });
 
       if (error || (data && (data as any).error)) {
-        throw new Error(error?.message || (data as any)?.detail || (data as any)?.error || 'Erro desconhecido');
+        const mensagemErro = error ? await getEdgeFunctionErrorMessage(error) : null;
+        throw new Error(mensagemErro || (data as any)?.detail || (data as any)?.error || error?.message || 'Erro desconhecido');
       }
 
       toast({
@@ -304,7 +306,8 @@ const MinhaConta = () => {
         body: { user_id: selectedUser },
       });
       if (error || (data && (data as any).error)) {
-        throw new Error(error?.message || (data as any)?.detail || (data as any)?.error || 'Erro desconhecido');
+        const mensagemErro = error ? await getEdgeFunctionErrorMessage(error) : null;
+        throw new Error(mensagemErro || (data as any)?.detail || (data as any)?.error || error?.message || 'Erro desconhecido');
       }
 
       toast({
@@ -575,11 +578,9 @@ const MinhaConta = () => {
         },
       });
 
-      if (error) {
-        throw error;
-      }
-      if (data?.error) {
-        if (data.error === 'e-mail já cadastrado') {
+      const mensagemErro = error ? await getEdgeFunctionErrorMessage(error) : data?.error;
+      if (mensagemErro) {
+        if (mensagemErro === 'e-mail já cadastrado') {
           toast({
             title: "E-mail já cadastrado",
             description: "Este e-mail já está registrado no sistema.",
@@ -587,12 +588,15 @@ const MinhaConta = () => {
           });
           return;
         }
-        throw new Error(data.error);
+        throw new Error(mensagemErro);
+      }
+      if (error) {
+        throw error;
       }
 
       toast({
         title: "Usuário cadastrado!",
-        description: `${novoUsuarioNome} foi adicionado com sucesso. Um e-mail foi enviado para ${novoUsuarioEmail} com instruções de login.`,
+        description: `${novoUsuarioNome} foi adicionado com sucesso. Um e-mail foi enviado para ${novoUsuarioEmail} com um link para definir a senha de acesso.`,
       });
 
       // Limpar formulário e fechar modal

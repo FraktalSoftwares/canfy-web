@@ -191,7 +191,7 @@ const ProdutoDetalhes = () => {
 
   const handleInactivateProduct = async () => {
     if (!id) return;
-    
+
     try {
       const { error } = await supabase
         .rpc('inativar_produto', { p_produto_id: id });
@@ -207,6 +207,29 @@ const ProdutoDetalhes = () => {
     } catch (error: any) {
       toast({
         title: "Erro ao inativar produto",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleActivateProduct = async () => {
+    if (!id) return;
+
+    try {
+      const { error } = await supabase
+        .rpc('ativar_produto', { p_produto_id: id });
+
+      if (error) throw error;
+
+      setProduto(prev => prev ? { ...prev, status: 'ativo' } : null);
+      toast({
+        title: "Produto ativado com sucesso!",
+        className: "bg-card-green border-primary/20",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro ao ativar produto",
         description: error.message,
         variant: "destructive",
       });
@@ -361,7 +384,7 @@ const ProdutoDetalhes = () => {
           fabricante: produto.fabricante,
           volume_quantidade: produto.volume_quantidade,
           imagem_url: produto.imagem_url,
-          status: produto.status as any,
+          status: 'rascunho' as any,
         }])
         .select()
         .single();
@@ -567,14 +590,25 @@ const ProdutoDetalhes = () => {
                 )}
                 
                 <div className="flex gap-4">
-                  <Button
-                    variant="outline"
-                    className="gap-2 border-muted-foreground text-muted-foreground hover:bg-muted/10 rounded-[20px]"
-                    onClick={() => setShowInactivateDialog(true)}
-                  >
-                    <span className="text-lg">⊗</span>
-                    Inativar produto
-                  </Button>
+                  {produto.status === "ativo" ? (
+                    <Button
+                      variant="outline"
+                      className="gap-2 border-muted-foreground text-muted-foreground hover:bg-muted/10 rounded-[20px]"
+                      onClick={() => setShowInactivateDialog(true)}
+                    >
+                      <span className="text-lg">⊗</span>
+                      Inativar produto
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-[20px]"
+                      onClick={handleActivateProduct}
+                    >
+                      <Check className="h-4 w-4" />
+                      Ativar produto
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     className="gap-2 border-destructive text-destructive hover:bg-destructive/10 rounded-[20px]"

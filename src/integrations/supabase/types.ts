@@ -2522,6 +2522,7 @@ export type Database = {
         Returns: string
       }
       assign_admin_role: { Args: { user_email: string }; Returns: undefined }
+      ativar_produto: { Args: { p_produto_id: string }; Returns: undefined }
       atribuir_medico_automatico: {
         Args: { p_consulta_id: string }
         Returns: string
@@ -2535,6 +2536,7 @@ export type Database = {
           medico_id: string
         }[]
       }
+      contar_notificacoes_nao_lidas: { Args: never; Returns: number }
       create_produto: {
         Args: {
           p_altura_cm?: number
@@ -2559,6 +2561,17 @@ export type Database = {
       gerar_notificacoes_agendadas: { Args: never; Returns: undefined }
       gerar_numero_pedido: { Args: never; Returns: string }
       gerar_numero_receita: { Args: never; Returns: string }
+      get_medico_publico: {
+        Args: { p_medico_id: string }
+        Returns: {
+          crm: string
+          especialidade_nome: string
+          foto_perfil_url: string
+          id: string
+          nome: string
+          uf_crm: string
+        }[]
+      }
       get_melhor_envio_config: {
         Args: { p_associacao_id?: string }
         Returns: {
@@ -2580,6 +2593,29 @@ export type Database = {
       is_consulta_participant: {
         Args: { consulta_uuid: string }
         Returns: boolean
+      }
+      listar_minhas_notificacoes: {
+        Args: never
+        Returns: {
+          categoria: Database["public"]["Enums"]["categoria_notificacao"]
+          created_at: string
+          data_envio: string
+          descricao: string
+          destinatario_id: string | null
+          destinatario_tipo: Database["public"]["Enums"]["destinatario_tipo"]
+          id: string
+          lida: boolean
+          lida_em: string | null
+          tipo: Database["public"]["Enums"]["tipo_notificacao"]
+          tipo_envio: Database["public"]["Enums"]["tipo_envio"]
+          titulo: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "notificacoes"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       medico_assumir_consulta: {
         Args: { p_consulta_id: string }

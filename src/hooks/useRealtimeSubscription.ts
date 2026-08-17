@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -9,12 +9,18 @@ interface UseRealtimeSubscriptionProps {
   onDelete?: (payload: any) => void;
 }
 
+// Callbacks são guardados em ref para não recriar o canal a cada render
+// (deps de arrow function inline nunca são iguais entre renders, o que
+// fazia o canal reinscrever continuamente e podia perder eventos).
 export const useRealtimeSubscription = ({
   table,
   onInsert,
   onUpdate,
   onDelete,
 }: UseRealtimeSubscriptionProps) => {
+  const callbacksRef = useRef({ onInsert, onUpdate, onDelete });
+  callbacksRef.current = { onInsert, onUpdate, onDelete };
+
   useEffect(() => {
     const channel: RealtimeChannel = supabase
       .channel(`${table}-changes`)
@@ -27,7 +33,7 @@ export const useRealtimeSubscription = ({
         },
         (payload) => {
           console.log(`[Realtime] INSERT em ${table}:`, payload);
-          onInsert?.(payload);
+          callbacksRef.current.onInsert?.(payload);
         }
       )
       .on(
@@ -39,7 +45,7 @@ export const useRealtimeSubscription = ({
         },
         (payload) => {
           console.log(`[Realtime] UPDATE em ${table}:`, payload);
-          onUpdate?.(payload);
+          callbacksRef.current.onUpdate?.(payload);
         }
       )
       .on(
@@ -51,7 +57,7 @@ export const useRealtimeSubscription = ({
         },
         (payload) => {
           console.log(`[Realtime] DELETE em ${table}:`, payload);
-          onDelete?.(payload);
+          callbacksRef.current.onDelete?.(payload);
         }
       )
       .subscribe();
@@ -59,5 +65,5 @@ export const useRealtimeSubscription = ({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [table, onInsert, onUpdate, onDelete]);
+  }, [table]);
 };
