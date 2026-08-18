@@ -46,6 +46,10 @@ AS $$
       ) AS disponivel
     FROM medicos m, c
     WHERE m.status = 'ativo'
+      -- Médico sem conta de auth não é notificável: geraria notificação
+      -- in-app órfã (destinatario_id NULL, ilegível por RLS) e push com
+      -- userId nulo (400 na Edge Function enviar-push).
+      AND m.user_id IS NOT NULL
       AND coalesce(m.modo_ferias, false) = false
       AND NOT EXISTS (
         SELECT 1 FROM consultas c2
