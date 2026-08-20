@@ -32,6 +32,7 @@ import NotificacoesPersonalizadas from "./pages/NotificacoesPersonalizadas";
 import MinhaConta from "./pages/MinhaConta";
 import TermosDeUso from "./pages/TermosDeUso";
 import PoliticaPrivacidade from "./pages/PoliticaPrivacidade";
+import AssinaturaConcluida from "./pages/AssinaturaConcluida";
 import Landing from "./pages/Landing";
 import Blog from "./pages/Blog";
 import BlogPost from "./pages/BlogPost";
@@ -56,6 +57,7 @@ const App = () => (
           <Route path="/redefinir-senha" element={<ResetPassword />} />
           <Route path="/termos-de-uso" element={<TermosDeUso />} />
           <Route path="/politica-privacidade" element={<PoliticaPrivacidade />} />
+          <Route path="/assinatura-concluida" element={<AssinaturaConcluida />} />
 
           {/* Rotas protegidas com Navbar persistente */}
           <Route element={<AppLayout />}>

@@ -7,6 +7,7 @@ const TITLES: Array<{ test: (path: string) => boolean; title: string }> = [
   { test: (p) => p === "/redefinir-senha", title: "Redefinir senha" },
   { test: (p) => p === "/termos-de-uso", title: "Termos de uso" },
   { test: (p) => p === "/politica-privacidade", title: "Política de privacidade" },
+  { test: (p) => p === "/assinatura-concluida", title: "Assinatura" },
   { test: (p) => ["/home", "/inicio", "/painel"].includes(p), title: "Dashboard" },
   { test: (p) => /^\/pacientes\/[^/]+$/.test(p), title: "Detalhes do paciente" },
   { test: (p) => p === "/pacientes", title: "Pacientes" },
