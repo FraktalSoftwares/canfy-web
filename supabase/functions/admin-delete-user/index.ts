@@ -1,5 +1,5 @@
 // Admin: soft delete (profiles.ativo=false) ou hard delete (auth.admin.deleteUser).
-// Default: soft. Hard via body { hard: true }. Caller deve ter role admin/super_admin.
+// Default: soft. Hard via body { hard: true }. Caller deve ter permissão de edição no módulo 'acessos'.
 // Bloqueia auto-exclusão do caller.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1';
@@ -37,16 +37,16 @@ Deno.serve(async (req: Request) => {
 
     const sbAdmin = createClient(supabaseUrl, serviceKey);
 
-    const { data: callerRoles, error: roleErr } = await sbAdmin
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', callerId);
-    if (roleErr) return jsonRes({ error: 'role check failed', detail: roleErr.message }, 500);
-
-    const isAdmin = (callerRoles ?? []).some(
-      (r: { role: string }) => r.role === 'admin' || r.role === 'super_admin',
-    );
-    if (!isAdmin) return jsonRes({ error: 'forbidden' }, 403);
+    // Autorizacao: exige permissao de edicao no modulo 'acessos'. A funcao SQL
+    // has_permission trata super_admin, a linha explicita em user_permissions e,
+    // quando nao ha linha configurada, cai no comportamento anterior (role).
+    const { data: podeEditar, error: permErr } = await sbAdmin.rpc('has_permission', {
+      _user_id: callerId,
+      _modulo: 'acessos',
+      _acao: 'editar',
+    });
+    if (permErr) return jsonRes({ error: 'permission check failed', detail: permErr.message }, 500);
+    if (!podeEditar) return jsonRes({ error: 'forbidden' }, 403);
 
     const body = (await req.json()) as DeleteBody;
     if (!body?.user_id || typeof body.user_id !== 'string') {

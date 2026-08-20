@@ -3,7 +3,15 @@
  * Prevents information leakage through error messages
  */
 
-export const getUserFriendlyError = (error: any): string => {
+export const getUserFriendlyError = (
+  error: any,
+  /**
+   * Mensagem opcional para violação de chave estrangeira, quando a tela sabe
+   * qual registro está sendo removido (ex.: "Não é possível excluir este
+   * produto porque ele já está vinculado a pedidos ou receitas.").
+   */
+  fkMessage?: string,
+): string => {
   // Log full error details server-side (console) for debugging
   console.error('[Internal Error]', error);
 
@@ -25,12 +33,20 @@ export const getUserFriendlyError = (error: any): string => {
       return 'Por favor, confirme seu email antes de fazer login.';
     }
 
+    // RAISE EXCEPTION das nossas RPCs (código P0001) já vem em PT-BR e é
+    // acionável para o usuário (ex.: "Preço é obrigatório..."). Repassar em vez
+    // de substituir por uma mensagem genérica. As mensagens internas em inglês
+    // ('not authorized' e afins) já foram interceptadas acima.
+    if (error?.code === 'P0001') {
+      return error.message as string;
+    }
+
     // Database/constraint errors - don't expose details
     if (msg.includes('duplicate key') || msg.includes('unique constraint')) {
       return 'Este registro já existe no sistema.';
     }
     if (msg.includes('foreign key') || msg.includes('violates')) {
-      return 'Não foi possível completar a operação devido a dependências.';
+      return fkMessage || 'Não foi possível completar a operação devido a dependências.';
     }
 
     // Storage errors

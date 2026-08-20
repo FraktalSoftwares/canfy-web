@@ -27,6 +27,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { getEdgeFunctionErrorMessage } from "@/lib/errorUtils";
+import { MASK_MAX_LENGTH, maskTelefone } from "@/lib/masks";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface Usuario {
   id: string;
@@ -79,6 +81,12 @@ const MinhaConta = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "dados-basicos");
+  // O módulo 'acessos' governa quem pode criar/excluir usuários e alterar
+  // permissões. Editar a própria conta (aba "Dados básicos") continua liberado
+  // para todos — é auto-edição, permitida pela RLS de profiles.
+  const { podeEditar, podeAcessar } = usePermissions();
+  const podeEditarAcessos = podeEditar("acessos");
+  const podeAcessarAcessos = podeAcessar("acessos");
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
@@ -748,7 +756,7 @@ const MinhaConta = () => {
             </Button>
           )}
 
-          {activeTab === "acessos" && (
+          {activeTab === "acessos" && podeEditarAcessos && (
             <Button
               variant="outline"
               onClick={() => setAdicionarUsuarioOpen(true)}
@@ -769,12 +777,14 @@ const MinhaConta = () => {
             >
               Dados básicos
             </TabsTrigger>
-            <TabsTrigger 
-              value="acessos" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground px-6 pb-3 font-normal text-base text-muted-foreground"
-            >
-              Acessos
-            </TabsTrigger>
+            {podeAcessarAcessos && (
+              <TabsTrigger 
+                value="acessos" 
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground px-6 pb-3 font-normal text-base text-muted-foreground"
+              >
+                Acessos
+              </TabsTrigger>
+            )}
             <TabsTrigger 
               value="configuracoes" 
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground px-6 pb-3 font-normal text-base text-muted-foreground"
@@ -874,7 +884,10 @@ const MinhaConta = () => {
                             <Input
                               id="telefone"
                               value={telefone}
-                              onChange={(e) => setTelefone(e.target.value)}
+                              onChange={(e) => setTelefone(maskTelefone(e.target.value))}
+                              maxLength={MASK_MAX_LENGTH.telefone}
+                              placeholder="(00) 00000-0000"
+                              inputMode="numeric"
                               className="pl-10"
                             />
                           </div>
@@ -1371,17 +1384,19 @@ const MinhaConta = () => {
 
                       {/* Footer: salvar + excluir */}
                       <div className="flex items-center justify-between gap-3">
-                        <Button
-                          variant="ghost"
-                          onClick={() => setConfirmDeleteOpen(true)}
-                          disabled={isSavingPermissoes || isDeletingUser}
-                          className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-full px-4"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Excluir usuário
-                        </Button>
+                        {podeEditarAcessos && (
+                          <Button
+                            variant="ghost"
+                            onClick={() => setConfirmDeleteOpen(true)}
+                            disabled={isSavingPermissoes || isDeletingUser}
+                            className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-full px-4"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Excluir usuário
+                          </Button>
+                        )}
 
-                        <div className="flex gap-3">
+                        <div className="flex gap-3 ml-auto">
                           <Button
                             variant="outline"
                             className="rounded-full"
@@ -1394,13 +1409,15 @@ const MinhaConta = () => {
                           >
                             Cancelar
                           </Button>
-                          <Button
-                            className="rounded-full bg-primary hover:bg-primary-hover text-primary-foreground"
-                            onClick={handleSavePermissions}
-                            disabled={isSavingPermissoes || isLoadingPermissoes}
-                          >
-                            {isSavingPermissoes ? "Salvando..." : "Salvar alterações"}
-                          </Button>
+                          {podeEditarAcessos && (
+                            <Button
+                              className="rounded-full bg-primary hover:bg-primary-hover text-primary-foreground"
+                              onClick={handleSavePermissions}
+                              disabled={isSavingPermissoes || isLoadingPermissoes}
+                            >
+                              {isSavingPermissoes ? "Salvando..." : "Salvar alterações"}
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>

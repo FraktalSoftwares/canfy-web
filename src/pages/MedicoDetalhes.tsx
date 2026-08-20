@@ -22,6 +22,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { EditableField } from "@/components/EditableField";
+import { MASK_MAX_LENGTH, maskCPF, maskTelefone } from "@/lib/masks";
+import { patientUpdateSchema } from "@/lib/validations";
+import { getUserFriendlyError, getValidationError } from "@/lib/errorUtils";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface MedicoData {
   id: string;
@@ -151,6 +156,8 @@ const MedicoDetalhes = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const { toast } = useToast();
+  const { podeEditar } = usePermissions();
+  const podeEditarUsuarios = podeEditar("usuarios");
 
   const [medico, setMedico] = useState<MedicoData | null>(null);
   const [documentos, setDocumentos] = useState<DocumentoRow[]>([]);
@@ -203,11 +210,12 @@ const MedicoDetalhes = () => {
         const md = m.data[0] as MedicoData;
         setMedico(md);
         setForm({
-          telefone: md.telefone || "",
+          // Registros antigos podem estar sem formatação — normaliza na carga.
+          telefone: maskTelefone(md.telefone || ""),
           crm: md.crm || "",
           uf_crm: md.uf_crm || "",
           email: md.email || "",
-          cpf: md.cpf || "",
+          cpf: maskCPF(md.cpf || ""),
         });
         setObservacoes(md.observacoes_admin || "");
       }
@@ -222,6 +230,12 @@ const MedicoDetalhes = () => {
 
   const handleSave = async () => {
     try {
+      // patientUpdateSchema já encapsula os formatos de CPF/telefone usados no painel.
+      patientUpdateSchema.parse({
+        cpf: form.cpf || undefined,
+        telefone: form.telefone || undefined,
+      });
+
       const { error } = await supabase.rpc("admin_update_medico", {
         p_id: id!,
         p_email: form.email,
@@ -235,7 +249,11 @@ const MedicoDetalhes = () => {
       setIsEditing(false);
       fetchAll();
     } catch (e: any) {
-      toast({ title: "Erro ao atualizar", description: e.message, variant: "destructive" });
+      toast({
+        title: "Erro ao atualizar",
+        description: e?.errors ? getValidationError(e) : getUserFriendlyError(e),
+        variant: "destructive",
+      });
     }
   };
 
@@ -426,7 +444,7 @@ const MedicoDetalhes = () => {
 
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-foreground">Dados do usuário</h2>
-          {!isEditing ? (
+          {podeEditarUsuarios && (!isEditing ? (
             <Button
               variant="outline"
               className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-full"
@@ -443,7 +461,7 @@ const MedicoDetalhes = () => {
               <Check className="h-4 w-4" />
               Salvar alterações
             </Button>
-          )}
+          ))}
         </div>
 
         <Card className="rounded-[10px] bg-secondary border-none mb-3">
@@ -468,24 +486,26 @@ const MedicoDetalhes = () => {
                 <h3 className="text-xl font-bold text-foreground">{medico.nome}</h3>
               </div>
             </div>
-            {ativo ? (
-              <Button
-                variant="outline"
-                onClick={() => setShowInactivateDialog(true)}
-                className="gap-2 rounded-full border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-              >
-                <MinusCircle className="h-4 w-4" />
-                Inativar conta
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                onClick={handleReativar}
-                className="gap-2 rounded-full border-primary text-primary hover:bg-primary/10"
-              >
-                <Check className="h-4 w-4" />
-                Reativar conta
-              </Button>
+            {podeEditarUsuarios && (
+              ativo ? (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowInactivateDialog(true)}
+                  className="gap-2 rounded-full border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <MinusCircle className="h-4 w-4" />
+                  Inativar conta
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={handleReativar}
+                  className="gap-2 rounded-full border-primary text-primary hover:bg-primary/10"
+                >
+                  <Check className="h-4 w-4" />
+                  Reativar conta
+                </Button>
+              )
             )}
           </CardContent>
         </Card>
@@ -502,6 +522,9 @@ const MedicoDetalhes = () => {
                 label="Telefone" editing={isEditing}
                 value={form.telefone || "—"} editValue={form.telefone}
                 onChange={(v) => setForm({ ...form, telefone: v })}
+                mask={maskTelefone}
+                maxLength={MASK_MAX_LENGTH.telefone}
+                placeholder="(00) 00000-0000"
               />
               <div className="border-b border-border/40 pb-3 last:border-b-0">
                 <p className="text-xs text-muted-foreground mb-1">CRM+UF</p>
@@ -545,6 +568,9 @@ const MedicoDetalhes = () => {
                 label="CPF" editing={isEditing}
                 value={form.cpf || "—"} editValue={form.cpf}
                 onChange={(v) => setForm({ ...form, cpf: v })}
+                mask={maskCPF}
+                maxLength={MASK_MAX_LENGTH.cpf}
+                placeholder="000.000.000-00"
               />
             </CardContent>
           </Card>
@@ -589,17 +615,19 @@ const MedicoDetalhes = () => {
             <p className="text-xs text-muted-foreground mt-3">
               Tolerância: {LIMITE_AUSENCIAS_ANO} ausências por ano. Ao ultrapassar o limite, a conta é inativada automaticamente.
             </p>
-            <div className="flex justify-end mt-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAusenciaDialog(true)}
-                className="gap-2 rounded-full border-destructive/40 text-destructive hover:bg-destructive/10"
-              >
-                <AlertTriangle className="h-4 w-4" />
-                Registrar ausência
-              </Button>
-            </div>
+            {podeEditarUsuarios && (
+              <div className="flex justify-end mt-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAusenciaDialog(true)}
+                  className="gap-2 rounded-full border-destructive/40 text-destructive hover:bg-destructive/10"
+                >
+                  <AlertTriangle className="h-4 w-4" />
+                  Registrar ausência
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -706,15 +734,17 @@ const MedicoDetalhes = () => {
               placeholder="Observações internas ou anotações administrativas..."
               className="min-h-[150px] bg-background border-border resize-none"
             />
-            <div className="flex justify-end mt-3">
-              <Button
-                onClick={handleSaveObs}
-                disabled={savingObs}
-                className="bg-primary text-white hover:bg-primary-dark rounded-full"
-              >
-                {savingObs ? "Salvando..." : "Salvar observações"}
-              </Button>
-            </div>
+            {podeEditarUsuarios && (
+              <div className="flex justify-end mt-3">
+                <Button
+                  onClick={handleSaveObs}
+                  disabled={savingObs}
+                  className="bg-primary text-white hover:bg-primary-dark rounded-full"
+                >
+                  {savingObs ? "Salvando..." : "Salvar observações"}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -915,33 +945,6 @@ function Field({ label, value }: { label: string; value: string }) {
     <div className="border-b border-border/40 pb-3">
       <p className="text-xs text-muted-foreground mb-1">{label}</p>
       <p className="text-base font-bold text-foreground break-words">{value}</p>
-    </div>
-  );
-}
-
-function EditableField({
-  label, value, editing, onChange, editValue, type,
-}: {
-  label: string;
-  value: string;
-  editing: boolean;
-  onChange: (v: string) => void;
-  editValue: string;
-  type?: string;
-}) {
-  return (
-    <div className={editing ? "" : "border-b border-border/40 pb-3 last:border-b-0"}>
-      <p className={`text-xs mb-1 ${editing ? "text-foreground font-semibold" : "text-muted-foreground"}`}>{label}</p>
-      {editing ? (
-        <Input
-          type={type}
-          value={editValue}
-          onChange={(e) => onChange(e.target.value)}
-          className="h-9 bg-background border-border rounded-full px-4"
-        />
-      ) : (
-        <p className="text-base font-bold text-foreground break-words">{value}</p>
-      )}
     </div>
   );
 }

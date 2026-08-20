@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { getUserFriendlyError } from "@/lib/errorUtils";
 
 interface Produto {
   id: string;
@@ -93,7 +94,7 @@ const Produtos = () => {
       console.error('Erro ao buscar produtos:', error);
       toast({
         title: "Erro ao carregar produtos",
-        description: error.message,
+        description: getUserFriendlyError(error),
         variant: "destructive",
       });
     } finally {

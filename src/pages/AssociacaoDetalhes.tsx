@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { MASK_MAX_LENGTH, maskCNPJ, maskTelefone } from "@/lib/masks";
 
 const AssociacaoDetalhes = () => {
   const navigate = useNavigate();
@@ -245,7 +246,9 @@ const AssociacaoDetalhes = () => {
                 <label className="text-sm font-semibold mb-2 block">CNPJ</label>
                 <Input
                   value={formData.cnpj}
-                  onChange={(e) => setFormData({...formData, cnpj: e.target.value})}
+                  onChange={(e) => setFormData({...formData, cnpj: maskCNPJ(e.target.value)})}
+                  maxLength={MASK_MAX_LENGTH.cnpj}
+                  inputMode="numeric"
                   className="h-11 bg-card"
                   disabled={!isEditing}
                   placeholder="Não informado"
@@ -256,7 +259,9 @@ const AssociacaoDetalhes = () => {
                 <label className="text-sm font-semibold mb-2 block">Telefone</label>
                 <Input
                   value={formData.telefone}
-                  onChange={(e) => setFormData({...formData, telefone: e.target.value})}
+                  onChange={(e) => setFormData({...formData, telefone: maskTelefone(e.target.value)})}
+                  maxLength={MASK_MAX_LENGTH.telefone}
+                  inputMode="numeric"
                   className="h-11 bg-card"
                   disabled={!isEditing}
                   placeholder="Não informado"

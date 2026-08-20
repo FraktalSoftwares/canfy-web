@@ -14,6 +14,11 @@ export const loginSchema = z.object({
 
 // Product creation validation schema
 export const productSchema = z.object({
+  // `preco` (BRL) é a coluna validada pela RPC ativar_produto — obrigatória
+  // apenas quando o produto é publicado como ativo (ver superRefine abaixo).
+  preco: z.number()
+    .positive('Preço deve ser maior que zero')
+    .optional(),
   nome_comercial: z.string()
     .min(3, 'Nome comercial deve ter no mínimo 3 caracteres')
     .max(200, 'Nome comercial muito longo')
@@ -53,6 +58,14 @@ export const productSchema = z.object({
   comprimento_cm: z.number()
     .min(16, 'Comprimento mínimo Melhor Envio é 16cm')
     .max(105, 'Comprimento máximo Melhor Envio é 105cm'),
+}).superRefine((data, ctx) => {
+  if (data.status === 'ativo' && !data.preco) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['preco'],
+      message: 'Preço (R$) é obrigatório para publicar o produto como ativo',
+    });
+  }
 });
 
 // User profile update validation schema

@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
+import { MASK_MAX_LENGTH, maskCNPJ, maskTelefone } from "@/lib/masks";
 import {
   Dialog,
   DialogContent,
@@ -567,8 +568,10 @@ const Associacoes = () => {
               </div>
               <Input
                 value={newAssociacao.cnpj}
-                onChange={(e) => setNewAssociacao({...newAssociacao, cnpj: e.target.value})}
+                onChange={(e) => setNewAssociacao({...newAssociacao, cnpj: maskCNPJ(e.target.value)})}
                 placeholder="Ex: 12.345.678/0001-90"
+                maxLength={MASK_MAX_LENGTH.cnpj}
+                inputMode="numeric"
                 className="h-11"
               />
             </div>
@@ -593,8 +596,10 @@ const Associacoes = () => {
               </div>
               <Input
                 value={newAssociacao.telefone}
-                onChange={(e) => setNewAssociacao({...newAssociacao, telefone: e.target.value})}
+                onChange={(e) => setNewAssociacao({...newAssociacao, telefone: maskTelefone(e.target.value)})}
                 placeholder="Ex: (11) 98765-4321"
+                maxLength={MASK_MAX_LENGTH.telefone}
+                inputMode="numeric"
                 className="h-11"
               />
             </div>

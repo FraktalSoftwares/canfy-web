@@ -105,6 +105,7 @@ const ProdutoCadastro = () => {
         concentracao_thc: concentracaoTHC || undefined,
         fabricante: fabricante || undefined,
         volume_quantidade: volumeQuantidade || undefined,
+        preco: precoBrl ? Number(precoBrl) : undefined,
         status,
         peso_g: Number(pesoG),
         largura_cm: Number(larguraCm),
@@ -168,7 +169,11 @@ const ProdutoCadastro = () => {
         const produtoId = newProductId as unknown as string;
         await supabase.from("produtos").update({
           tipo_origem: tipoOrigem,
-          preco_brl: precoBrl ? Number(precoBrl) : null,
+          // `preco` é a fonte da verdade (validada por ativar_produto e lida pelo
+          // app mobile); preco_brl é espelhado porque as edge functions do Melhor
+          // Envio leem `preco_brl ?? preco`.
+          preco: validatedData.preco ?? null,
+          preco_brl: validatedData.preco ?? null,
           preco_usd: precoUsd ? Number(precoUsd) : null,
         }).eq("id", produtoId);
 

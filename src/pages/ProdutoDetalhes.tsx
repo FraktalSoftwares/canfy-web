@@ -21,6 +21,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { IndicacoesSelector } from "@/components/produtos/IndicacoesSelector";
+import { getUserFriendlyError } from "@/lib/errorUtils";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface Produto {
   id: string;
@@ -31,6 +33,8 @@ interface Produto {
   concentracao_thc: string | null;
   fabricante: string | null;
   volume_quantidade: string | null;
+  preco: number | null;
+  preco_usd: number | null;
   imagem_url: string | null;
   status: string;
   associacao_marca_id: string | null;
@@ -43,6 +47,8 @@ const ProdutoDetalhes = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const { toast } = useToast();
+  const { podeEditar } = usePermissions();
+  const podeEditarProdutos = podeEditar("produtos");
   const [isEditing, setIsEditing] = useState(false);
   const [showInactivateDialog, setShowInactivateDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -62,7 +68,10 @@ const ProdutoDetalhes = () => {
   const [concentracaoTHC, setConcentracaoTHC] = useState("");
   const [fabricante, setFabricante] = useState("");
   const [volumeQuantidade, setVolumeQuantidade] = useState("");
-  
+  // `preco` (BRL) é a fonte da verdade — é a coluna validada por ativar_produto.
+  const [preco, setPreco] = useState("");
+  const [precoUsd, setPrecoUsd] = useState("");
+
   const [indicacoes, setIndicacoes] = useState<string[]>([]);
   const [selectedIndicacoes, setSelectedIndicacoes] = useState<string[]>([]);
   const [novaIndicacao, setNovaIndicacao] = useState("");
@@ -96,6 +105,8 @@ const ProdutoDetalhes = () => {
           setConcentracaoTHC(data.concentracao_thc || "");
           setFabricante(data.fabricante || "");
           setVolumeQuantidade(data.volume_quantidade || "");
+          setPreco(data.preco != null ? String(data.preco) : "");
+          setPrecoUsd(data.preco_usd != null ? String(data.preco_usd) : "");
           setImagemPreview(data.imagem_url || "");
 
           // Buscar indicações clínicas do produto
@@ -142,7 +153,7 @@ const ProdutoDetalhes = () => {
         console.error('Erro ao buscar produto:', error);
         toast({
           title: "Erro ao carregar produto",
-          description: error.message,
+          description: getUserFriendlyError(error),
           variant: "destructive",
         });
       } finally {
@@ -207,7 +218,7 @@ const ProdutoDetalhes = () => {
     } catch (error: any) {
       toast({
         title: "Erro ao inativar produto",
-        description: error.message,
+        description: getUserFriendlyError(error),
         variant: "destructive",
       });
     }
@@ -230,7 +241,7 @@ const ProdutoDetalhes = () => {
     } catch (error: any) {
       toast({
         title: "Erro ao ativar produto",
-        description: error.message,
+        description: getUserFriendlyError(error),
         variant: "destructive",
       });
     }
@@ -262,7 +273,10 @@ const ProdutoDetalhes = () => {
     } catch (error: any) {
       toast({
         title: "Erro ao excluir produto",
-        description: error.message,
+        description: getUserFriendlyError(
+          error,
+          "Não é possível excluir este produto porque ele já está vinculado a pedidos ou receitas. Inative-o em vez de excluir.",
+        ),
         variant: "destructive",
       });
     }
@@ -323,6 +337,11 @@ const ProdutoDetalhes = () => {
           concentracao_thc: concentracaoTHC || null,
           fabricante: fabricante || null,
           volume_quantidade: volumeQuantidade || null,
+          preco: preco ? Number(preco) : null,
+          // preco_brl é espelhado a partir de `preco` porque as edge functions do
+          // Melhor Envio leem `preco_brl ?? preco`.
+          preco_brl: preco ? Number(preco) : null,
+          preco_usd: precoUsd ? Number(precoUsd) : null,
           imagem_url: imagemUrl,
         })
         .eq('id', id);
@@ -476,7 +495,7 @@ const ProdutoDetalhes = () => {
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-bold text-foreground">Dados do produto</h1>
           <div className="flex gap-3">
-            {!isEditing && (
+            {podeEditarProdutos && !isEditing && (
               <Button
                 variant="outline"
                 className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-[20px]"
@@ -486,7 +505,7 @@ const ProdutoDetalhes = () => {
                 Duplicar produto
               </Button>
             )}
-            {isEditing ? (
+            {podeEditarProdutos && (isEditing ? (
               <Button
                 className="gap-2 bg-primary text-white hover:bg-primary-dark rounded-[20px]"
                 onClick={handleSaveProduct}
@@ -504,7 +523,7 @@ const ProdutoDetalhes = () => {
                 <Pencil className="h-4 w-4" />
                 Editar produto
               </Button>
-            )}
+            ))}
           </div>
         </div>
 
@@ -590,7 +609,7 @@ const ProdutoDetalhes = () => {
                 )}
                 
                 <div className="flex gap-4">
-                  {produto.status === "ativo" ? (
+                  {podeEditarProdutos && (produto.status === "ativo" ? (
                     <Button
                       variant="outline"
                       className="gap-2 border-muted-foreground text-muted-foreground hover:bg-muted/10 rounded-[20px]"
@@ -608,15 +627,17 @@ const ProdutoDetalhes = () => {
                       <Check className="h-4 w-4" />
                       Ativar produto
                     </Button>
+                  ))}
+                  {podeEditarProdutos && (
+                    <Button
+                      variant="outline"
+                      className="gap-2 border-destructive text-destructive hover:bg-destructive/10 rounded-[20px]"
+                      onClick={() => setShowDeleteDialog(true)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Excluir produto
+                    </Button>
                   )}
-                  <Button
-                    variant="outline"
-                    className="gap-2 border-destructive text-destructive hover:bg-destructive/10 rounded-[20px]"
-                    onClick={() => setShowDeleteDialog(true)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Excluir produto
-                  </Button>
                 </div>
               </div>
             </div>
@@ -708,6 +729,52 @@ const ProdutoDetalhes = () => {
                 )}
               </div>
               
+              <div className="border-t pt-4 grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-2 block">Preço (R$)</Label>
+                  {isEditing ? (
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={preco}
+                      onChange={(e) => setPreco(e.target.value)}
+                      placeholder="Ex: 189.90"
+                    />
+                  ) : (
+                    <p className="font-semibold">
+                      {produto.preco != null
+                        ? produto.preco.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                        : "N/A"}
+                    </p>
+                  )}
+                  {isEditing && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Obrigatório para ativar o produto.
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-2 block">Preço (US$)</Label>
+                  {isEditing ? (
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={precoUsd}
+                      onChange={(e) => setPrecoUsd(e.target.value)}
+                      placeholder="Ex: 35.00"
+                    />
+                  ) : (
+                    <p className="font-semibold">
+                      {produto.preco_usd != null
+                        ? produto.preco_usd.toLocaleString("en-US", { style: "currency", currency: "USD" })
+                        : "N/A"}
+                    </p>
+                  )}
+                </div>
+              </div>
+
               <div className="border-t pt-4">
                 <Label className="text-xs text-muted-foreground mb-3 block">Indicações clínicas</Label>
                 {isEditing ? (

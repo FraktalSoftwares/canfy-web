@@ -25,6 +25,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { EditableField } from "@/components/EditableField";
+import { MASK_MAX_LENGTH, maskCPF, maskTelefone } from "@/lib/masks";
+import { patientUpdateSchema } from "@/lib/validations";
+import { getUserFriendlyError, getValidationError } from "@/lib/errorUtils";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface PacienteData {
   id: string;
@@ -187,6 +192,8 @@ const PacienteDetalhes = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const { toast } = useToast();
+  const { podeEditar } = usePermissions();
+  const podeEditarUsuarios = podeEditar("usuarios");
 
   const [paciente, setPaciente] = useState<PacienteData | null>(null);
   const [pagamentos, setPagamentos] = useState<PagamentoRow[]>([]);
@@ -264,8 +271,10 @@ const PacienteDetalhes = () => {
         const p = pacData[0] as PacienteData;
         setPaciente(p);
         setForm({
-          telefone: p.telefone || "",
-          cpf: p.cpf || "",
+          // Registros antigos podem estar sem formatação — normaliza na carga
+          // para que a validação no salvar não rejeite dados não editados.
+          telefone: maskTelefone(p.telefone || ""),
+          cpf: maskCPF(p.cpf || ""),
           rg: p.rg || "",
           dataNascimento: p.data_nascimento || "",
           endereco_logradouro: p.endereco_logradouro || "",
@@ -419,6 +428,14 @@ const PacienteDetalhes = () => {
 
   const handleSave = async () => {
     try {
+      // Valida os campos mascarados antes de gravar — os schemas exigem o valor
+      // já formatado, que é o que as máscaras produzem.
+      patientUpdateSchema.parse({
+        cpf: form.cpf || undefined,
+        telefone: form.telefone || undefined,
+        data_nascimento: form.dataNascimento || undefined,
+      });
+
       const { error } = await supabase.rpc("admin_update_paciente", {
         p_id: id!,
         p_telefone: form.telefone || null,
@@ -439,7 +456,11 @@ const PacienteDetalhes = () => {
       setIsEditing(false);
       fetchAll();
     } catch (e: any) {
-      toast({ title: "Erro ao atualizar", description: e.message, variant: "destructive" });
+      toast({
+        title: "Erro ao atualizar",
+        description: e?.errors ? getValidationError(e) : getUserFriendlyError(e),
+        variant: "destructive",
+      });
     }
   };
 
@@ -585,7 +606,7 @@ const PacienteDetalhes = () => {
               <FileText className="h-4 w-4" />
               Dados solicitação Anvisa
             </Button>
-            {!isEditing ? (
+            {podeEditarUsuarios && (!isEditing ? (
               <Button
                 variant="outline"
                 className="gap-2 border-primary text-primary hover:bg-primary/10 rounded-full"
@@ -602,7 +623,7 @@ const PacienteDetalhes = () => {
                 <Check className="h-4 w-4" />
                 Salvar alterações
               </Button>
-            )}
+            ))}
           </div>
         </div>
 
@@ -628,24 +649,26 @@ const PacienteDetalhes = () => {
                 <h3 className="text-xl font-bold text-foreground">{paciente.nome_completo}</h3>
               </div>
             </div>
-            {paciente.ativo ? (
-              <Button
-                variant="outline"
-                onClick={() => setShowInactivateDialog(true)}
-                className="gap-2 rounded-full border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-              >
-                <MinusCircle className="h-4 w-4" />
-                Inativar conta
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                onClick={handleReativar}
-                className="gap-2 rounded-full border-primary text-primary hover:bg-primary/10"
-              >
-                <Check className="h-4 w-4" />
-                Reativar conta
-              </Button>
+            {podeEditarUsuarios && (
+              paciente.ativo ? (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowInactivateDialog(true)}
+                  className="gap-2 rounded-full border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <MinusCircle className="h-4 w-4" />
+                  Inativar conta
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={handleReativar}
+                  className="gap-2 rounded-full border-primary text-primary hover:bg-primary/10"
+                >
+                  <Check className="h-4 w-4" />
+                  Reativar conta
+                </Button>
+              )
             )}
           </CardContent>
         </Card>
@@ -660,6 +683,9 @@ const PacienteDetalhes = () => {
                 editing={isEditing}
                 onChange={(v) => setForm({ ...form, telefone: v })}
                 editValue={form.telefone}
+                mask={maskTelefone}
+                maxLength={MASK_MAX_LENGTH.telefone}
+                placeholder="(00) 00000-0000"
               />
               <EditableField
                 label="CPF"
@@ -667,6 +693,9 @@ const PacienteDetalhes = () => {
                 editing={isEditing}
                 onChange={(v) => setForm({ ...form, cpf: v })}
                 editValue={form.cpf}
+                mask={maskCPF}
+                maxLength={MASK_MAX_LENGTH.cpf}
+                placeholder="000.000.000-00"
               />
             </CardContent>
           </Card>
@@ -959,11 +988,13 @@ const PacienteDetalhes = () => {
               onFlag={(v) => setAnamnese({ ...anamnese, tem_reacoes_adversas: v })}
               onDetail={(v) => setAnamnese({ ...anamnese, reacoes_adversas_detalhes: v })}
             />
-            <div className="flex justify-end">
-              <Button onClick={handleSaveAnamnese} disabled={savingAnamnese} className="bg-primary text-white hover:bg-primary-dark rounded-full">
-                {savingAnamnese ? "Salvando..." : "Salvar anamnese"}
-              </Button>
-            </div>
+            {podeEditarUsuarios && (
+              <div className="flex justify-end">
+                <Button onClick={handleSaveAnamnese} disabled={savingAnamnese} className="bg-primary text-white hover:bg-primary-dark rounded-full">
+                  {savingAnamnese ? "Salvando..." : "Salvar anamnese"}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -977,15 +1008,17 @@ const PacienteDetalhes = () => {
               placeholder="Observações internas ou anotações administrativas..."
               className="min-h-[150px] bg-background border-border resize-none"
             />
-            <div className="flex justify-end mt-3">
-              <Button
-                onClick={handleSaveObs}
-                disabled={savingObs}
-                className="bg-primary text-white hover:bg-primary-dark rounded-full"
-              >
-                {savingObs ? "Salvando..." : "Salvar observações"}
-              </Button>
-            </div>
+            {podeEditarUsuarios && (
+              <div className="flex justify-end mt-3">
+                <Button
+                  onClick={handleSaveObs}
+                  disabled={savingObs}
+                  className="bg-primary text-white hover:bg-primary-dark rounded-full"
+                >
+                  {savingObs ? "Salvando..." : "Salvar observações"}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -1229,33 +1262,6 @@ function Field({ label, value }: { label: string; value: string }) {
     <div className="border-b border-border/40 pb-3">
       <p className="text-xs text-muted-foreground mb-1">{label}</p>
       <p className="text-base font-bold text-foreground break-words">{value}</p>
-    </div>
-  );
-}
-
-function EditableField({
-  label, value, editing, onChange, editValue, type,
-}: {
-  label: string;
-  value: string;
-  editing: boolean;
-  onChange: (v: string) => void;
-  editValue: string;
-  type?: string;
-}) {
-  return (
-    <div className={editing ? "" : "border-b border-border/40 pb-3 last:border-b-0"}>
-      <p className={`text-xs mb-1 ${editing ? "text-foreground font-semibold" : "text-muted-foreground"}`}>{label}</p>
-      {editing ? (
-        <Input
-          type={type}
-          value={editValue}
-          onChange={(e) => onChange(e.target.value)}
-          className="h-9 bg-background border-border rounded-full px-4"
-        />
-      ) : (
-        <p className="text-base font-bold text-foreground break-words">{value}</p>
-      )}
     </div>
   );
 }
