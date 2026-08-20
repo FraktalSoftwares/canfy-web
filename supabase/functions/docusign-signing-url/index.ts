@@ -191,10 +191,17 @@ Deno.serve(async (req: Request) => {
     }
 
     const body = (await req.json().catch(() => ({}))) as {
+      action?: string;
+      envelopeId?: string;
       returnUrl?: string;
       procuracao?: ProcuracaoData;
     };
     const returnUrl = body.returnUrl ?? DEFAULT_RETURN_URL;
+    const consultandoStatus = body.action === "status";
+
+    if (consultandoStatus && !body.envelopeId) {
+      return jsonResponse({ error: "envelopeId is required" }, 400);
+    }
 
     const integrationKey = Deno.env.get("DOCUSIGN_INTEGRATION_KEY");
     const userId = Deno.env.get("DOCUSIGN_USER_ID");
@@ -212,7 +219,14 @@ Deno.serve(async (req: Request) => {
     }
 
     const signerEmail = user.email ?? "";
-    const signerName = user.user_metadata?.["full_name"] ?? user.email ?? "Signer";
+    // O cadastro do app grava `nome_completo`; `full_name` fica de compatibilidade.
+    // `||` (e nao `??`) para que string vazia caia no proximo fallback.
+    const signerName =
+      user.user_metadata?.["nome_completo"] ||
+      user.user_metadata?.["full_name"] ||
+      sanitize(body.procuracao?.nome, 100) ||
+      user.email ||
+      "Signer";
     if (!signerEmail) {
       return jsonResponse({ error: "User email is required for signing" }, 400);
     }
@@ -264,6 +278,51 @@ Deno.serve(async (req: Request) => {
     };
     const accessToken = tokenData.access_token;
     const baseUri = (tokenData.base_uri ?? DS_API_BASE).replace(/\/$/, "");
+
+    // Consulta de status: pergunta direto ao DocuSign em vez de depender do
+    // webhook do Connect estar configurado, e sincroniza a linha local.
+    if (consultandoStatus) {
+      const { data: envelopeRow } = await supabase
+        .from("docusign_envelopes")
+        .select("envelope_id")
+        .eq("envelope_id", body.envelopeId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (!envelopeRow) {
+        return jsonResponse({ error: "Envelope not found" }, 404);
+      }
+
+      const statusRes = await fetch(
+        `${baseUri}/restapi/v2.1/accounts/${accountId}/envelopes/${body.envelopeId}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (!statusRes.ok) {
+        const errText = await statusRes.text();
+        console.error("DocuSign envelope status error", statusRes.status, errText);
+        return jsonResponse({ error: "Failed to read envelope status", details: errText }, 502);
+      }
+      const statusData = (await statusRes.json()) as {
+        status?: string;
+        completedDateTime?: string;
+      };
+      const status = (statusData.status ?? "sent").toLowerCase();
+      const completed = status === "completed";
+
+      const { error: updateError } = await supabase
+        .from("docusign_envelopes")
+        .update({
+          status,
+          completed_at: completed
+            ? statusData.completedDateTime ?? new Date().toISOString()
+            : null,
+        })
+        .eq("envelope_id", body.envelopeId);
+      if (updateError) {
+        console.error("docusign_envelopes update error", body.envelopeId, updateError);
+      }
+
+      return jsonResponse({ envelopeId: body.envelopeId, status, completed }, 200);
+    }
 
     const documentBase64 = await gerarProcuracaoPdf(body.procuracao ?? {}, signerName);
 
