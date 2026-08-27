@@ -17,6 +17,7 @@ import { ptBR } from "date-fns/locale";
 import {
   getStatusBadge, timelineStageIndex, TIMELINE_STAGES, isPedidoReprovado,
 } from "@/lib/pedidoStatus";
+import { formatCurrency } from "@/lib/utils";
 
 type AnvisaStatus = "nao_solicitado" | "em_analise" | "aprovado" | "recusado";
 
@@ -80,9 +81,6 @@ interface PedidoMeFields {
   melhor_envio_etiqueta_url: string | null;
   frete_valor: number | null;
 }
-
-const formatCurrency = (v: number | null) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v ?? 0);
 
 const formatDate = (d: string | null) => {
   if (!d) return "—";

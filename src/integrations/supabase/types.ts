@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -346,13 +346,16 @@ export type Database = {
           created_at: string | null
           data_consulta: string
           eh_retorno: boolean | null
+          fila_desde: string | null
           id: string
           medico_id: string | null
           motivo_cancelamento: string | null
           notificado_lembrete_em: string | null
+          notificados_nivel: Json
           paciente_id: string
           queixa_principal: string | null
           receita_id: string | null
+          reembolsada_em: string | null
           resumo_atendimento: string | null
           sintomas: string[] | null
           status: Database["public"]["Enums"]["status_consulta"]
@@ -366,13 +369,16 @@ export type Database = {
           created_at?: string | null
           data_consulta: string
           eh_retorno?: boolean | null
+          fila_desde?: string | null
           id?: string
           medico_id?: string | null
           motivo_cancelamento?: string | null
           notificado_lembrete_em?: string | null
+          notificados_nivel?: Json
           paciente_id: string
           queixa_principal?: string | null
           receita_id?: string | null
+          reembolsada_em?: string | null
           resumo_atendimento?: string | null
           sintomas?: string[] | null
           status?: Database["public"]["Enums"]["status_consulta"]
@@ -386,13 +392,16 @@ export type Database = {
           created_at?: string | null
           data_consulta?: string
           eh_retorno?: boolean | null
+          fila_desde?: string | null
           id?: string
           medico_id?: string | null
           motivo_cancelamento?: string | null
           notificado_lembrete_em?: string | null
+          notificados_nivel?: Json
           paciente_id?: string
           queixa_principal?: string | null
           receita_id?: string | null
+          reembolsada_em?: string | null
           resumo_atendimento?: string | null
           sintomas?: string[] | null
           status?: Database["public"]["Enums"]["status_consulta"]
@@ -859,6 +868,8 @@ export type Database = {
           id: string
           lida: boolean
           lida_em: string | null
+          rota: string | null
+          rota_params: Json | null
           tipo: Database["public"]["Enums"]["tipo_notificacao"]
           tipo_envio: Database["public"]["Enums"]["tipo_envio"]
           titulo: string
@@ -873,6 +884,8 @@ export type Database = {
           id?: string
           lida?: boolean
           lida_em?: string | null
+          rota?: string | null
+          rota_params?: Json | null
           tipo?: Database["public"]["Enums"]["tipo_notificacao"]
           tipo_envio?: Database["public"]["Enums"]["tipo_envio"]
           titulo: string
@@ -887,6 +900,8 @@ export type Database = {
           id?: string
           lida?: boolean
           lida_em?: string | null
+          rota?: string | null
+          rota_params?: Json | null
           tipo?: Database["public"]["Enums"]["tipo_notificacao"]
           tipo_envio?: Database["public"]["Enums"]["tipo_envio"]
           titulo?: string
@@ -1548,6 +1563,33 @@ export type Database = {
           },
         ]
       }
+      push_tokens: {
+        Row: {
+          created_at: string
+          id: string
+          plataforma: string
+          token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          plataforma: string
+          token: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          plataforma?: string
+          token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       receita_itens: {
         Row: {
           created_at: string
@@ -1868,10 +1910,14 @@ export type Database = {
         }[]
       }
       admin_get_dashboard_stats: {
-        Args: { p_month?: number; p_year?: number }
+        Args: { p_data_fim?: string; p_data_ini?: string }
         Returns: {
           aprovacoes_anvisa: number
           associacoes_ativas: number
+          consultas_finalizadas: number
+          faturamento_consultas: number
+          faturamento_pedidos: number
+          faturamento_total: number
           medicos_ativos: number
           pacientes_ativos: number
           pedidos_realizados: number
@@ -1880,7 +1926,7 @@ export type Database = {
         }[]
       }
       admin_get_feedbacks_resumo: {
-        Args: never
+        Args: { p_data_fim?: string; p_data_ini?: string }
         Returns: {
           media_geral: number
           notas_baixas: number
@@ -1953,6 +1999,14 @@ export type Database = {
           id: string
           observacao: string
           status: string
+          valor: number
+        }[]
+      }
+      admin_get_monthly_faturamento: {
+        Args: { p_year: number }
+        Returns: {
+          month: number
+          month_name: string
           valor: number
         }[]
       }
@@ -2292,6 +2346,41 @@ export type Database = {
           ultimo_acesso: string
         }[]
       }
+      admin_list_paciente_consultas: {
+        Args: {
+          p_data_fim?: string
+          p_data_ini?: string
+          p_limit?: number
+          p_offset?: number
+          p_paciente_id: string
+          p_search?: string
+          p_status?: string[]
+        }
+        Returns: {
+          avaliacao_medico_comentario: string
+          avaliacao_medico_nota: number
+          cancelada_em: string
+          cancelada_por: string
+          data_consulta: string
+          eh_retorno: boolean
+          feedback_comentario: string
+          feedback_nota: number
+          id: string
+          medico_crm: string
+          medico_id: string
+          medico_nome: string
+          medico_uf_crm: string
+          motivo_cancelamento: string
+          numero_receita: string
+          queixa_principal: string
+          receita_id: string
+          reembolsada_em: string
+          resumo_atendimento: string
+          sintomas: string[]
+          status: string
+          total_count: number
+        }[]
+      }
       admin_list_pacientes: {
         Args: never
         Returns: {
@@ -2527,6 +2616,10 @@ export type Database = {
         Args: { p_consulta_id: string }
         Returns: string
       }
+      avancar_fila_consulta: {
+        Args: { p_consulta_id: string; p_nivel_alvo: number }
+        Returns: undefined
+      }
       check_cpf_disponivel: { Args: { p_cpf: string }; Returns: boolean }
       consultas_slots_disponiveis: {
         Args: { p_dias_a_frente?: number }
@@ -2557,7 +2650,25 @@ export type Database = {
         }
         Returns: string
       }
+      despachar_nivel: {
+        Args: { p_consulta_id: string; p_nivel: number }
+        Returns: number
+      }
       dia_semana_pt: { Args: { p_data: string }; Returns: string }
+      enviar_push_async: {
+        Args: {
+          p_corpo: string
+          p_data?: Json
+          p_titulo: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
+      escalonar_fila_consultas: { Args: never; Returns: undefined }
+      expirar_consulta_sem_medico: {
+        Args: { p_consulta_id: string }
+        Returns: undefined
+      }
       gerar_notificacoes_agendadas: { Args: never; Returns: undefined }
       gerar_numero_pedido: { Args: never; Returns: string }
       gerar_numero_receita: { Args: never; Returns: string }
@@ -2582,6 +2693,10 @@ export type Database = {
       }
       get_paciente_ids_for_current_user: { Args: never; Returns: string[] }
       get_valor_consulta_padrao: { Args: never; Returns: number }
+      has_permission: {
+        Args: { _acao?: string; _modulo: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2606,6 +2721,8 @@ export type Database = {
           id: string
           lida: boolean
           lida_em: string | null
+          rota: string | null
+          rota_params: Json | null
           tipo: Database["public"]["Enums"]["tipo_notificacao"]
           tipo_envio: Database["public"]["Enums"]["tipo_envio"]
           titulo: string
@@ -2625,6 +2742,10 @@ export type Database = {
       medico_atualizar_status_consulta: {
         Args: { p_consulta_id: string; p_status: string }
         Returns: undefined
+      }
+      medico_elegivel_agora: {
+        Args: { p_consulta_id: string; p_medico_id: string }
+        Returns: boolean
       }
       medico_emitir_receita: {
         Args: {
@@ -2659,6 +2780,7 @@ export type Database = {
           paciente_nome: string
           queixa_principal: string
           receita_id: string
+          sintomas: string[]
           status: string
         }[]
       }
@@ -2679,6 +2801,13 @@ export type Database = {
           total_atendimentos: number
           total_pendente: number
           total_recebido: number
+        }[]
+      }
+      medicos_elegiveis_nivel: {
+        Args: { p_consulta_id: string; p_nivel: number }
+        Returns: {
+          medico_id: string
+          medico_user_id: string
         }[]
       }
     }
@@ -2706,7 +2835,12 @@ export type Database = {
         | "gel"
         | "creme"
         | "outro"
-      status_consulta: "agendada" | "em_andamento" | "finalizada" | "cancelada"
+      status_consulta:
+        | "agendada"
+        | "em_andamento"
+        | "finalizada"
+        | "cancelada"
+        | "expirada"
       status_generico: "ativo" | "inativo" | "rascunho"
       status_medico: "ativo" | "inativo" | "pendente_aprovacao"
       status_pedido:
@@ -2878,7 +3012,13 @@ export const Constants = {
         "especifico",
       ],
       forma_farmaceutica: ["oleo", "capsula", "spray", "gel", "creme", "outro"],
-      status_consulta: ["agendada", "em_andamento", "finalizada", "cancelada"],
+      status_consulta: [
+        "agendada",
+        "em_andamento",
+        "finalizada",
+        "cancelada",
+        "expirada",
+      ],
       status_generico: ["ativo", "inativo", "rascunho"],
       status_medico: ["ativo", "inativo", "pendente_aprovacao"],
       status_pedido: [

@@ -22,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getStatusBadge, FILTRO_STATUS_GRUPOS, StatusPedido } from "@/lib/pedidoStatus";
+import { formatCurrency } from "@/lib/utils";
 
 interface PedidoRow {
   id: string;
@@ -35,9 +36,6 @@ interface PedidoRow {
 }
 
 const ITEMS_PER_PAGE = 100;
-
-const formatCurrency = (v: number | null) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v ?? 0);
 
 const formatDate = (d: string | null) => {
   if (!d) return "—";

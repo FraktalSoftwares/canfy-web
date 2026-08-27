@@ -13,6 +13,8 @@ import {
   AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { formatCurrency } from "@/lib/utils";
+import { getConsultaStatusBadge } from "@/lib/consultaStatus";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   ChevronLeft, ChevronRight, Check, MinusCircle, Pencil, X, Download, FileText, AlertTriangle,
@@ -118,21 +120,12 @@ const labelDocumento = (t: string) => DOC_LABEL[t] ?? t.replace(/_/g, " ");
 const MAX_UPLOAD_MB = 10;
 const ACCEPTED_MIMES = ["application/pdf", "image/png", "image/jpeg", "image/jpg"];
 
-const STATUS_CONSULTA_LABEL: Record<string, string> = {
-  agendada: "Agendada",
-  em_andamento: "Em andamento",
-  finalizada: "Finalizada",
-  cancelada: "Cancelada",
-};
 const STATUS_RECEITA_LABEL: Record<string, string> = {
   ativa: "Ativa",
   utilizada: "Utilizada",
   expirada: "Expirada",
   cancelada: "Cancelada",
 };
-
-const formatCurrency = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
 const formatDate = (d: string | null) => {
   if (!d) return "—";
@@ -778,6 +771,7 @@ const MedicoDetalhes = () => {
                 <TableBody>
                   {atendimentos.map((a) => {
                     const isCancNoShow = a.status === "cancelada" && a.cancelada_por === "medico";
+                    const badge = getConsultaStatusBadge(a.status);
                     return (
                       <TableRow key={a.id} className="bg-card border-b border-border/40 hover:bg-muted/30">
                         <TableCell className="text-sm">{formatDateTime(a.data_consulta)}</TableCell>
@@ -785,17 +779,12 @@ const MedicoDetalhes = () => {
                         <TableCell className="text-sm">{a.queixa_principal || "—"}</TableCell>
                         <TableCell>
                           <Badge
-                            className={
-                              isCancNoShow
-                                ? "border-none rounded-full bg-card-red text-destructive hover:bg-card-red"
-                                : a.status === "finalizada"
-                                ? "border-none rounded-full bg-card-green text-[hsl(var(--primary-dark))] hover:bg-card-green"
-                                : a.status === "cancelada"
-                                ? "border-none rounded-full bg-muted text-muted-foreground hover:bg-muted"
-                                : "border-none rounded-full bg-card-blue text-[hsl(207_89%_35%)] hover:bg-card-blue"
-                            }
+                            className="border-none rounded-full hover:opacity-100"
+                            style={isCancNoShow
+                              ? { backgroundColor: "hsl(var(--card-red))", color: "hsl(var(--destructive))" }
+                              : { backgroundColor: badge.bg, color: badge.fg }}
                           >
-                            {isCancNoShow ? "Ausência" : STATUS_CONSULTA_LABEL[a.status] || a.status}
+                            {isCancNoShow ? "Ausência" : badge.label}
                           </Badge>
                         </TableCell>
                       </TableRow>

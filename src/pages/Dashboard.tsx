@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import StatCard from "@/components/StatCard";
-import { Button } from "@/components/ui/button";
+import { PeriodoFilter, Periodo, periodoMesAtual } from "@/components/PeriodoFilter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, Star } from "lucide-react";
+import { Star } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { formatCurrency } from "@/lib/utils";
 import {
   BarChart,
   Bar,
@@ -27,12 +28,22 @@ interface DashboardStats {
   medicos_ativos: number;
   pacientes_ativos: number;
   associacoes_ativas: number;
+  faturamento_pedidos: number;
+  consultas_finalizadas: number;
+  faturamento_consultas: number;
+  faturamento_total: number;
 }
 
 interface MonthlyData {
   month: number;
   month_name: string;
   count: number;
+}
+
+interface MonthlyFaturamento {
+  month: number;
+  month_name: string;
+  valor: number;
 }
 
 interface FeedbacksResumo {
@@ -62,19 +73,13 @@ interface RecentMedico {
   created_at: string;
 }
 
-const MESES = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
-];
-
 const Dashboard = () => {
   const { toast } = useToast();
-  const now = new Date();
-  const [currentYear, setCurrentYear] = useState(now.getFullYear());
-  const [currentMonth, setCurrentMonth] = useState(now.getMonth() + 1);
+  const [periodo, setPeriodo] = useState<Periodo>(periodoMesAtual());
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [receitasData, setReceitasData] = useState<MonthlyData[]>([]);
   const [pedidosData, setPedidosData] = useState<MonthlyData[]>([]);
+  const [faturamentoData, setFaturamentoData] = useState<MonthlyFaturamento[]>([]);
   const [recentAnvisa, setRecentAnvisa] = useState<RecentAnvisa[]>([]);
   const [recentMedicos, setRecentMedicos] = useState<RecentMedico[]>([]);
   const [feedbacks, setFeedbacks] = useState<FeedbacksResumo | null>(null);
@@ -82,15 +87,18 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, [currentYear, currentMonth]);
+  }, [periodo]);
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
+      const p_data_ini = periodo.from.toISOString();
+      const p_data_fim = periodo.to.toISOString();
+      const ano = periodo.to.getFullYear();
 
       const { data: statsData, error: statsError } = await supabase.rpc(
         "admin_get_dashboard_stats",
-        { p_year: currentYear, p_month: currentMonth }
+        { p_data_ini, p_data_fim }
       );
 
       if (statsError) {
@@ -111,17 +119,24 @@ const Dashboard = () => {
 
       const { data: receitasMonthly, error: receitasError } = await supabase.rpc(
         "admin_get_monthly_receitas",
-        { p_year: currentYear }
+        { p_year: ano }
       );
       if (receitasError && !receitasError.message.includes("not authorized")) throw receitasError;
       setReceitasData(receitasMonthly || []);
 
       const { data: pedidosMonthly, error: pedidosError } = await supabase.rpc(
         "admin_get_monthly_pedidos",
-        { p_year: currentYear }
+        { p_year: ano }
       );
       if (pedidosError && !pedidosError.message.includes("not authorized")) throw pedidosError;
       setPedidosData(pedidosMonthly || []);
+
+      const { data: faturamentoMonthly, error: faturamentoError } = await supabase.rpc(
+        "admin_get_monthly_faturamento",
+        { p_year: ano }
+      );
+      if (faturamentoError && !faturamentoError.message.includes("not authorized")) throw faturamentoError;
+      setFaturamentoData(faturamentoMonthly || []);
 
       const { data: anvisa, error: anvisaError } = await supabase.rpc(
         "admin_get_recent_anvisa",
@@ -138,7 +153,8 @@ const Dashboard = () => {
       setRecentMedicos(medicos || []);
 
       const { data: feedbacksResumo, error: feedbacksError } = await supabase.rpc(
-        "admin_get_feedbacks_resumo"
+        "admin_get_feedbacks_resumo",
+        { p_data_ini, p_data_fim }
       );
       if (feedbacksError && !feedbacksError.message.includes("not authorized")) throw feedbacksError;
       if (feedbacksResumo && feedbacksResumo.length > 0)
@@ -153,15 +169,6 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const stepMonth = (delta: number) => {
-    let m = currentMonth + delta;
-    let y = currentYear;
-    if (m < 1) { m = 12; y -= 1; }
-    if (m > 12) { m = 1; y += 1; }
-    setCurrentMonth(m);
-    setCurrentYear(y);
   };
 
   const anvisaTag = (status: AnvisaStatus) => {
@@ -193,44 +200,39 @@ const Dashboard = () => {
 
 
       <div className="px-6 py-8 max-w-[1400px] mx-auto">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => stepMonth(-1)}
-              className="h-9 w-9 rounded-full bg-card-green hover:bg-card-green/80"
-              aria-label="Mês anterior"
-            >
-              <ChevronLeft className="h-4 w-4 text-primary" />
-            </Button>
-            <div className="bg-card-green px-6 py-2 rounded-full min-w-[140px] text-center">
-              <span className="text-sm font-semibold text-primary">{MESES[currentMonth - 1]}</span>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => stepMonth(1)}
-              className="h-9 w-9 rounded-full bg-card-green hover:bg-card-green/80"
-              aria-label="Próximo mês"
-            >
-              <ChevronRight className="h-4 w-4 text-primary" />
-            </Button>
-          </div>
+          <PeriodoFilter value={periodo} onChange={setPeriodo} />
         </div>
 
         <div className="grid grid-cols-3 gap-4 mb-4">
-          <StatCard title="Receitas emitidas" value={stats?.receitas_emitidas ?? 0} />
-          <StatCard title="Pedidos realizados" value={stats?.pedidos_realizados ?? 0} />
-          <StatCard title="Produtos no catálogo" value={stats?.produtos_catalogo ?? 0} />
+          <StatCard
+            title="Faturamento total"
+            value={formatCurrency(stats?.faturamento_total)}
+            subtitle={periodo.label}
+          />
+          <StatCard
+            title="Faturamento de pedidos"
+            value={formatCurrency(stats?.faturamento_pedidos)}
+            subtitle={periodo.label}
+          />
+          <StatCard
+            title="Faturamento de consultas"
+            value={formatCurrency(stats?.faturamento_consultas)}
+            subtitle={`${stats?.consultas_finalizadas ?? 0} consultas finalizadas`}
+          />
+        </div>
+
+        <div className="grid grid-cols-3 gap-4 mb-4">
+          <StatCard title="Receitas emitidas" value={stats?.receitas_emitidas ?? 0} subtitle={periodo.label} />
+          <StatCard title="Pedidos realizados" value={stats?.pedidos_realizados ?? 0} subtitle={periodo.label} />
+          <StatCard title="Produtos no catálogo" value={stats?.produtos_catalogo ?? 0} subtitle="total atual" />
         </div>
 
         <div className="grid grid-cols-3 gap-4 mb-8">
-          <StatCard title="Médicos ativos" value={stats?.medicos_ativos ?? 0} />
-          <StatCard title="Pacientes ativos" value={stats?.pacientes_ativos ?? 0} />
-          <StatCard title="Associações/marcas ativas" value={stats?.associacoes_ativas ?? 0} />
+          <StatCard title="Médicos ativos" value={stats?.medicos_ativos ?? 0} subtitle="total atual" />
+          <StatCard title="Pacientes ativos" value={stats?.pacientes_ativos ?? 0} subtitle="total atual" />
+          <StatCard title="Associações/marcas ativas" value={stats?.associacoes_ativas ?? 0} subtitle="total atual" />
         </div>
 
         {/* Feedbacks de consultas */}
@@ -277,6 +279,7 @@ const Dashboard = () => {
             Receitas e pedidos ao longo do ano
           </h2>
           <div className="space-y-6">
+            <FaturamentoBarsCard title="Faturamento mensal" data={faturamentoData} />
             <BarsCard title="Receitas emitidas" data={receitasData} />
             <BarsCard title="Pedidos realizados" data={pedidosData} />
           </div>
@@ -416,6 +419,54 @@ function BarsCard({ title, data }: { title: string; data: MonthlyData[] }) {
               <LabelList
                 dataKey="value"
                 position="insideTop"
+                style={{ fill: "#fff", fontSize: 11, fontWeight: 600 }}
+              />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
+function FaturamentoBarsCard({ title, data }: { title: string; data: MonthlyFaturamento[] }) {
+  const chartData = data.map((d) => ({ month: d.month_name, value: Number(d.valor) }));
+  const compactCurrency = (v: number) =>
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact" }).format(v);
+  return (
+    <Card className="rounded-[10px] bg-secondary border-none">
+      <CardHeader>
+        <CardTitle className="text-base font-normal text-muted-foreground">{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ResponsiveContainer width="100%" height={260}>
+          <BarChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+            <XAxis
+              dataKey="month"
+              axisLine={false}
+              tickLine={false}
+              className="text-xs"
+              tick={{ fill: "hsl(var(--muted-foreground))" }}
+            />
+            <YAxis
+              axisLine={false}
+              tickLine={false}
+              className="text-xs"
+              tick={{ fill: "hsl(var(--muted-foreground))" }}
+              tickFormatter={compactCurrency}
+            />
+            <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+              {chartData.map((_, i) => (
+                <Cell
+                  key={i}
+                  fill={i % 2 === 0 ? "hsl(var(--primary-hover))" : "hsl(var(--primary-dark))"}
+                />
+              ))}
+              <LabelList
+                dataKey="value"
+                position="insideTop"
+                formatter={(v: number) => compactCurrency(v)}
                 style={{ fill: "#fff", fontSize: 11, fontWeight: 600 }}
               />
             </Bar>

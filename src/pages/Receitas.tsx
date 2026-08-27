@@ -25,6 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { getStatusBadge } from "@/lib/pedidoStatus";
+import { formatCurrency } from "@/lib/utils";
 
 interface Receita {
   id: string;
@@ -223,13 +224,6 @@ const Receitas = () => {
   });
 
   const totalPages = Math.ceil(totalCount / itemsPerPage);
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
 
   const formatDate = (dateString: string) => {
     try {

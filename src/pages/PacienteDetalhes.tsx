@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -16,6 +17,7 @@ import {
   AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { ConsultasHistorico } from "@/components/paciente/ConsultasHistorico";
 import {
   ChevronLeft, ChevronRight, Check, Copy, Download, MinusCircle,
   Pencil, X, FileText, CloudUpload, Loader2, Trash2,
@@ -30,6 +32,7 @@ import { MASK_MAX_LENGTH, maskCPF, maskTelefone } from "@/lib/masks";
 import { patientUpdateSchema } from "@/lib/validations";
 import { getUserFriendlyError, getValidationError } from "@/lib/errorUtils";
 import { usePermissions } from "@/hooks/usePermissions";
+import { formatCurrency } from "@/lib/utils";
 
 interface PacienteData {
   id: string;
@@ -74,15 +77,6 @@ interface DocumentoRow {
   arquivo_url: string;
   categoria: "usuario" | "produto";
   created_at: string;
-}
-
-interface ConsultaRow {
-  id: string;
-  data_consulta: string;
-  status: string;
-  queixa_principal: string | null;
-  medico_nome: string | null;
-  receita_id: string | null;
 }
 
 interface ReceitaRow {
@@ -153,12 +147,6 @@ const USER_DOC_SLOTS: Array<{ tipo: string; label: string }> = [
 const MAX_UPLOAD_MB = 10;
 const ACCEPTED_MIMES = ["application/pdf", "image/png", "image/jpeg", "image/jpg"];
 
-const STATUS_CONSULTA: Record<string, string> = {
-  agendada: "Agendada",
-  em_andamento: "Em andamento",
-  finalizada: "Finalizada",
-  cancelada: "Cancelada",
-};
 const STATUS_RECEITA: Record<string, string> = {
   ativa: "Ativa",
   utilizada: "Utilizada",
@@ -176,9 +164,6 @@ const STATUS_PEDIDO: Record<string, string> = {
   entregue: "Entregue",
 };
 
-const formatCurrency = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
-
 const formatDate = (d: string | null) => {
   if (!d) return "—";
   try {
@@ -194,6 +179,13 @@ const PacienteDetalhes = () => {
   const { toast } = useToast();
   const { podeEditar } = usePermissions();
   const podeEditarUsuarios = podeEditar("usuarios");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") || "dados";
+  const setActiveTab = (tab: string) => setSearchParams((prev) => {
+    const next = new URLSearchParams(prev);
+    next.set("tab", tab);
+    return next;
+  });
 
   const [paciente, setPaciente] = useState<PacienteData | null>(null);
   const [pagamentos, setPagamentos] = useState<PagamentoRow[]>([]);
@@ -221,17 +213,8 @@ const PacienteDetalhes = () => {
     sexo: "",
   });
 
-  const [showConsultasModal, setShowConsultasModal] = useState(false);
-  const [consultas, setConsultas] = useState<ConsultaRow[]>([]);
-  const [loadingConsultas, setLoadingConsultas] = useState(false);
-
-  const [showReceitasModal, setShowReceitasModal] = useState(false);
   const [receitas, setReceitas] = useState<ReceitaRow[]>([]);
-  const [loadingReceitas, setLoadingReceitas] = useState(false);
-
-  const [showPedidosModal, setShowPedidosModal] = useState(false);
   const [pedidos, setPedidos] = useState<PedidoRow[]>([]);
-  const [loadingPedidos, setLoadingPedidos] = useState(false);
 
   const [prontuarios, setProntuarios] = useState<ProntuarioRow[]>([]);
 
@@ -257,13 +240,17 @@ const PacienteDetalhes = () => {
   const fetchAll = async () => {
     try {
       setLoading(true);
-      const [{ data: pacData, error: pacErr }, { data: pagData }, { data: docData }, { data: anaData }, { data: prontData }] =
-        await Promise.all([
+      const [
+        { data: pacData, error: pacErr }, { data: pagData }, { data: docData }, { data: anaData },
+        { data: prontData }, { data: receitasData }, { data: pedidosData },
+      ] = await Promise.all([
           supabase.rpc("admin_get_paciente", { p_id: id! }),
           supabase.rpc("admin_get_paciente_pagamentos", { p_paciente_id: id! }),
           supabase.rpc("admin_get_paciente_documentos", { p_paciente_id: id! }),
           supabase.rpc("admin_get_paciente_anamnese", { p_paciente_id: id! }),
           supabase.rpc("admin_get_paciente_prontuarios", { p_paciente_id: id! }),
+          supabase.rpc("admin_get_paciente_receitas", { p_paciente_id: id!, p_limit: 200 }),
+          supabase.rpc("admin_get_paciente_pedidos", { p_paciente_id: id!, p_limit: 200 }),
         ]);
 
       if (pacErr) throw pacErr;
@@ -294,58 +281,12 @@ const PacienteDetalhes = () => {
         setAnamnese((anaData as Anamnese[])[0]);
       }
       setProntuarios((prontData as ProntuarioRow[]) || []);
+      setReceitas((receitasData as ReceitaRow[]) || []);
+      setPedidos((pedidosData as PedidoRow[]) || []);
     } catch (e: any) {
       toast({ title: "Erro ao carregar paciente", description: e.message, variant: "destructive" });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const openConsultas = async () => {
-    setShowConsultasModal(true);
-    if (consultas.length === 0) {
-      setLoadingConsultas(true);
-      try {
-        const { data, error } = await supabase.rpc("admin_get_paciente_consultas", { p_paciente_id: id!, p_limit: 200 });
-        if (error) throw error;
-        setConsultas((data as ConsultaRow[]) || []);
-      } catch (e: any) {
-        toast({ title: "Erro ao carregar consultas", description: e.message, variant: "destructive" });
-      } finally {
-        setLoadingConsultas(false);
-      }
-    }
-  };
-
-  const openReceitas = async () => {
-    setShowReceitasModal(true);
-    if (receitas.length === 0) {
-      setLoadingReceitas(true);
-      try {
-        const { data, error } = await supabase.rpc("admin_get_paciente_receitas", { p_paciente_id: id!, p_limit: 200 });
-        if (error) throw error;
-        setReceitas((data as ReceitaRow[]) || []);
-      } catch (e: any) {
-        toast({ title: "Erro ao carregar receitas", description: e.message, variant: "destructive" });
-      } finally {
-        setLoadingReceitas(false);
-      }
-    }
-  };
-
-  const openPedidos = async () => {
-    setShowPedidosModal(true);
-    if (pedidos.length === 0) {
-      setLoadingPedidos(true);
-      try {
-        const { data, error } = await supabase.rpc("admin_get_paciente_pedidos", { p_paciente_id: id!, p_limit: 200 });
-        if (error) throw error;
-        setPedidos((data as PedidoRow[]) || []);
-      } catch (e: any) {
-        toast({ title: "Erro ao carregar pedidos", description: e.message, variant: "destructive" });
-      } finally {
-        setLoadingPedidos(false);
-      }
     }
   };
 
@@ -595,6 +536,26 @@ const PacienteDetalhes = () => {
           <span className="text-foreground font-medium">{paciente.nome_completo}</span>
         </nav>
 
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="mb-6 bg-transparent border-b border-border rounded-none w-full h-auto p-0 grid grid-cols-5">
+            <TabsTrigger value="dados" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:font-semibold pb-3">
+              Dados
+            </TabsTrigger>
+            <TabsTrigger value="consultas" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:font-semibold pb-3">
+              Consultas
+            </TabsTrigger>
+            <TabsTrigger value="receitas" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:font-semibold pb-3">
+              Receitas
+            </TabsTrigger>
+            <TabsTrigger value="pedidos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:font-semibold pb-3">
+              Pedidos
+            </TabsTrigger>
+            <TabsTrigger value="documentos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:font-semibold pb-3">
+              Documentos
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="dados" className="mt-0">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-foreground">Dados do usuário</h2>
           <div className="flex gap-3">
@@ -768,9 +729,9 @@ const PacienteDetalhes = () => {
 
         <h2 className="text-xl font-bold text-foreground mb-4">Dados de uso</h2>
         <div className="grid grid-cols-3 gap-4 mb-8">
-          <UsageCard label="Nº de consultas realizadas" value={paciente.total_consultas} onClick={openConsultas} />
-          <UsageCard label="Nº de receitas emitidas" value={paciente.total_receitas} onClick={openReceitas} />
-          <UsageCard label="Nº de pedidos realizados" value={paciente.total_pedidos} onClick={openPedidos} />
+          <UsageCard label="Nº de consultas realizadas" value={paciente.total_consultas} onClick={() => setActiveTab("consultas")} />
+          <UsageCard label="Nº de receitas emitidas" value={paciente.total_receitas} onClick={() => setActiveTab("receitas")} />
+          <UsageCard label="Nº de pedidos realizados" value={paciente.total_pedidos} onClick={() => setActiveTab("pedidos")} />
         </div>
 
         <h2 className="text-xl font-bold text-foreground mb-4">Histórico de pagamentos</h2>
@@ -796,117 +757,6 @@ const PacienteDetalhes = () => {
                     <TableCell className="text-sm">{formatDate(p.data_pagamento)}</TableCell>
                     <TableCell className="text-sm">{p.tipo}</TableCell>
                     <TableCell className="text-sm font-semibold">{formatCurrency(Number(p.valor))}</TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </Card>
-
-        <h2 className="text-xl font-bold text-foreground mb-4">Documentos do usuário</h2>
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          {USER_DOC_SLOTS.map((slot) => {
-            const doc = docsUsuario.find((d) => d.tipo === slot.tipo);
-            return (
-              <DocSlot
-                key={slot.tipo}
-                tipo={slot.tipo}
-                label={slot.label}
-                doc={doc}
-                editing={isEditing}
-                uploading={uploadingTipo === slot.tipo}
-                onUpload={(f) => handleUploadDoc(slot.tipo, f)}
-                onDelete={doc ? () => handleDeleteDoc(doc.id) : undefined}
-              />
-            );
-          })}
-          {/* Docs extras de usuário fora dos slots canônicos */}
-          {docsUsuario
-            .filter((d) => !USER_DOC_SLOTS.some((s) => s.tipo === d.tipo))
-            .map((doc) => (
-              <Card key={doc.id} className="rounded-[16px] bg-secondary border-none">
-                <CardContent className="px-6 py-6 flex items-center justify-between">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <FileText className="h-4 w-4 shrink-0 text-primary" />
-                    <a href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
-                       className="text-primary font-medium hover:underline truncate">
-                      {doc.nome_arquivo}
-                    </a>
-                  </div>
-                  <a href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
-                     className="text-primary hover:text-primary-dark shrink-0 ml-3" aria-label="Baixar">
-                    <Download className="h-4 w-4" />
-                  </a>
-                </CardContent>
-              </Card>
-            ))}
-        </div>
-
-        {!isEditing && (
-          <>
-            <h2 className="text-xl font-bold text-foreground mb-4">Documentos por pedido</h2>
-            <div className="grid grid-cols-2 gap-4 mb-8">
-              {docsProduto.length === 0 ? (
-                <p className="text-muted-foreground italic col-span-2">Nenhum documento de pedido.</p>
-              ) : (
-                docsProduto.map((doc) => (
-                  <Card key={doc.id} className="rounded-[16px] bg-secondary border-none">
-                    <CardContent className="px-6 py-6 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <FileText className="h-4 w-4 shrink-0 text-primary" />
-                        <a href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
-                           className="text-primary font-medium hover:underline truncate" title={doc.nome_arquivo}>
-                          {doc.nome_arquivo}
-                        </a>
-                      </div>
-                      <a href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
-                         className="text-primary hover:text-primary-dark shrink-0" aria-label="Baixar">
-                        <Download className="h-4 w-4" />
-                      </a>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
-          </>
-        )}
-
-        <h2 className="text-xl font-bold text-foreground mb-4">Prontuários</h2>
-        <Card className="rounded-[10px] bg-secondary border-none mb-8 overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-primary hover:bg-primary border-none">
-                <TableHead className="font-semibold text-white">Data</TableHead>
-                <TableHead className="font-semibold text-white">Médico</TableHead>
-                <TableHead className="font-semibold text-white">Status</TableHead>
-                <TableHead className="font-semibold text-white text-right">Arquivo</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {prontuarios.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                    Nenhum prontuário gerado
-                  </TableCell>
-                </TableRow>
-              ) : (
-                prontuarios.map((pr) => (
-                  <TableRow key={pr.id} className="bg-card border-b border-border/40 hover:bg-muted/30">
-                    <TableCell>{formatDate(pr.created_at)}</TableCell>
-                    <TableCell>{pr.medico_nome || "—"}</TableCell>
-                    <TableCell>
-                      <Badge className="border-none rounded-full bg-card-blue text-[hsl(207_89%_35%)] hover:bg-card-blue">
-                        {pr.status === "finalizado" ? "Finalizado" : "Rascunho"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {pr.arquivo_url ? (
-                        <a href={pr.arquivo_url} target="_blank" rel="noopener noreferrer"
-                           className="text-primary hover:text-primary-dark inline-flex items-center gap-1">
-                          <Download className="h-4 w-4" /> baixar
-                        </a>
-                      ) : <span className="text-muted-foreground text-sm">—</span>}
-                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -1021,112 +871,14 @@ const PacienteDetalhes = () => {
             )}
           </CardContent>
         </Card>
-      </div>
+          </TabsContent>
 
-      <Dialog open={showAnvisaDialog} onOpenChange={setShowAnvisaDialog}>
-        <DialogContent className="sm:max-w-[620px] max-h-[85vh] overflow-hidden p-6 [&>button]:hidden">
-          <DialogHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-xl font-semibold">Dados para solicitação Anvisa</DialogTitle>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowAnvisaDialog(false)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground mb-3">
-            Copie cada campo individualmente para colar no portal gov.br ou copie tudo de uma vez.
-          </p>
-          <div className="space-y-2 overflow-y-auto max-h-[55vh]">
-            {anvisaCampos.map((c) => (
-              <div key={c.label} className="flex items-center justify-between gap-3 bg-card-green/40 rounded-[10px] px-4 py-2">
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">{c.label}</p>
-                  <p className="text-sm font-semibold text-foreground truncate">{c.value || "—"}</p>
-                </div>
-                <Button
-                  variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-primary"
-                  onClick={() => copy(c.value || "", c.label)}
-                  disabled={!c.value}
-                  aria-label={`Copiar ${c.label}`}
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-3 mt-4">
-            <Button variant="outline" className="flex-1 rounded-full" onClick={() => setShowAnvisaDialog(false)}>
-              Fechar
-            </Button>
-            <Button className="flex-1 bg-primary text-white hover:bg-primary-dark rounded-full gap-2" onClick={handleCopyAnvisa}>
-              <Copy className="h-4 w-4" />
-              Copiar tudo
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          <TabsContent value="consultas" className="mt-0">
+            <ConsultasHistorico pacienteId={id!} />
+          </TabsContent>
 
-      {/* Modal Consultas */}
-      <Dialog open={showConsultasModal} onOpenChange={setShowConsultasModal}>
-        <DialogContent className="sm:max-w-[820px] max-h-[80vh] overflow-hidden p-6 [&>button]:hidden">
-          <DialogHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-xl font-semibold">Consultas realizadas</DialogTitle>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowConsultasModal(false)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </DialogHeader>
-          <div className="overflow-y-auto max-h-[60vh]">
-            {loadingConsultas ? (
-              <p className="text-center py-8 text-muted-foreground">Carregando...</p>
-            ) : consultas.length === 0 ? (
-              <p className="text-center py-8 text-muted-foreground">Nenhuma consulta encontrada.</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-table-head hover:bg-table-head border-none">
-                    <TableHead>Data</TableHead>
-                    <TableHead>Médico</TableHead>
-                    <TableHead>Queixa</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {consultas.map((c) => (
-                    <TableRow key={c.id} className="bg-card border-b border-border/40 hover:bg-muted/30">
-                      <TableCell className="text-sm">{formatDate(c.data_consulta)}</TableCell>
-                      <TableCell className="font-medium">{c.medico_nome || "—"}</TableCell>
-                      <TableCell className="text-sm">{c.queixa_principal || "—"}</TableCell>
-                      <TableCell>
-                        <Badge className="border-none rounded-full bg-card-blue text-[hsl(207_89%_35%)] hover:bg-card-blue">
-                          {STATUS_CONSULTA[c.status] || c.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal Receitas */}
-      <Dialog open={showReceitasModal} onOpenChange={setShowReceitasModal}>
-        <DialogContent className="sm:max-w-[820px] max-h-[80vh] overflow-hidden p-6 [&>button]:hidden">
-          <DialogHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-xl font-semibold">Receitas emitidas</DialogTitle>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowReceitasModal(false)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </DialogHeader>
-          <div className="overflow-y-auto max-h-[60vh]">
-            {loadingReceitas ? (
-              <p className="text-center py-8 text-muted-foreground">Carregando...</p>
-            ) : receitas.length === 0 ? (
+          <TabsContent value="receitas" className="mt-0">
+            {receitas.length === 0 ? (
               <p className="text-center py-8 text-muted-foreground">Nenhuma receita emitida.</p>
             ) : (
               <Table>
@@ -1169,25 +921,10 @@ const PacienteDetalhes = () => {
                 </TableBody>
               </Table>
             )}
-          </div>
-        </DialogContent>
-      </Dialog>
+          </TabsContent>
 
-      {/* Modal Pedidos */}
-      <Dialog open={showPedidosModal} onOpenChange={setShowPedidosModal}>
-        <DialogContent className="sm:max-w-[820px] max-h-[80vh] overflow-hidden p-6 [&>button]:hidden">
-          <DialogHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-xl font-semibold">Pedidos realizados</DialogTitle>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowPedidosModal(false)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </DialogHeader>
-          <div className="overflow-y-auto max-h-[60vh]">
-            {loadingPedidos ? (
-              <p className="text-center py-8 text-muted-foreground">Carregando...</p>
-            ) : pedidos.length === 0 ? (
+          <TabsContent value="pedidos" className="mt-0">
+            {pedidos.length === 0 ? (
               <p className="text-center py-8 text-muted-foreground">Nenhum pedido encontrado.</p>
             ) : (
               <Table>
@@ -1223,6 +960,162 @@ const PacienteDetalhes = () => {
                 </TableBody>
               </Table>
             )}
+          </TabsContent>
+
+          <TabsContent value="documentos" className="mt-0">
+            <h2 className="text-xl font-bold text-foreground mb-4">Documentos do usuário</h2>
+            <div className="grid grid-cols-2 gap-4 mb-8">
+              {USER_DOC_SLOTS.map((slot) => {
+                const doc = docsUsuario.find((d) => d.tipo === slot.tipo);
+                return (
+                  <DocSlot
+                    key={slot.tipo}
+                    tipo={slot.tipo}
+                    label={slot.label}
+                    doc={doc}
+                    editing={isEditing}
+                    uploading={uploadingTipo === slot.tipo}
+                    onUpload={(f) => handleUploadDoc(slot.tipo, f)}
+                    onDelete={doc ? () => handleDeleteDoc(doc.id) : undefined}
+                  />
+                );
+              })}
+              {/* Docs extras de usuário fora dos slots canônicos */}
+              {docsUsuario
+                .filter((d) => !USER_DOC_SLOTS.some((s) => s.tipo === d.tipo))
+                .map((doc) => (
+                  <Card key={doc.id} className="rounded-[16px] bg-secondary border-none">
+                    <CardContent className="px-6 py-6 flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <FileText className="h-4 w-4 shrink-0 text-primary" />
+                        <a href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
+                           className="text-primary font-medium hover:underline truncate">
+                          {doc.nome_arquivo}
+                        </a>
+                      </div>
+                      <a href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
+                         className="text-primary hover:text-primary-dark shrink-0 ml-3" aria-label="Baixar">
+                        <Download className="h-4 w-4" />
+                      </a>
+                    </CardContent>
+                  </Card>
+                ))}
+            </div>
+
+            {!isEditing && (
+              <>
+                <h2 className="text-xl font-bold text-foreground mb-4">Documentos por pedido</h2>
+                <div className="grid grid-cols-2 gap-4 mb-8">
+                  {docsProduto.length === 0 ? (
+                    <p className="text-muted-foreground italic col-span-2">Nenhum documento de pedido.</p>
+                  ) : (
+                    docsProduto.map((doc) => (
+                      <Card key={doc.id} className="rounded-[16px] bg-secondary border-none">
+                        <CardContent className="px-6 py-6 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <FileText className="h-4 w-4 shrink-0 text-primary" />
+                            <a href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
+                               className="text-primary font-medium hover:underline truncate" title={doc.nome_arquivo}>
+                              {doc.nome_arquivo}
+                            </a>
+                          </div>
+                          <a href={doc.arquivo_url} target="_blank" rel="noopener noreferrer"
+                             className="text-primary hover:text-primary-dark shrink-0" aria-label="Baixar">
+                            <Download className="h-4 w-4" />
+                          </a>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
+
+            <h2 className="text-xl font-bold text-foreground mb-4">Prontuários</h2>
+            <Card className="rounded-[10px] bg-secondary border-none mb-8 overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-primary hover:bg-primary border-none">
+                    <TableHead className="font-semibold text-white">Data</TableHead>
+                    <TableHead className="font-semibold text-white">Médico</TableHead>
+                    <TableHead className="font-semibold text-white">Status</TableHead>
+                    <TableHead className="font-semibold text-white text-right">Arquivo</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {prontuarios.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                        Nenhum prontuário gerado
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    prontuarios.map((pr) => (
+                      <TableRow key={pr.id} className="bg-card border-b border-border/40 hover:bg-muted/30">
+                        <TableCell>{formatDate(pr.created_at)}</TableCell>
+                        <TableCell>{pr.medico_nome || "—"}</TableCell>
+                        <TableCell>
+                          <Badge className="border-none rounded-full bg-card-blue text-[hsl(207_89%_35%)] hover:bg-card-blue">
+                            {pr.status === "finalizado" ? "Finalizado" : "Rascunho"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {pr.arquivo_url ? (
+                            <a href={pr.arquivo_url} target="_blank" rel="noopener noreferrer"
+                               className="text-primary hover:text-primary-dark inline-flex items-center gap-1">
+                              <Download className="h-4 w-4" /> baixar
+                            </a>
+                          ) : <span className="text-muted-foreground text-sm">—</span>}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      <Dialog open={showAnvisaDialog} onOpenChange={setShowAnvisaDialog}>
+        <DialogContent className="sm:max-w-[620px] max-h-[85vh] overflow-hidden p-6 [&>button]:hidden">
+          <DialogHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-xl font-semibold">Dados para solicitação Anvisa</DialogTitle>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowAnvisaDialog(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground mb-3">
+            Copie cada campo individualmente para colar no portal gov.br ou copie tudo de uma vez.
+          </p>
+          <div className="space-y-2 overflow-y-auto max-h-[55vh]">
+            {anvisaCampos.map((c) => (
+              <div key={c.label} className="flex items-center justify-between gap-3 bg-card-green/40 rounded-[10px] px-4 py-2">
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">{c.label}</p>
+                  <p className="text-sm font-semibold text-foreground truncate">{c.value || "—"}</p>
+                </div>
+                <Button
+                  variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-primary"
+                  onClick={() => copy(c.value || "", c.label)}
+                  disabled={!c.value}
+                  aria-label={`Copiar ${c.label}`}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-3 mt-4">
+            <Button variant="outline" className="flex-1 rounded-full" onClick={() => setShowAnvisaDialog(false)}>
+              Fechar
+            </Button>
+            <Button className="flex-1 bg-primary text-white hover:bg-primary-dark rounded-full gap-2" onClick={handleCopyAnvisa}>
+              <Copy className="h-4 w-4" />
+              Copiar tudo
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
