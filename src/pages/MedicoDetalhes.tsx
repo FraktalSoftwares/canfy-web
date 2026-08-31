@@ -13,8 +13,10 @@ import {
   AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/utils";
 import { getConsultaStatusBadge } from "@/lib/consultaStatus";
+import { getRepasseStatusBadge, STATUS_REPASSE_OPCOES } from "@/lib/repasseStatus";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   ChevronLeft, ChevronRight, Check, MinusCircle, Pencil, X, Download, FileText, AlertTriangle,
@@ -155,6 +157,7 @@ const MedicoDetalhes = () => {
   const [medico, setMedico] = useState<MedicoData | null>(null);
   const [documentos, setDocumentos] = useState<DocumentoRow[]>([]);
   const [repasses, setRepasses] = useState<RepasseRow[]>([]);
+  const [savingRepasseId, setSavingRepasseId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [isEditing, setIsEditing] = useState(false);
@@ -263,6 +266,23 @@ const MedicoDetalhes = () => {
       toast({ title: "Erro ao salvar", description: e.message, variant: "destructive" });
     } finally {
       setSavingObs(false);
+    }
+  };
+
+  const handleUpdateRepasseStatus = async (repasseId: string, novoStatus: string) => {
+    try {
+      setSavingRepasseId(repasseId);
+      const { error } = await supabase.rpc("admin_update_repasse_status", {
+        p_id: repasseId,
+        p_status: novoStatus,
+      });
+      if (error) throw error;
+      toast({ title: "Status do repasse atualizado" });
+      fetchAll();
+    } catch (e: any) {
+      toast({ title: "Erro ao atualizar status", description: getUserFriendlyError(e), variant: "destructive" });
+    } finally {
+      setSavingRepasseId(null);
     }
   };
 
@@ -696,22 +716,48 @@ const MedicoDetalhes = () => {
               <TableRow className="bg-table-head hover:bg-table-head border-none">
                 <TableHead className="font-normal text-foreground">Data do repasse</TableHead>
                 <TableHead className="font-normal text-foreground">Valor</TableHead>
+                <TableHead className="font-normal text-foreground">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {repasses.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={2} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
                     Nenhum repasse registrado
                   </TableCell>
                 </TableRow>
               ) : (
-                repasses.map((r) => (
-                  <TableRow key={r.id} className="bg-secondary border-b border-border/40 hover:bg-muted/30">
-                    <TableCell className="text-sm">{formatDate(r.data_repasse)}</TableCell>
-                    <TableCell className="text-sm font-semibold">{formatCurrency(Number(r.valor))}</TableCell>
-                  </TableRow>
-                ))
+                repasses.map((r) => {
+                  const badge = getRepasseStatusBadge(r.status);
+                  return (
+                    <TableRow key={r.id} className="bg-secondary border-b border-border/40 hover:bg-muted/30">
+                      <TableCell className="text-sm">{formatDate(r.data_repasse)}</TableCell>
+                      <TableCell className="text-sm font-semibold">{formatCurrency(Number(r.valor))}</TableCell>
+                      <TableCell className="text-sm">
+                        {podeEditarUsuarios ? (
+                          <Select
+                            value={r.status}
+                            disabled={savingRepasseId === r.id}
+                            onValueChange={(v) => handleUpdateRepasseStatus(r.id, v)}
+                          >
+                            <SelectTrigger className="h-8 w-[140px] bg-card">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {STATUS_REPASSE_OPCOES.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Badge style={{ backgroundColor: badge.bg, color: badge.fg }}>
+                            {badge.label}
+                          </Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
