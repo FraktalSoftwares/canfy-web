@@ -242,6 +242,11 @@ export type Database = {
       }
       chat_mensagens: {
         Row: {
+          anexo_duracao_ms: number | null
+          anexo_mime: string | null
+          anexo_nome: string | null
+          anexo_path: string | null
+          anexo_tamanho: number | null
           anexo_tipo: string | null
           anexo_url: string | null
           consulta_id: string
@@ -253,17 +258,27 @@ export type Database = {
           remetente_tipo: string
         }
         Insert: {
+          anexo_duracao_ms?: number | null
+          anexo_mime?: string | null
+          anexo_nome?: string | null
+          anexo_path?: string | null
+          anexo_tamanho?: number | null
           anexo_tipo?: string | null
           anexo_url?: string | null
           consulta_id: string
           created_at?: string | null
           id?: string
           lida?: boolean | null
-          mensagem: string
+          mensagem?: string
           remetente_id: string
           remetente_tipo: string
         }
         Update: {
+          anexo_duracao_ms?: number | null
+          anexo_mime?: string | null
+          anexo_nome?: string | null
+          anexo_path?: string | null
+          anexo_tamanho?: number | null
           anexo_tipo?: string | null
           anexo_url?: string | null
           consulta_id?: string
@@ -350,6 +365,7 @@ export type Database = {
           id: string
           medico_id: string | null
           motivo_cancelamento: string | null
+          notificado_10min_em: string | null
           notificado_lembrete_em: string | null
           notificados_nivel: Json
           paciente_id: string
@@ -373,6 +389,7 @@ export type Database = {
           id?: string
           medico_id?: string | null
           motivo_cancelamento?: string | null
+          notificado_10min_em?: string | null
           notificado_lembrete_em?: string | null
           notificados_nivel?: Json
           paciente_id: string
@@ -396,6 +413,7 @@ export type Database = {
           id?: string
           medico_id?: string | null
           motivo_cancelamento?: string | null
+          notificado_10min_em?: string | null
           notificado_lembrete_em?: string | null
           notificados_nivel?: Json
           paciente_id?: string
@@ -2546,6 +2564,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_update_repasse_status: {
+        Args: { p_id: string; p_status: string }
+        Returns: undefined
+      }
       admin_upsert_blog_post: {
         Args: {
           p_capa_url: string
@@ -2620,6 +2642,7 @@ export type Database = {
         Args: { p_consulta_id: string; p_nivel_alvo: number }
         Returns: undefined
       }
+      chat_media_consulta_id: { Args: { object_name: string }; Returns: string }
       check_cpf_disponivel: { Args: { p_cpf: string }; Returns: boolean }
       consultas_slots_disponiveis: {
         Args: { p_dias_a_frente?: number }
@@ -2669,9 +2692,11 @@ export type Database = {
         Args: { p_consulta_id: string }
         Returns: undefined
       }
+      gerar_lembretes_10min_consultas: { Args: never; Returns: undefined }
       gerar_notificacoes_agendadas: { Args: never; Returns: undefined }
       gerar_numero_pedido: { Args: never; Returns: string }
       gerar_numero_receita: { Args: never; Returns: string }
+      gerar_repasse_pedido: { Args: { p_pedido_id: string }; Returns: string }
       get_medico_publico: {
         Args: { p_medico_id: string }
         Returns: {
