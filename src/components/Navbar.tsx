@@ -28,6 +28,7 @@ const Navbar = () => {
     { name: "Associações e marcas", path: "/associacoes" },
     { name: "Receitas", path: "/receitas" },
     { name: "Pedidos", path: "/pedidos" },
+    { name: "Repasses", path: "/repasses" },
     { name: "Produtos", path: "/produtos" },
     { name: "Blog", path: "/admin/blog" },
   ];

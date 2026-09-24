@@ -19,6 +19,7 @@ const TITLES: Array<{ test: (path: string) => boolean; title: string }> = [
   { test: (p) => /^\/receitas\/[^/]+$/.test(p), title: "Detalhes da receita" },
   { test: (p) => p === "/receitas", title: "Receitas" },
   { test: (p) => /^\/pedidos\/[^/]+$/.test(p), title: "Detalhes do pedido" },
+  { test: (p) => p === "/repasses", title: "Repasses" },
   { test: (p) => /^\/associacoes\/[^/]+$/.test(p), title: "Detalhes da associação" },
   { test: (p) => p === "/associacoes", title: "Associações" },
   { test: (p) => p === "/notificacoes/personalizadas", title: "Notificações personalizadas" },

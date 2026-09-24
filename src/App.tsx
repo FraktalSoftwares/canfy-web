@@ -20,6 +20,7 @@ import ProdutoCadastro from "./pages/ProdutoCadastro";
 import Receitas from "./pages/Receitas";
 import ReceitaDetalhes from "./pages/ReceitaDetalhes";
 import Pedidos from "./pages/Pedidos";
+import Repasses from "./pages/Repasses";
 import PedidoDetalhes from "./pages/PedidoDetalhes";
 import ConfigSistema from "./pages/ConfigSistema";
 import BlogAdmin from "./pages/BlogAdmin";
@@ -78,6 +79,7 @@ const App = () => (
             <Route path="/receitas" element={<Receitas />} />
             <Route path="/receitas/:id" element={<ReceitaDetalhes />} />
             <Route path="/pedidos" element={<Pedidos />} />
+            <Route path="/repasses" element={<Repasses />} />
             <Route path="/pedidos/:id" element={<PedidoDetalhes />} />
 
             <Route path="/associacoes" element={<Associacoes />} />

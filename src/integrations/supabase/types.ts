@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -86,6 +86,36 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
           value?: number
+        }
+        Relationships: []
+      }
+      asaas_webhook_events: {
+        Row: {
+          erro: string | null
+          event: string
+          event_id: string
+          id: string
+          payload: Json
+          processado_em: string | null
+          recebido_em: string
+        }
+        Insert: {
+          erro?: string | null
+          event: string
+          event_id: string
+          id?: string
+          payload: Json
+          processado_em?: string | null
+          recebido_em?: string
+        }
+        Update: {
+          erro?: string | null
+          event?: string
+          event_id?: string
+          id?: string
+          payload?: Json
+          processado_em?: string | null
+          recebido_em?: string
         }
         Relationships: []
       }
@@ -301,6 +331,7 @@ export type Database = {
       }
       configuracoes_sistema: {
         Row: {
+          asaas_split_ativo: boolean
           feriados: string[]
           frete_internacional: number
           id: number
@@ -308,6 +339,7 @@ export type Database = {
           melhor_envio_remetente: Json
           melhor_envio_sandbox: boolean
           percentual_comissao_medico: number
+          percentual_repasse_consulta: number
           prazo_entrega_internacional_dias: number
           taxa_pedido: number
           updated_at: string
@@ -315,6 +347,7 @@ export type Database = {
           valor_consulta_padrao: number
         }
         Insert: {
+          asaas_split_ativo?: boolean
           feriados?: string[]
           frete_internacional?: number
           id?: number
@@ -322,6 +355,7 @@ export type Database = {
           melhor_envio_remetente?: Json
           melhor_envio_sandbox?: boolean
           percentual_comissao_medico?: number
+          percentual_repasse_consulta?: number
           prazo_entrega_internacional_dias?: number
           taxa_pedido?: number
           updated_at?: string
@@ -329,6 +363,7 @@ export type Database = {
           valor_consulta_padrao?: number
         }
         Update: {
+          asaas_split_ativo?: boolean
           feriados?: string[]
           frete_internacional?: number
           id?: number
@@ -336,6 +371,7 @@ export type Database = {
           melhor_envio_remetente?: Json
           melhor_envio_sandbox?: boolean
           percentual_comissao_medico?: number
+          percentual_repasse_consulta?: number
           prazo_entrega_internacional_dias?: number
           taxa_pedido?: number
           updated_at?: string
@@ -376,6 +412,7 @@ export type Database = {
           sintomas: string[] | null
           status: Database["public"]["Enums"]["status_consulta"]
           updated_at: string | null
+          valor: number | null
         }
         Insert: {
           avaliacao_medico_comentario?: string | null
@@ -400,6 +437,7 @@ export type Database = {
           sintomas?: string[] | null
           status?: Database["public"]["Enums"]["status_consulta"]
           updated_at?: string | null
+          valor?: number | null
         }
         Update: {
           avaliacao_medico_comentario?: string | null
@@ -424,6 +462,7 @@ export type Database = {
           sintomas?: string[] | null
           status?: Database["public"]["Enums"]["status_consulta"]
           updated_at?: string | null
+          valor?: number | null
         }
         Relationships: [
           {
@@ -715,7 +754,15 @@ export type Database = {
       }
       medicos: {
         Row: {
+          asaas_account_id: string | null
+          asaas_conta_criada_em: string | null
+          asaas_onboarding_status: string
+          asaas_onboarding_url: string | null
+          asaas_wallet_id: string | null
           autoriza_compartilhamento_dados: boolean | null
+          cep: string | null
+          cnpj: string | null
+          company_type: string | null
           cpf: string | null
           created_at: string
           crm: string | null
@@ -725,7 +772,11 @@ export type Database = {
           disponibilidade_intervalo: string | null
           disponibilidade_recorrencia: string | null
           email: string
+          endereco_bairro: string | null
+          endereco_complemento: string | null
           endereco_completo: string | null
+          endereco_logradouro: string | null
+          endereco_numero: string | null
           endereco_profissional: string | null
           especialidade_id: string | null
           etapa_validacao: number | null
@@ -735,7 +786,10 @@ export type Database = {
           nome: string
           observacoes_admin: string | null
           observacoes_prescritor_cannabis: string | null
+          percentual_comissao_pedido: number | null
+          percentual_repasse_consulta: number | null
           queixas_atendidas: string[] | null
+          renda_mensal: number | null
           rg: string | null
           sexo: string | null
           status: Database["public"]["Enums"]["status_medico"]
@@ -752,7 +806,15 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          asaas_account_id?: string | null
+          asaas_conta_criada_em?: string | null
+          asaas_onboarding_status?: string
+          asaas_onboarding_url?: string | null
+          asaas_wallet_id?: string | null
           autoriza_compartilhamento_dados?: boolean | null
+          cep?: string | null
+          cnpj?: string | null
+          company_type?: string | null
           cpf?: string | null
           created_at?: string
           crm?: string | null
@@ -762,7 +824,11 @@ export type Database = {
           disponibilidade_intervalo?: string | null
           disponibilidade_recorrencia?: string | null
           email: string
+          endereco_bairro?: string | null
+          endereco_complemento?: string | null
           endereco_completo?: string | null
+          endereco_logradouro?: string | null
+          endereco_numero?: string | null
           endereco_profissional?: string | null
           especialidade_id?: string | null
           etapa_validacao?: number | null
@@ -772,7 +838,10 @@ export type Database = {
           nome: string
           observacoes_admin?: string | null
           observacoes_prescritor_cannabis?: string | null
+          percentual_comissao_pedido?: number | null
+          percentual_repasse_consulta?: number | null
           queixas_atendidas?: string[] | null
+          renda_mensal?: number | null
           rg?: string | null
           sexo?: string | null
           status?: Database["public"]["Enums"]["status_medico"]
@@ -789,7 +858,15 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          asaas_account_id?: string | null
+          asaas_conta_criada_em?: string | null
+          asaas_onboarding_status?: string
+          asaas_onboarding_url?: string | null
+          asaas_wallet_id?: string | null
           autoriza_compartilhamento_dados?: boolean | null
+          cep?: string | null
+          cnpj?: string | null
+          company_type?: string | null
           cpf?: string | null
           created_at?: string
           crm?: string | null
@@ -799,7 +876,11 @@ export type Database = {
           disponibilidade_intervalo?: string | null
           disponibilidade_recorrencia?: string | null
           email?: string
+          endereco_bairro?: string | null
+          endereco_complemento?: string | null
           endereco_completo?: string | null
+          endereco_logradouro?: string | null
+          endereco_numero?: string | null
           endereco_profissional?: string | null
           especialidade_id?: string | null
           etapa_validacao?: number | null
@@ -809,7 +890,10 @@ export type Database = {
           nome?: string
           observacoes_admin?: string | null
           observacoes_prescritor_cannabis?: string | null
+          percentual_comissao_pedido?: number | null
+          percentual_repasse_consulta?: number | null
           queixas_atendidas?: string[] | null
+          renda_mensal?: number | null
           rg?: string | null
           sexo?: string | null
           status?: Database["public"]["Enums"]["status_medico"]
@@ -1715,36 +1799,76 @@ export type Database = {
       }
       repasses_medicos: {
         Row: {
+          asaas_payment_id: string | null
+          asaas_split_id: string | null
+          asaas_status: string | null
+          asaas_transfer_id: string | null
+          base_calculo: number | null
+          consulta_id: string | null
           created_at: string
           data_repasse: string
+          erro: string | null
           id: string
           medico_id: string
           observacao: string | null
+          origem: string
+          pago_em: string | null
           pedido_id: string | null
+          percentual: number | null
+          refusal_reason: string | null
           status: string
           valor: number
         }
         Insert: {
+          asaas_payment_id?: string | null
+          asaas_split_id?: string | null
+          asaas_status?: string | null
+          asaas_transfer_id?: string | null
+          base_calculo?: number | null
+          consulta_id?: string | null
           created_at?: string
           data_repasse?: string
+          erro?: string | null
           id?: string
           medico_id: string
           observacao?: string | null
+          origem?: string
+          pago_em?: string | null
           pedido_id?: string | null
+          percentual?: number | null
+          refusal_reason?: string | null
           status?: string
           valor?: number
         }
         Update: {
+          asaas_payment_id?: string | null
+          asaas_split_id?: string | null
+          asaas_status?: string | null
+          asaas_transfer_id?: string | null
+          base_calculo?: number | null
+          consulta_id?: string | null
           created_at?: string
           data_repasse?: string
+          erro?: string | null
           id?: string
           medico_id?: string
           observacao?: string | null
+          origem?: string
+          pago_em?: string | null
           pedido_id?: string | null
+          percentual?: number | null
+          refusal_reason?: string | null
           status?: string
           valor?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "repasses_medicos_consulta_id_fkey"
+            columns: ["consulta_id"]
+            isOneToOne: false
+            referencedRelation: "consultas"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "repasses_medicos_medico_id_fkey"
             columns: ["medico_id"]
@@ -1915,12 +2039,14 @@ export type Database = {
       admin_get_configuracoes_sistema: {
         Args: never
         Returns: {
+          asaas_split_ativo: boolean
           feriados: string[]
           frete_internacional: number
           melhor_envio_cep_origem: string
           melhor_envio_remetente: Json
           melhor_envio_sandbox: boolean
           percentual_comissao_medico: number
+          percentual_repasse_consulta: number
           prazo_entrega_internacional_dias: number
           taxa_pedido: number
           updated_at: string
@@ -1954,16 +2080,31 @@ export type Database = {
       admin_get_medico: {
         Args: { p_id: string }
         Returns: {
+          asaas_account_id: string
+          asaas_onboarding_status: string
+          asaas_onboarding_url: string
+          asaas_wallet_id: string
+          cep: string
+          cnpj: string
+          company_type: string
           cpf: string
           created_at: string
           crm: string
+          data_nascimento: string
           email: string
+          endereco_bairro: string
+          endereco_complemento: string
+          endereco_logradouro: string
+          endereco_numero: string
           endereco_profissional: string
           especialidade_nome: string
           foto_perfil_url: string
           id: string
           nome: string
           observacoes_admin: string
+          percentual_comissao_pedido: number
+          percentual_repasse_consulta: number
+          renda_mensal: number
           status: string
           telefone: string
           tempo_atuacao_anos: number
@@ -2013,9 +2154,15 @@ export type Database = {
       admin_get_medico_repasses: {
         Args: { p_medico_id: string }
         Returns: {
+          base_calculo: number
           data_repasse: string
+          erro: string
           id: string
           observacao: string
+          origem: string
+          pago_em: string
+          percentual: number
+          situacao: string
           status: string
           valor: number
         }[]
@@ -2453,6 +2600,46 @@ export type Database = {
           validade: string
         }[]
       }
+      admin_list_repasses: {
+        Args: {
+          p_data_fim?: string
+          p_data_ini?: string
+          p_limit?: number
+          p_medico?: string
+          p_offset?: number
+          p_origem?: string
+          p_search?: string
+          p_situacao?: string
+        }
+        Returns: {
+          asaas_status: string
+          base_calculo: number
+          data_repasse: string
+          erro: string
+          id: string
+          medico_id: string
+          medico_nome: string
+          origem: string
+          pago_em: string
+          percentual: number
+          referencia: string
+          situacao: string
+          status: string
+          total_count: number
+          valor: number
+        }[]
+      }
+      admin_medicos_prontidao_carteira: {
+        Args: never
+        Returns: {
+          carteira_status: string
+          faltando: string[]
+          medico_id: string
+          nome: string
+          status: string
+          wallet_id: string
+        }[]
+      }
       admin_recusar_medico: {
         Args: { p_id: string; p_motivo: string }
         Returns: undefined
@@ -2473,6 +2660,20 @@ export type Database = {
           p_nome_arquivo?: string
         }
         Returns: undefined
+      }
+      admin_repasse_reprocessar: { Args: { p_id: string }; Returns: undefined }
+      admin_repasses_totais: {
+        Args: {
+          p_data_fim?: string
+          p_data_ini?: string
+          p_medico?: string
+          p_origem?: string
+        }
+        Returns: {
+          quantidade: number
+          situacao: string
+          valor_total: number
+        }[]
       }
       admin_reset_medico_ausencias: {
         Args: { p_medico_id?: string }
@@ -2498,12 +2699,14 @@ export type Database = {
       }
       admin_update_configuracoes_sistema: {
         Args: {
+          p_asaas_split_ativo?: boolean
           p_feriados: string[]
           p_frete_intl: number
           p_me_cep_origem?: string
           p_me_remetente?: Json
           p_me_sandbox?: boolean
           p_percentual_comissao: number
+          p_percentual_consulta?: number
           p_prazo_intl: number
           p_taxa_pedido: number
           p_valor_consulta: number
@@ -2523,6 +2726,28 @@ export type Database = {
       }
       admin_update_medico_observacoes: {
         Args: { p_id: string; p_observacoes: string }
+        Returns: undefined
+      }
+      admin_update_medico_percentuais: {
+        Args: {
+          p_medico_id: string
+          p_percentual_consulta: number
+          p_percentual_pedido: number
+        }
+        Returns: undefined
+      }
+      admin_update_medico_recebimento: {
+        Args: {
+          p_bairro: string
+          p_cep: string
+          p_cnpj?: string
+          p_company_type?: string
+          p_complemento?: string
+          p_logradouro: string
+          p_medico_id: string
+          p_numero: string
+          p_renda_mensal?: number
+        }
         Returns: undefined
       }
       admin_update_paciente: {
@@ -2642,6 +2867,17 @@ export type Database = {
         Args: { p_consulta_id: string; p_nivel_alvo: number }
         Returns: undefined
       }
+      calcular_repasse_pedido: {
+        Args: { p_pedido_id: string }
+        Returns: {
+          base_calculo: number
+          erro: string
+          medico_id: string
+          percentual: number
+          valor: number
+          wallet_id: string
+        }[]
+      }
       chat_media_consulta_id: { Args: { object_name: string }; Returns: string }
       check_cpf_disponivel: { Args: { p_cpf: string }; Returns: boolean }
       consultas_slots_disponiveis: {
@@ -2696,7 +2932,14 @@ export type Database = {
       gerar_notificacoes_agendadas: { Args: never; Returns: undefined }
       gerar_numero_pedido: { Args: never; Returns: string }
       gerar_numero_receita: { Args: never; Returns: string }
-      gerar_repasse_pedido: { Args: { p_pedido_id: string }; Returns: string }
+      gerar_repasse_consulta: {
+        Args: { p_consulta_id: string }
+        Returns: string
+      }
+      gerar_repasse_pedido: {
+        Args: { p_asaas_payment_id?: string; p_pedido_id: string }
+        Returns: string
+      }
       get_medico_publico: {
         Args: { p_medico_id: string }
         Returns: {
@@ -2812,10 +3055,17 @@ export type Database = {
       medico_listar_repasses: {
         Args: { p_limit?: number }
         Returns: {
+          base_calculo: number
+          consulta_id: string
           data_repasse: string
+          erro: string
           id: string
           observacao: string
+          origem: string
+          pago_em: string
           pedido_id: string
+          percentual: number
+          situacao: string
           status: string
           valor: number
         }[]
@@ -2823,9 +3073,14 @@ export type Database = {
       medico_resumo_financeiro: {
         Args: never
         Returns: {
+          qtd_pendencia: number
+          total_a_caminho: number
+          total_aguardando_pagamento: number
           total_atendimentos: number
+          total_pago: number
           total_pendente: number
           total_recebido: number
+          valor_pendencia: number
         }[]
       }
       medicos_elegiveis_nivel: {
@@ -2834,6 +3089,15 @@ export type Database = {
           medico_id: string
           medico_user_id: string
         }[]
+      }
+      repasse_situacao: {
+        Args: {
+          p_asaas_status: string
+          p_erro: string
+          p_pagamento_status: string
+          p_status: string
+        }
+        Returns: string
       }
     }
     Enums: {
@@ -2906,12 +3170,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2935,11 +3199,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2960,11 +3224,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2985,11 +3249,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3002,11 +3266,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

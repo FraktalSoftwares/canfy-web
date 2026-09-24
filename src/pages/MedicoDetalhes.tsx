@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { formatCurrency } from "@/lib/utils";
 import { getConsultaStatusBadge } from "@/lib/consultaStatus";
 import { getRepasseStatusBadge, STATUS_REPASSE_OPCOES } from "@/lib/repasseStatus";
+import { getSituacaoBadge, getOrigemLabel } from "@/lib/repasseSituacao";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   ChevronLeft, ChevronRight, Check, MinusCircle, Pencil, X, Download, FileText, AlertTriangle,
@@ -29,7 +30,7 @@ import { ptBR } from "date-fns/locale";
 import { EditableField } from "@/components/EditableField";
 import { MASK_MAX_LENGTH, maskCPF, maskTelefone } from "@/lib/masks";
 import { patientUpdateSchema } from "@/lib/validations";
-import { getUserFriendlyError, getValidationError } from "@/lib/errorUtils";
+import { getUserFriendlyError, getValidationError, getEdgeFunctionErrorMessage } from "@/lib/errorUtils";
 import { usePermissions } from "@/hooks/usePermissions";
 
 interface MedicoData {
@@ -52,7 +53,31 @@ interface MedicoData {
   endereco_profissional: string | null;
   tempo_atuacao_anos: number | null;
   observacoes_admin: string | null;
+  asaas_wallet_id: string | null;
+  asaas_account_id: string | null;
+  asaas_onboarding_status: string | null;
+  asaas_onboarding_url: string | null;
+  percentual_repasse_consulta: number | null;
+  percentual_comissao_pedido: number | null;
+  data_nascimento: string | null;
+  cep: string | null;
+  endereco_logradouro: string | null;
+  endereco_numero: string | null;
+  endereco_complemento: string | null;
+  endereco_bairro: string | null;
+  renda_mensal: number | null;
+  cnpj: string | null;
+  company_type: string | null;
 }
+
+/** Só uma subconta aprovada recebe split/transferência. */
+const ONBOARDING_ASAAS: Record<string, { label: string; bg: string; fg: string }> = {
+  nao_iniciado: { label: "Sem carteira", bg: "hsl(var(--muted))", fg: "hsl(var(--muted-foreground))" },
+  pendente_documentos: { label: "Pendente de documentos", bg: "hsl(var(--card-yellow))", fg: "hsl(36 80% 38%)" },
+  em_analise: { label: "Em análise", bg: "hsl(var(--card-yellow))", fg: "hsl(36 80% 38%)" },
+  aprovado: { label: "Aprovada", bg: "hsl(var(--card-green))", fg: "hsl(var(--primary-dark))" },
+  recusado: { label: "Recusada", bg: "hsl(var(--card-red))", fg: "hsl(var(--destructive))" },
+};
 
 const LIMITE_AUSENCIAS_ANO = 15;
 
@@ -69,7 +94,14 @@ interface RepasseRow {
   data_repasse: string;
   valor: number;
   status: string;
+  /** Derivada no banco: separa "paciente não pagou" de "precisa transferir". */
+  situacao: string;
+  origem: string;
   observacao: string | null;
+  percentual: number | null;
+  base_calculo: number | null;
+  pago_em: string | null;
+  erro: string | null;
 }
 
 interface AtendimentoRow {
@@ -187,6 +219,16 @@ const MedicoDetalhes = () => {
     cpf: "",
   });
 
+  const [pctConsulta, setPctConsulta] = useState("");
+  const [pctPedido, setPctPedido] = useState("");
+  const [salvandoPercentuais, setSalvandoPercentuais] = useState(false);
+  const [acaoCarteira, setAcaoCarteira] = useState<"criar" | "status" | null>(null);
+  const [salvandoRecebimento, setSalvandoRecebimento] = useState(false);
+  const [receb, setReceb] = useState({
+    cep: "", logradouro: "", numero: "", complemento: "", bairro: "",
+    renda: "", cnpj: "", companyType: "",
+  });
+
   useEffect(() => {
     if (id) fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -214,6 +256,22 @@ const MedicoDetalhes = () => {
           cpf: maskCPF(md.cpf || ""),
         });
         setObservacoes(md.observacoes_admin || "");
+        setPctConsulta(
+          md.percentual_repasse_consulta != null ? String(md.percentual_repasse_consulta) : "",
+        );
+        setPctPedido(
+          md.percentual_comissao_pedido != null ? String(md.percentual_comissao_pedido) : "",
+        );
+        setReceb({
+          cep: md.cep ?? "",
+          logradouro: md.endereco_logradouro ?? "",
+          numero: md.endereco_numero ?? "",
+          complemento: md.endereco_complemento ?? "",
+          bairro: md.endereco_bairro ?? "",
+          renda: md.renda_mensal != null ? String(md.renda_mensal) : "",
+          cnpj: md.cnpj ?? "",
+          companyType: md.company_type ?? "",
+        });
       }
       setDocumentos((d.data as DocumentoRow[]) || []);
       setRepasses((r.data as RepasseRow[]) || []);
@@ -266,6 +324,87 @@ const MedicoDetalhes = () => {
       toast({ title: "Erro ao salvar", description: e.message, variant: "destructive" });
     } finally {
       setSavingObs(false);
+    }
+  };
+
+  const handleSalvarPercentuais = async () => {
+    try {
+      setSalvandoPercentuais(true);
+      const { error } = await supabase.rpc("admin_update_medico_percentuais", {
+        p_medico_id: id!,
+        // Campo vazio = volta a usar o percentual global de configuracoes_sistema.
+        p_percentual_consulta: pctConsulta.trim() === "" ? null : Number(pctConsulta),
+        p_percentual_pedido: pctPedido.trim() === "" ? null : Number(pctPedido),
+      });
+      if (error) throw error;
+      toast({ title: "Percentuais atualizados" });
+      fetchAll();
+    } catch (e) {
+      toast({
+        title: "Erro ao salvar percentuais",
+        description: getUserFriendlyError(e),
+        variant: "destructive",
+      });
+    } finally {
+      setSalvandoPercentuais(false);
+    }
+  };
+
+  const handleSalvarRecebimento = async () => {
+    try {
+      setSalvandoRecebimento(true);
+      const { error } = await supabase.rpc("admin_update_medico_recebimento", {
+        p_medico_id: id!,
+        p_cep: receb.cep,
+        p_logradouro: receb.logradouro,
+        p_numero: receb.numero,
+        p_bairro: receb.bairro,
+        p_complemento: receb.complemento || null,
+        p_renda_mensal: receb.renda.trim() === "" ? null : Number(receb.renda.replace(",", ".")),
+        p_cnpj: receb.cnpj || null,
+        p_company_type: receb.companyType || null,
+      });
+      if (error) throw error;
+      toast({ title: "Dados de recebimento salvos" });
+      fetchAll();
+    } catch (e) {
+      toast({
+        title: "Erro ao salvar dados de recebimento",
+        description: getUserFriendlyError(e),
+        variant: "destructive",
+      });
+    } finally {
+      setSalvandoRecebimento(false);
+    }
+  };
+
+  const handleCarteira = async (acao: "criar" | "status") => {
+    try {
+      setAcaoCarteira(acao);
+      const funcao = acao === "criar" ? "asaas-criar-subconta" : "asaas-subconta-status";
+      const { data, error } = await supabase.functions.invoke(funcao, {
+        body: { medico_id: id! },
+      });
+      const payload = data as { error?: string; detail?: string } | null;
+      if (error || payload?.error) {
+        const mensagem = error ? await getEdgeFunctionErrorMessage(error) : null;
+        throw new Error(
+          mensagem || payload?.detail || payload?.error || "Não foi possível concluir a operação.",
+        );
+      }
+      toast({
+        title:
+          acao === "criar" ? "Carteira criada no Asaas" : "Status da carteira atualizado",
+      });
+      fetchAll();
+    } catch (e) {
+      toast({
+        title: acao === "criar" ? "Erro ao criar carteira" : "Erro ao atualizar status",
+        description: getUserFriendlyError(e),
+        variant: "destructive",
+      });
+    } finally {
+      setAcaoCarteira(null);
     }
   };
 
@@ -709,30 +848,295 @@ const MedicoDetalhes = () => {
           })}
         </div>
 
+        <h2 className="text-xl font-bold text-foreground mb-4">Carteira de recebimento (Asaas)</h2>
+        <Card className="rounded-[16px] bg-secondary border-none mb-8">
+          <CardContent className="px-6 py-5 space-y-5">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Situação da carteira</p>
+                <Badge
+                  style={{
+                    backgroundColor:
+                      (ONBOARDING_ASAAS[medico.asaas_onboarding_status ?? "nao_iniciado"] ??
+                        ONBOARDING_ASAAS.nao_iniciado).bg,
+                    color:
+                      (ONBOARDING_ASAAS[medico.asaas_onboarding_status ?? "nao_iniciado"] ??
+                        ONBOARDING_ASAAS.nao_iniciado).fg,
+                  }}
+                  className="border-none rounded-full px-4 py-1 font-medium"
+                >
+                  {(ONBOARDING_ASAAS[medico.asaas_onboarding_status ?? "nao_iniciado"] ??
+                    ONBOARDING_ASAAS.nao_iniciado).label}
+                </Badge>
+                {medico.asaas_wallet_id ? (
+                  <p className="text-xs text-muted-foreground mt-2 font-mono">
+                    walletId: {medico.asaas_wallet_id}
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground mt-2 max-w-[420px]">
+                    Enquanto não houver carteira aprovada, as cobranças saem sem split e os
+                    repasses deste médico ficam em pendência.
+                  </p>
+                )}
+                {medico.asaas_onboarding_url && (
+                  <a
+                    href={medico.asaas_onboarding_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-primary underline mt-2 inline-block"
+                  >
+                    Abrir onboarding no Asaas
+                  </a>
+                )}
+              </div>
+
+              {podeEditarUsuarios && (
+                <div className="flex gap-3">
+                  {!medico.asaas_wallet_id && (
+                    <Button
+                      variant="outline"
+                      className="rounded-full border-primary text-primary hover:bg-primary/10"
+                      disabled={acaoCarteira !== null}
+                      onClick={() => handleCarteira("criar")}
+                    >
+                      {acaoCarteira === "criar" && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Criar carteira
+                    </Button>
+                  )}
+                  {medico.asaas_account_id && (
+                    <Button
+                      variant="outline"
+                      className="rounded-full"
+                      disabled={acaoCarteira !== null}
+                      onClick={() => handleCarteira("status")}
+                    >
+                      {acaoCarteira === "status" && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Atualizar status
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-border/40 pt-5">
+              <p className="text-sm font-semibold text-foreground mb-1">
+                Dados exigidos pelo Asaas
+              </p>
+              <p className="text-xs text-muted-foreground mb-4">
+                O Asaas só abre a carteira com endereço estruturado e renda mensal. O médico
+                também pode preencher pelo aplicativo; aqui o administrativo resolve sem
+                depender disso.
+              </p>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">CEP</label>
+                  <Input
+                    value={receb.cep}
+                    onChange={(e) => setReceb({ ...receb, cep: e.target.value })}
+                    placeholder="00000000"
+                    maxLength={9}
+                    disabled={!podeEditarUsuarios || !!medico.asaas_wallet_id}
+                    className="h-9 bg-background"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs text-muted-foreground block mb-1">Logradouro</label>
+                  <Input
+                    value={receb.logradouro}
+                    onChange={(e) => setReceb({ ...receb, logradouro: e.target.value })}
+                    disabled={!podeEditarUsuarios || !!medico.asaas_wallet_id}
+                    className="h-9 bg-background"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Número</label>
+                  <Input
+                    value={receb.numero}
+                    onChange={(e) => setReceb({ ...receb, numero: e.target.value })}
+                    disabled={!podeEditarUsuarios || !!medico.asaas_wallet_id}
+                    className="h-9 bg-background"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Complemento</label>
+                  <Input
+                    value={receb.complemento}
+                    onChange={(e) => setReceb({ ...receb, complemento: e.target.value })}
+                    disabled={!podeEditarUsuarios || !!medico.asaas_wallet_id}
+                    className="h-9 bg-background"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Bairro</label>
+                  <Input
+                    value={receb.bairro}
+                    onChange={(e) => setReceb({ ...receb, bairro: e.target.value })}
+                    disabled={!podeEditarUsuarios || !!medico.asaas_wallet_id}
+                    className="h-9 bg-background"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">
+                    Renda mensal (R$)
+                  </label>
+                  <Input
+                    value={receb.renda}
+                    onChange={(e) => setReceb({ ...receb, renda: e.target.value })}
+                    placeholder="0,00"
+                    disabled={!podeEditarUsuarios || !!medico.asaas_wallet_id}
+                    className="h-9 bg-background"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">
+                    Tipo de cadastro
+                  </label>
+                  <Select
+                    value={receb.companyType || "PF"}
+                    disabled={!podeEditarUsuarios || !!medico.asaas_wallet_id}
+                    onValueChange={(v) =>
+                      setReceb({ ...receb, companyType: v === "PF" ? "" : v })
+                    }
+                  >
+                    <SelectTrigger className="h-9 bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PF">Pessoa física (CPF)</SelectItem>
+                      <SelectItem value="MEI">MEI</SelectItem>
+                      <SelectItem value="INDIVIDUAL">Empresário individual</SelectItem>
+                      <SelectItem value="LIMITED">LTDA</SelectItem>
+                      <SelectItem value="ASSOCIATION">Associação</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {receb.companyType && (
+                  <div>
+                    <label className="text-xs text-muted-foreground block mb-1">CNPJ</label>
+                    <Input
+                      value={receb.cnpj}
+                      onChange={(e) => setReceb({ ...receb, cnpj: e.target.value })}
+                      maxLength={18}
+                      disabled={!podeEditarUsuarios || !!medico.asaas_wallet_id}
+                      className="h-9 bg-background"
+                    />
+                  </div>
+                )}
+              </div>
+              {podeEditarUsuarios && !medico.asaas_wallet_id && (
+                <Button
+                  className="rounded-full mt-4"
+                  disabled={salvandoRecebimento}
+                  onClick={handleSalvarRecebimento}
+                >
+                  {salvandoRecebimento && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Salvar dados de recebimento
+                </Button>
+              )}
+              {!!medico.asaas_wallet_id && (
+                <p className="text-xs text-muted-foreground mt-3">
+                  A carteira já foi criada no Asaas; estes dados ficam travados para não
+                  divergirem do que está lá.
+                </p>
+              )}
+            </div>
+
+            <div className="border-t border-border/40 pt-5">
+              <p className="text-sm font-semibold text-foreground mb-1">
+                Percentuais deste médico
+              </p>
+              <p className="text-xs text-muted-foreground mb-4">
+                Deixe em branco para usar os percentuais globais definidos em Configurações.
+                Alterações valem a partir do próximo repasse; os já gerados mantêm o percentual
+                com que foram criados.
+              </p>
+              <div className="flex items-end gap-4 flex-wrap">
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">
+                    % Repasse de consulta
+                  </label>
+                  <Input
+                    value={pctConsulta}
+                    onChange={(e) => setPctConsulta(e.target.value)}
+                    placeholder="global"
+                    disabled={!podeEditarUsuarios}
+                    className="h-9 w-[140px] bg-background"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">
+                    % Comissão de pedido
+                  </label>
+                  <Input
+                    value={pctPedido}
+                    onChange={(e) => setPctPedido(e.target.value)}
+                    placeholder="global"
+                    disabled={!podeEditarUsuarios}
+                    className="h-9 w-[140px] bg-background"
+                  />
+                </div>
+                {podeEditarUsuarios && (
+                  <Button
+                    className="rounded-full"
+                    disabled={salvandoPercentuais}
+                    onClick={handleSalvarPercentuais}
+                  >
+                    {salvandoPercentuais && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Salvar percentuais
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <h2 className="text-xl font-bold text-foreground mb-4">Histórico de repasses</h2>
         <Card className="rounded-[16px] bg-secondary border-none mb-8 overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow className="bg-table-head hover:bg-table-head border-none">
                 <TableHead className="font-normal text-foreground">Data do repasse</TableHead>
+                <TableHead className="font-normal text-foreground">Origem</TableHead>
+                <TableHead className="font-normal text-foreground">Base</TableHead>
+                <TableHead className="font-normal text-foreground">%</TableHead>
                 <TableHead className="font-normal text-foreground">Valor</TableHead>
+                <TableHead className="font-normal text-foreground">Situação</TableHead>
                 <TableHead className="font-normal text-foreground">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {repasses.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     Nenhum repasse registrado
                   </TableCell>
                 </TableRow>
               ) : (
                 repasses.map((r) => {
                   const badge = getRepasseStatusBadge(r.status);
+                  const situacao = getSituacaoBadge(r.situacao);
                   return (
                     <TableRow key={r.id} className="bg-secondary border-b border-border/40 hover:bg-muted/30">
                       <TableCell className="text-sm">{formatDate(r.data_repasse)}</TableCell>
+                      <TableCell className="text-sm">{getOrigemLabel(r.origem)}</TableCell>
+                      <TableCell className="text-sm">
+                        {r.base_calculo != null ? formatCurrency(Number(r.base_calculo)) : "—"}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {r.percentual != null ? `${r.percentual}%` : "—"}
+                      </TableCell>
                       <TableCell className="text-sm font-semibold">{formatCurrency(Number(r.valor))}</TableCell>
+                      <TableCell className="text-sm">
+                        <Badge
+                          title={situacao.ajuda}
+                          style={{ backgroundColor: situacao.bg, color: situacao.fg }}
+                        >
+                          {situacao.label}
+                        </Badge>
+                        {r.erro && (
+                          <p className="text-xs text-destructive mt-1 max-w-[220px]">{r.erro}</p>
+                        )}
+                      </TableCell>
                       <TableCell className="text-sm">
                         {podeEditarUsuarios ? (
                           <Select

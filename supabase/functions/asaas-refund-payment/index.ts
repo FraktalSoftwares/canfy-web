@@ -14,9 +14,20 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
  * a consulta a tempo — nesse caso não há usuário logado para validar.
  */
 
-const ASAAS_BASE = Deno.env.get("ASAAS_BASE_URL") ?? "https://api-sandbox.asaas.com/v3";
-const ASAAS_KEY = Deno.env.get("ASAAS_API_KEY");
 const CRON_DISPATCH_SECRET = Deno.env.get("CRON_DISPATCH_SECRET");
+
+/**
+ * Sem valor padrão de propósito: com o fallback anterior para sandbox, um
+ * ambiente de produção sem ASAAS_BASE_URL tentaria estornar no sandbox e o
+ * dinheiro do paciente jamais voltaria — silenciosamente.
+ */
+function envObrigatoria(nome: string): string {
+  const valor = Deno.env.get(nome);
+  if (!valor || valor.trim() === "") {
+    throw new Error(`Variável de ambiente ${nome} não configurada.`);
+  }
+  return valor;
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,11 +45,21 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+  let ASAAS_BASE: string;
+  let ASAAS_KEY: string;
+  let SUPABASE_URL: string;
+  let SERVICE_KEY: string;
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    );
+    ASAAS_BASE = envObrigatoria("ASAAS_BASE_URL").replace(/\/+$/, "");
+    ASAAS_KEY = envObrigatoria("ASAAS_API_KEY");
+    SUPABASE_URL = envObrigatoria("SUPABASE_URL");
+    SERVICE_KEY = envObrigatoria("SUPABASE_SERVICE_ROLE_KEY");
+  } catch (e) {
+    return jsonResponse({ error: (e as Error).message }, 500);
+  }
+
+  try {
+    const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
     // Chamada de sistema (cron -> pg_net -> aqui): autoriza via segredo
     // compartilhado em vez de JWT de usuário, já que não há usuário logado.
@@ -71,9 +92,6 @@ Deno.serve(async (req: Request) => {
     const { asaas_payment_id } = body;
     if (!asaas_payment_id) {
       return jsonResponse({ error: "asaas_payment_id is required" }, 400);
-    }
-    if (!ASAAS_KEY) {
-      return jsonResponse({ error: "ASAAS_API_KEY not configured" }, 500);
     }
 
     const { data: paymentRow, error: paymentError } = await supabase

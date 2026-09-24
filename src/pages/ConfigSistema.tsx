@@ -18,6 +18,8 @@ const ConfigSistema = () => {
   const [saving, setSaving] = useState(false);
 
   const [percentualComissao, setPercentualComissao] = useState("5.00");
+  const [percentualConsulta, setPercentualConsulta] = useState("70.00");
+  const [splitAtivo, setSplitAtivo] = useState(false);
   const [valorConsulta, setValorConsulta] = useState("99.90");
   const [taxaPedido, setTaxaPedido] = useState("0.00");
   const [freteIntl, setFreteIntl] = useState("0.00");
@@ -45,6 +47,8 @@ const ConfigSistema = () => {
       if (data && data.length > 0) {
         const c = data[0];
         setPercentualComissao(String(c.percentual_comissao_medico));
+        setPercentualConsulta(String(c.percentual_repasse_consulta));
+        setSplitAtivo(c.asaas_split_ativo ?? false);
         setValorConsulta(String(c.valor_consulta_padrao));
         setTaxaPedido(String(c.taxa_pedido));
         setFreteIntl(String(c.frete_internacional));
@@ -87,6 +91,8 @@ const ConfigSistema = () => {
         p_me_cep_origem: meCepOrigem.trim(),
         p_me_sandbox: meSandbox,
         p_me_remetente: remetente,
+        p_percentual_consulta: Number(percentualConsulta),
+        p_asaas_split_ativo: splitAtivo,
       });
       if (error) throw error;
       toast({ title: "Configurações salvas" });
@@ -145,13 +151,30 @@ const ConfigSistema = () => {
         <h2 className="text-lg font-bold text-foreground mb-3">Regras financeiras</h2>
         <Card className="rounded-[10px] bg-secondary border-none mb-6">
           <CardContent className="grid grid-cols-2 gap-5 px-6 py-6">
-            <Field label="% Comissão médico" value={percentualComissao} onChange={setPercentualComissao} suffix="%" />
+            <Field label="% Comissão médico (pedido)" value={percentualComissao} onChange={setPercentualComissao} suffix="%" />
+            <Field label="% Repasse médico (consulta)" value={percentualConsulta} onChange={setPercentualConsulta} suffix="%" />
             <Field label="Valor consulta padrão" value={valorConsulta} onChange={setValorConsulta} prefix="R$" />
             <Field label="Taxa pedido" value={taxaPedido} onChange={setTaxaPedido} prefix="R$" />
             <Field label="Frete internacional" value={freteIntl} onChange={setFreteIntl} prefix="US$" />
             <Field label="Prazo entrega internacional (dias)" value={prazoIntl} onChange={setPrazoIntl} suffix="dias" />
+            <div className="col-span-2 flex items-start justify-between gap-4 bg-background border border-border rounded-md px-4 py-3">
+              <div>
+                <label className="text-sm font-medium text-foreground">Repasse automático ao médico</label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Ligado, a comissão do pedido vai como split na própria cobrança e o repasse da
+                  consulta é transferido ao finalizar o atendimento. Desligado, as cobranças
+                  continuam saindo normalmente, mas nenhum valor é transferido e os repasses
+                  ficam pendentes.
+                </p>
+              </div>
+              <Switch checked={splitAtivo} onCheckedChange={setSplitAtivo} />
+            </div>
           </CardContent>
         </Card>
+        <p className="text-xs text-muted-foreground -mt-4 mb-6">
+          Estes percentuais valem a partir da próxima cobrança, sem necessidade de nova publicação
+          do sistema. Repasses já gerados mantêm o percentual com que foram criados.
+        </p>
 
         <h2 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
           <Truck className="h-5 w-5" />
